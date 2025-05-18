@@ -1,0 +1,108 @@
+[project]
+name = "fastmcp-factory"
+version = "0.1.0"
+description = "A factory and managed server extension for fastmcp"
+authors = [
+  { name = "ACNet-AI", email = "agencollabnet@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = ["fastmcp", "factory", "server", "auth"]
+
+dependencies = [
+  "fastmcp>=2.3.4,<3.0.0",
+  "httpx>=0.28.0,<0.29.0",
+  "pydantic>=2.0.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0,<9.0.0",
+  "pytest-cov>=6.0.0,<7.0.0",
+  "pytest-asyncio>=0.26.0,<0.27.0",
+  "black>=23.0.0,<26.0.0",
+  "ruff>=0.11.0,<0.12.0",
+  "mypy>=1.8.0,<2.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["fastmcp_factory"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# Ruff configuration
+[tool.ruff]
+# Target Python version
+target-version = "py38"
+
+# Use Ruff formatter
+line-length = 100
+
+# Exclude specific files or directories
+exclude = [
+    ".git",
+    ".ruff_cache",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "htmlcov",
+    ".pytest_cache",
+    "examples",  # Exclude examples directory
+]
+
+# Automatically fix errors based on input
+fix = true
+
+[tool.ruff.lint]
+# Enable rule sets: Pyflakes ('F'), isort ('I'), pycodestyle ('E'), pydocstyle ('D'), etc.
+select = ["E", "F", "I", "D", "W", "N", "UP", "ANN"]
+
+# Ignore specific rules
+ignore = [
+    "E203",  # Whitespace before ':' - conflicts with black
+    "D203",  # one-blank-line-before-class (conflicts with D211)
+    "D213",  # multi-line-summary-second-line (conflicts with D212)
+    "D415",   # Docstrings should end with a period
+    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed
+    "W293",   # Blank line contains whitespace
+]
+
+# Type annotation settings
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# isort settings
+[tool.ruff.lint.isort]
+known-first-party = ["fastmcp_factory"]
+
+# mypy configuration
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Initially set to false, gradually adjusting to true
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# Exclude errors from external dependency packages
+[[tool.mypy.overrides]]
+module = "mcp.*"
+ignore_errors = true
