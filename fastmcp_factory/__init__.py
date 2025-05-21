@@ -1,10 +1,20 @@
-"""FastMCP Factory package.
+"""FastMCP Factory - A server factory for automatic tool registration.
 
-Provides factory pattern and extended management server functionality for FastMCP,
-simplifying server creation and management.
+Provides remote invocation, and permission management capabilities.
 """
 
-from .factory import FastMCPFactory
-from .server import ManagedServer
+__version__ = "0.1.0"
 
-__all__ = ["ManagedServer", "FastMCPFactory"]
+# Export main classes
+# Export parameter utility module for custom server configuration
+from fastmcp_factory import param_utils
+from fastmcp_factory.auth import AuthProviderRegistry
+from fastmcp_factory.factory import FastMCPFactory
+from fastmcp_factory.server import ManagedServer
+
+__all__ = [
+    "FastMCPFactory",
+    "ManagedServer",
+    "AuthProviderRegistry",
+    "param_utils",
+]
