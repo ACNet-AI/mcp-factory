@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from fastmcp_factory import FastMCPFactory
+from mcp_factory import FastMCPFactory
 
 
 class TestFactoryBasics:
@@ -109,7 +109,7 @@ class TestServerCreation:
 
         try:
             # Use temporary configuration file path to create server
-            with patch("fastmcp_factory.factory.ManagedServer") as mock_server_class:
+            with patch("mcp_factory.factory.ManagedServer") as mock_server_class:
                 mock_server = mock_server_class.return_value
                 type(mock_server).name = property(lambda self: "test-server")
 
@@ -145,7 +145,7 @@ class TestServerCreation:
 
         try:
             # Create server using configuration file
-            with patch("fastmcp_factory.server.ManagedServer") as mock_server_class:
+            with patch("mcp_factory.server.ManagedServer") as mock_server_class:
                 # Set name attribute for mock server
                 mock_server = mock_server_class.return_value
                 type(mock_server).name = property(lambda self: "config-name-server")

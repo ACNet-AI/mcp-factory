@@ -14,7 +14,7 @@ from fastmcp import FastMCP
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider
 
 # Import configuration validator and parameter utilities
-from fastmcp_factory import config_validator, param_utils
+from mcp_factory import config_validator, param_utils
 
 # Set up logging
 logging.basicConfig(

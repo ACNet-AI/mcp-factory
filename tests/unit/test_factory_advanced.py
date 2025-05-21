@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fastmcp_factory.factory import FastMCPFactory
+from mcp_factory.factory import FastMCPFactory
 
 
 class TestFactoryAdvancedFeatures:
@@ -23,7 +23,7 @@ class TestFactoryAdvancedFeatures:
         config_path.write_text(config_content)
 
         # Initialize factory with configuration file
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             mock_validate.return_value = (
                 True,
                 {"factory": {"default_server_settings": {"log_level": "DEBUG"}}},
@@ -50,7 +50,7 @@ class TestFactoryAdvancedFeatures:
         config_path.write_text(config_content)
 
         # Initialize factory with configuration file
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             mock_validate.return_value = (False, {}, ["Invalid YAML format"])
 
             factory = FastMCPFactory(str(config_path))
@@ -184,7 +184,7 @@ class TestFactoryAdvancedFeatures:
         config = {"advanced": {"tags": ["tag2", "tag3"]}}
 
         # Call the method being tested
-        with patch("fastmcp_factory.param_utils.merge_tags") as mock_merge:
+        with patch("mcp_factory.param_utils.merge_tags") as mock_merge:
             mock_merge.return_value = {"tag1", "tag2", "tag3"}
 
             result = factory._process_advanced_params(config, tags=api_tags)
@@ -206,7 +206,7 @@ class TestFactoryAdvancedFeatures:
         config = {"advanced": {"dependencies": ["dep2", "dep3"]}}
 
         # Call the method being tested
-        with patch("fastmcp_factory.param_utils.merge_dependencies") as mock_merge:
+        with patch("mcp_factory.param_utils.merge_dependencies") as mock_merge:
             mock_merge.return_value = ["dep1", "dep2", "dep3"]
 
             result = factory._process_advanced_params(config, dependencies=api_deps)
@@ -362,7 +362,7 @@ class TestFactoryAdvancedFeatures:
         config_path.write_text(config_content)
 
         # Mock configuration validation
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             # Set return value
             mock_validate.return_value = (
                 True,
@@ -386,7 +386,7 @@ class TestFactoryAdvancedFeatures:
 
                 # Mock ManagedServer creation
                 with patch(
-                    "fastmcp_factory.factory.ManagedServer", return_value=mock_server
+                    "mcp_factory.factory.ManagedServer", return_value=mock_server
                 ) as mock_server_cls:
                     # Call the method being tested
                     server = factory.create_managed_server(str(config_path))
@@ -414,7 +414,7 @@ class TestFactoryAdvancedFeatures:
         config_path.write_text(config_content)
 
         # Mock configuration validation
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             # Set return value
             mock_validate.return_value = (False, {}, ["Invalid YAML format"])
 
@@ -438,7 +438,7 @@ class TestFactoryAdvancedFeatures:
         config_path.write_text(config_content)
 
         # Mock configuration validation
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             # Set return value
             mock_validate.return_value = (
                 True,
@@ -458,7 +458,7 @@ class TestFactoryAdvancedFeatures:
 
                 # Mock ManagedServer creation failure
                 with patch(
-                    "fastmcp_factory.factory.ManagedServer",
+                    "mcp_factory.factory.ManagedServer",
                     side_effect=ValueError("Server creation error"),
                 ):
                     # Verify exception is raised

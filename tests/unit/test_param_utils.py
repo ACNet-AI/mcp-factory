@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fastmcp_factory.param_utils import (
+from mcp_factory.param_utils import (
     apply_advanced_params,
     extract_config_section,
     merge_dependencies,
@@ -314,9 +314,9 @@ class TestAdvancedParamsApplication:
         runtime_kwargs = {}
 
         # Mock CONSTRUCTION_PARAMS and SETTINGS_PARAMS, so parameters are added to runtime_kwargs
-        with patch("fastmcp_factory.param_utils.CONSTRUCTION_PARAMS", []):
-            with patch("fastmcp_factory.param_utils.SETTINGS_PARAMS", []):
-                with patch("fastmcp_factory.param_utils.validate_param") as mock_validate:
+        with patch("mcp_factory.param_utils.CONSTRUCTION_PARAMS", []):
+            with patch("mcp_factory.param_utils.SETTINGS_PARAMS", []):
+                with patch("mcp_factory.param_utils.validate_param") as mock_validate:
                     # Apply advanced parameters
                     apply_advanced_params(instance, advanced_config, runtime_kwargs)
 
@@ -408,7 +408,7 @@ class TestAdvancedParamsApplication:
 
         # Define setting parameters
         with patch(
-            "fastmcp_factory.param_utils.SETTINGS_PARAMS",
+            "mcp_factory.param_utils.SETTINGS_PARAMS",
             ["json_response", "stateless_http", "cache_expiration_seconds"],
         ):
             # Apply advanced parameters
@@ -448,7 +448,7 @@ class TestAdvancedParamsApplication:
 
         # Define setting parameters
         with patch(
-            "fastmcp_factory.param_utils.SETTINGS_PARAMS",
+            "mcp_factory.param_utils.SETTINGS_PARAMS",
             ["json_response", "stateless_http", "cache_expiration_seconds"],
         ):
             # Apply advanced parameters
@@ -487,7 +487,7 @@ class TestAdvancedParamsApplication:
 
         # Apply advanced parameters
         with patch(
-            "fastmcp_factory.param_utils.validate_param", side_effect=mock_validate_side_effect
+            "mcp_factory.param_utils.validate_param", side_effect=mock_validate_side_effect
         ) as mock_validate:
             apply_advanced_params(instance, advanced_config, runtime_kwargs)
 
@@ -509,7 +509,7 @@ class TestAdvancedParamsApplication:
         runtime_kwargs = {}
 
         # Apply advanced parameters
-        with patch("fastmcp_factory.param_utils.validate_param") as mock_validate:
+        with patch("mcp_factory.param_utils.validate_param") as mock_validate:
             apply_advanced_params(instance, advanced_config, runtime_kwargs)
 
             # Verify results - None values should be skipped
@@ -523,9 +523,9 @@ class TestAdvancedParamsApplication:
                 assert mock_validate.call_count == 0
 
         # Mock CONSTRUCTION_PARAMS and SETTINGS_PARAMS
-        with patch("fastmcp_factory.param_utils.CONSTRUCTION_PARAMS", []):
-            with patch("fastmcp_factory.param_utils.SETTINGS_PARAMS", []):
-                with patch("fastmcp_factory.param_utils.validate_param"):
+        with patch("mcp_factory.param_utils.CONSTRUCTION_PARAMS", []):
+            with patch("mcp_factory.param_utils.SETTINGS_PARAMS", []):
+                with patch("mcp_factory.param_utils.validate_param"):
                     # Create a new configuration containing non-None values
                     non_none_config = {"debug": True, "log_level": "DEBUG", "port": 9000}
 

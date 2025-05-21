@@ -62,7 +62,7 @@ jobs:
         
     - name: Run Mypy type check
       run: |
-        python -m mypy fastmcp_factory
+        python -m mypy mcp_factory
   
   test:
     name: Test and Coverage
@@ -87,7 +87,7 @@ jobs:
         
     - name: Run tests and generate coverage report
       run: |
-        python -m pytest --cov=fastmcp_factory tests/ --cov-report=xml
+        python -m pytest --cov=mcp_factory tests/ --cov-report=xml
         
     - name: Upload coverage report to Codecov
       uses: codecov/codecov-action@v3

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from fastmcp_factory import FastMCPFactory
+from mcp_factory import FastMCPFactory
 
 
 class TestFactoryPerformance:

@@ -26,13 +26,13 @@ python -m pytest tests/unit/  # Run only unit tests
 To generate a test coverage report:
 
 ```bash
-python -m pytest --cov=fastmcp_factory
+python -m pytest --cov=mcp_factory
 ```
 
 To generate a detailed HTML coverage report:
 
 ```bash
-python -m pytest --cov=fastmcp_factory --cov-report=html
+python -m pytest --cov=mcp_factory --cov-report=html
 ```
 
 ## Current Coverage

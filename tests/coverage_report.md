@@ -6,14 +6,14 @@
 
 | Module | Statements | Uncovered | Coverage | Status |
 |------|--------|----------|--------|------|
-| fastmcp_factory/__init__.py | 6 | 0 | 100% | ✅ Excellent |
-| fastmcp_factory/auth/__init__.py | 2 | 0 | 100% | ✅ Excellent |
-| fastmcp_factory/auth/auth0.py | 50 | 0 | 100% | ✅ Excellent |
-| fastmcp_factory/auth/registry.py | 35 | 1 | 97% | ✅ Excellent |
-| fastmcp_factory/config_validator.py | 42 | 2 | 95% | ✅ Excellent |
-| fastmcp_factory/factory.py | 130 | 2 | 98% | ✅ Excellent |
-| fastmcp_factory/param_utils.py | 81 | 8 | 90% | ✅ Excellent |
-| fastmcp_factory/server.py | 137 | 8 | 94% | ✅ Excellent |
+| mcp_factory/__init__.py | 6 | 0 | 100% | ✅ Excellent |
+| mcp_factory/auth/__init__.py | 2 | 0 | 100% | ✅ Excellent |
+| mcp_factory/auth/auth0.py | 50 | 0 | 100% | ✅ Excellent |
+| mcp_factory/auth/registry.py | 35 | 1 | 97% | ✅ Excellent |
+| mcp_factory/config_validator.py | 42 | 2 | 95% | ✅ Excellent |
+| mcp_factory/factory.py | 130 | 2 | 98% | ✅ Excellent |
+| mcp_factory/param_utils.py | 81 | 8 | 90% | ✅ Excellent |
+| mcp_factory/server.py | 137 | 8 | 94% | ✅ Excellent |
 
 ## Areas Still Needing Improvement
 

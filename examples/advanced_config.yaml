@@ -1,9 +1,9 @@
 # Advanced Configuration Example
-# This configuration file contains all configuration options supported by FastMCP-Factory, including basic and advanced configurations
+# This configuration file contains all configuration options supported by MCP-Factory, including basic and advanced configurations
 
 # Server Basic Configuration
 server:
-  name: "advanced-fastmcp-server"  # Server name (constructor parameter)
+  name: "advanced-mcp-server"  # Server name (constructor parameter)
   instructions: "MCP server example with advanced configuration"  # Server description (constructor parameter)
   host: "0.0.0.0"  # HTTP listening address (setting parameter - runtime environment)
   port: 8000  # HTTP listening port (setting parameter - runtime environment)
@@ -28,7 +28,7 @@ auth:
 
 # Tools Configuration
 tools:
-  # Whether to automatically register FastMCP methods as management tools
+  # Whether to automatically register MCP methods as management tools
   expose_management_tools: true
   
   # List of enabled tools, empty list means enable all tools
@@ -40,7 +40,7 @@ tools:
   custom_tools: []
 
 # Advanced Configuration
-# This section supports all FastMCP native parameters and passes them to the FastMCP instance
+# This section supports all MCP native parameters and passes them to the MCP instance
 advanced:
   #############################################
   # 1. Setting Parameters (Core Settings)

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from fastmcp_factory.server import ManagedServer
+from mcp_factory.server import ManagedServer
 
 
 class TestServerBasicFunctionality:
@@ -132,7 +132,7 @@ class TestServerConfiguration:
         server = ManagedServer(name="default-server", instructions="Default server instructions")
 
         # Mock get default configuration and apply configuration methods
-        with patch("fastmcp_factory.config_validator.get_default_config") as mock_get_default:
+        with patch("mcp_factory.config_validator.get_default_config") as mock_get_default:
             mock_get_default.return_value = {"server": {"settings": {"default_setting": "value"}}}
 
             with patch.object(server, "apply_config") as mock_apply_config:
@@ -155,7 +155,7 @@ class TestServerConfiguration:
         server = ManagedServer(name="test-server", instructions="Test server instructions")
 
         # Mock configuration validation failure
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             mock_validate.return_value = (False, {}, ["Invalid format"])
 
             # Call reload_config method
@@ -172,7 +172,7 @@ class TestServerConfiguration:
         server = ManagedServer(name="test-server", instructions="Test server instructions")
 
         # Mock configuration validation throwing exception
-        with patch("fastmcp_factory.config_validator.validate_config_file") as mock_validate:
+        with patch("mcp_factory.config_validator.validate_config_file") as mock_validate:
             mock_validate.side_effect = Exception("Simulated error")
 
             # Call reload_config method
@@ -423,7 +423,7 @@ class TestConfigApplicationMethods:
         }
 
         # Mock param_utils.extract_config_section
-        with patch("fastmcp_factory.param_utils.extract_config_section") as mock_extract:
+        with patch("mcp_factory.param_utils.extract_config_section") as mock_extract:
             # Set return value to dictionary instead of list
             mock_extract.return_value = {
                 "expose_management_tools": True,
@@ -482,8 +482,8 @@ class TestConfigApplicationMethods:
         }
 
         # Mock param_utils.apply_advanced_params and extract_config_section
-        with patch("fastmcp_factory.param_utils.apply_advanced_params") as mock_apply:
-            with patch("fastmcp_factory.param_utils.extract_config_section") as mock_extract:
+        with patch("mcp_factory.param_utils.apply_advanced_params") as mock_apply:
+            with patch("mcp_factory.param_utils.extract_config_section") as mock_extract:
                 # Set mock_extract return value
                 mock_extract.return_value = {
                     "custom_setting1": "value1",
