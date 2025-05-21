@@ -5,7 +5,7 @@ import tempfile
 
 import yaml
 
-from fastmcp_factory import config_validator
+from mcp_factory import config_validator
 
 
 class TestConfigValidation:

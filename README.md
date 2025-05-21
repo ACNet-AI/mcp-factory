@@ -1,8 +1,8 @@
-# fastmcp-factory
+# mcp-factory
 
-[![PyPI](https://img.shields.io/pypi/v/fastmcp-factory.svg)](https://pypi.org/project/fastmcp-factory/)
+[![PyPI](https://img.shields.io/pypi/v/mcp-factory.svg)](https://pypi.org/project/mcp-factory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/fastmcp-factory/)
+[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/mcp-factory/)
 
 A server factory based on [fastmcp](https://github.com/jlowin/fastmcp), supporting automatic registration of methods as tools, remote invocation, and permission-based management.
 
@@ -18,15 +18,15 @@ A server factory based on [fastmcp](https://github.com/jlowin/fastmcp), supporti
 ## Installation
 
 ```bash
-pip install fastmcp-factory  # Using pip
+pip install mcp-factory  # Using pip
 # or
-uv install fastmcp-factory   # Using uv (recommended)
+uv install mcp-factory   # Using uv (recommended)
 ```
 
 ## Quick Start
 
 ```python
-from fastmcp_factory import FastMCPFactory
+from mcp_factory import FastMCPFactory
 
 # Create factory instance
 factory = FastMCPFactory()
@@ -63,7 +63,7 @@ Minimal configuration example:
 
 ```yaml
 server:
-  name: "my-fastmcp-server"
+  name: "my-mcp-server"
   instructions: "This is an example MCP server"
   host: "0.0.0.0"
   port: 8000
@@ -119,7 +119,7 @@ await server.mcp_list_mounted_servers()  # List mounted servers
 await server.mcp_get_auth_config()  # Get authentication configuration
 ```
 
-> **Note**: FastMCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
+> **Note**: MCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
 
 ## Common APIs
 

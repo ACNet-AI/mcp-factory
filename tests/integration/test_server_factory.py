@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from fastmcp_factory import FastMCPFactory
+from mcp_factory import FastMCPFactory
 
 
 class TestFactoryServerIntegration:

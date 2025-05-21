@@ -11,8 +11,8 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
-from fastmcp_factory import FastMCPFactory
-from fastmcp_factory.server import ManagedServer
+from mcp_factory import FastMCPFactory
+from mcp_factory.server import ManagedServer
 
 
 # Set up asynchronous pytest session

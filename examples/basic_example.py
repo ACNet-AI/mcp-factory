@@ -14,8 +14,8 @@ import tempfile
 import yaml
 from typing import Dict, Any
 
-from fastmcp_factory import FastMCPFactory
-from fastmcp_factory.auth.auth0 import Auth0Provider
+from mcp_factory import FastMCPFactory
+from mcp_factory.auth.auth0 import Auth0Provider
 
 
 async def main() -> None:

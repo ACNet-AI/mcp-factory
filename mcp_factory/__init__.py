@@ -7,10 +7,10 @@ __version__ = "0.1.0"
 
 # Export main classes
 # Export parameter utility module for custom server configuration
-from fastmcp_factory import param_utils
-from fastmcp_factory.auth import AuthProviderRegistry
-from fastmcp_factory.factory import FastMCPFactory
-from fastmcp_factory.server import ManagedServer
+from mcp_factory import param_utils
+from mcp_factory.auth import AuthProviderRegistry
+from mcp_factory.factory import FastMCPFactory
+from mcp_factory.server import ManagedServer
 
 __all__ = [
     "FastMCPFactory",

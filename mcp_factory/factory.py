@@ -9,9 +9,9 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider
 
-from fastmcp_factory import config_validator, param_utils
-from fastmcp_factory.auth import AuthProviderRegistry
-from fastmcp_factory.server import ManagedServer
+from mcp_factory import config_validator, param_utils
+from mcp_factory.auth import AuthProviderRegistry
+from mcp_factory.server import ManagedServer
 
 # Set up logging
 logging.basicConfig(

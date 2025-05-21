@@ -31,8 +31,8 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Set, Union
 
-from fastmcp_factory import FastMCPFactory
-from fastmcp_factory.auth import AuthProviderRegistry
+from mcp_factory import FastMCPFactory
+from mcp_factory.auth import AuthProviderRegistry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -55,7 +55,7 @@ class AuthProviderRegistry:
         try:
             if provider_type.lower() == "auth0":
                 # Import on demand to avoid circular dependencies
-                from fastmcp_factory.auth.auth0 import Auth0Provider
+                from mcp_factory.auth.auth0 import Auth0Provider
 
                 required_params = ["domain", "client_id", "client_secret"]
                 if not all(param in config for param in required_params):

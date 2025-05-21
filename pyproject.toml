@@ -1,5 +1,5 @@
 [project]
-name = "fastmcp-factory"
+name = "mcp-factory"
 version = "0.1.0"
 description = "A factory and managed server extension for fastmcp"
 authors = [
@@ -33,7 +33,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["fastmcp_factory"]
+packages = ["mcp_factory"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -86,7 +86,7 @@ convention = "google"
 
 # isort settings
 [tool.ruff.lint.isort]
-known-first-party = ["fastmcp_factory"]
+known-first-party = ["mcp_factory"]
 
 # mypy configuration
 [tool.mypy]
@@ -127,17 +127,17 @@ module = "yaml.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "fastmcp_factory.param_utils"
+module = "mcp_factory.param_utils"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "fastmcp_factory.server"
+module = "mcp_factory.server"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "fastmcp_factory.factory"
+module = "mcp_factory.factory"
 ignore_errors = true
 
 # CLI functionality will be implemented in future versions
 # [project.scripts]
-# mcpf = "fastmcp_factory.cli.main:main"
+# mcpf = "mcp_factory.cli.main:main"

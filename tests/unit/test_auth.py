@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fastmcp_factory.auth.auth0 import Auth0Provider
+from mcp_factory.auth.auth0 import Auth0Provider
 
 
 class TestAuth0Provider:
@@ -376,7 +376,7 @@ class TestAuthRegistry:
 
     def test_provider_management(self) -> None:
         """Test authentication provider registry provider management functionality."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()
@@ -399,7 +399,7 @@ class TestAuthRegistry:
 
     def test_create_provider(self) -> None:
         """Test method for creating authentication provider."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()
@@ -409,7 +409,7 @@ class TestAuthRegistry:
 
         # Test creating Auth0 provider
         with patch(
-            "fastmcp_factory.auth.auth0.Auth0Provider", return_value=mock_auth0_provider
+            "mcp_factory.auth.auth0.Auth0Provider", return_value=mock_auth0_provider
         ) as mock_provider_class:
             # Create provider
             provider_config = {
@@ -441,7 +441,7 @@ class TestAuthRegistry:
 
     def test_create_provider_missing_params(self) -> None:
         """Test creating provider when missing necessary parameters."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()
@@ -462,7 +462,7 @@ class TestAuthRegistry:
 
     def test_create_provider_unsupported_type(self) -> None:
         """Test creating unsupported type provider."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()
@@ -477,7 +477,7 @@ class TestAuthRegistry:
 
     def test_list_providers(self) -> None:
         """Test listing all providers."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()
@@ -499,7 +499,7 @@ class TestAuthRegistry:
 
     def test_remove_provider(self) -> None:
         """Test removing provider."""
-        from fastmcp_factory.auth.registry import AuthProviderRegistry
+        from mcp_factory.auth.registry import AuthProviderRegistry
 
         # Create registry
         registry = AuthProviderRegistry()

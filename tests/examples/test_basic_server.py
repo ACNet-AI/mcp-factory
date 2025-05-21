@@ -11,7 +11,7 @@ import yaml
 
 import pytest
 
-from fastmcp_factory import FastMCPFactory
+from mcp_factory import FastMCPFactory
 
 
 class TestBasicServerExample:
