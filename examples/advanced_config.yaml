@@ -1,0 +1,156 @@
+# Advanced Configuration Example
+# This configuration file contains all configuration options supported by FastMCP-Factory, including basic and advanced configurations
+
+# Server Basic Configuration
+server:
+  name: "advanced-fastmcp-server"  # Server name (constructor parameter)
+  instructions: "MCP server example with advanced configuration"  # Server description (constructor parameter)
+  host: "0.0.0.0"  # HTTP listening address (setting parameter - runtime environment)
+  port: 8000  # HTTP listening port (setting parameter - runtime environment)
+  transport: "streamable-http"  # Transport protocol (setting parameter - runtime environment)
+  debug: true  # Debug mode (setting parameter - runtime environment)
+
+# Authentication Configuration
+auth:
+  # Reference to authentication provider ID (must be created in advance)
+  provider_id: "default-auth0"
+  
+  # Authentication policies
+  policies:
+    # Users with administrator permissions
+    admin_users: 
+      - "admin@example.com"
+      - "support@example.com"
+    
+    # Token whitelist (direct access)
+    token_whitelist: 
+      - "dev-token-123"
+
+# Tools Configuration
+tools:
+  # Whether to automatically register FastMCP methods as management tools
+  expose_management_tools: true
+  
+  # List of enabled tools, empty list means enable all tools
+  enabled_tools: 
+    - "manage_mount"
+    - "manage_unmount"
+  
+  # Custom tools (to be implemented)
+  custom_tools: []
+
+# Advanced Configuration
+# This section supports all FastMCP native parameters and passes them to the FastMCP instance
+advanced:
+  #############################################
+  # 1. Setting Parameters (Core Settings)
+  #############################################
+  
+  # Logging configuration
+  log_level: "DEBUG"  # Log level, options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  
+  # Duplicate handling strategies
+  on_duplicate_tools: "warn"  # Tool duplication handling strategy, options: warn, error, replace, ignore
+  on_duplicate_resources: "warn"  # Resource duplication handling strategy
+  on_duplicate_prompts: "warn"  # Prompt duplication handling strategy
+
+  #############################################
+  # 2. Constructor Parameters (Basic Definitions)
+  #############################################
+  
+  # Server tags (for categorizing and identifying servers)
+  # Configuration values will be merged with existing tags
+  tags:
+    - "production"
+    - "ml-models"
+    - "public-api"
+  
+  # Server dependencies
+  # Configuration values will be merged with existing dependencies
+  dependencies:
+    - "pandas"
+    - "numpy"
+    - "tensorflow"
+
+  #############################################
+  # 3. Setting Parameters (Advanced Settings)
+  #############################################
+  
+  # Cache configuration
+  cache_expiration_seconds: 300  # Cache expiration time (seconds)
+  
+  # HTTP endpoint path configuration
+  sse_path: "/custom-sse"  # SSE endpoint path, applicable for transport="sse"
+  message_path: "/api/messages/"  # Message endpoint path
+  streamable_http_path: "/api/mcp"  # HTTP stream endpoint path, applicable for transport="streamable-http"
+  
+  # HTTP behavior configuration
+  json_response: true  # Use JSON response format
+  stateless_http: false  # Whether to use stateless HTTP mode
+
+#############################################
+# Constructor Parameters Only Supported via Code API
+#############################################
+
+# The following advanced constructor parameters cannot be set directly through YAML configuration and must be passed through the code API:
+# 
+# 1. lifespan - Server lifecycle manager
+#    This is a function used to execute custom logic when the server starts and shuts down
+#    Example:
+#    ```python
+#    @asynccontextmanager
+#    async def my_lifespan(server):
+#        # Execute at startup
+#        print("Server starting...")
+#        yield {}
+#        # Execute at shutdown
+#        print("Server shutting down...")
+#    
+#    factory.create_managed_server(
+#        config_path="config.yaml",
+#        lifespan=my_lifespan
+#    )
+#    ```
+#
+# 2. tool_serializer - Tool result serializer
+#    This is a function used to customize how tool return results are serialized
+#    Example:
+#    ```python
+#    def my_serializer(result):
+#        if isinstance(result, complex):
+#            return f"{result.real}+{result.imag}j"
+#        return str(result)
+#    
+#    factory.create_managed_server(
+#        config_path="config.yaml",
+#        tool_serializer=my_serializer
+#    )
+#    ``` 
+
+#############################################
+# Auth0 Authentication Provider Configuration Notes
+#############################################
+# 
+# Example of creating an Auth0 authentication provider:
+# ```
+# factory.create_auth_provider(
+#     provider_id="my-auth0",
+#     provider_type="auth0",
+#     config={
+#         "domain": "your-tenant.auth0.com",         # Auth0 domain (required)
+#         "client_id": "your-client-id",             # Client ID (required)
+#         "client_secret": "your-client-secret",     # Client secret (required)
+#         "audience": "https://api.example.com",     # Target audience (optional)
+#         "roles_namespace": "https://your-tenant.auth0.com/roles" # Roles namespace (optional)
+#     }
+# )
+# ```
+#
+# Auth0 roles configuration notes:
+# 1. The roles_namespace parameter specifies the namespace where role information is stored in Auth0
+# 2. If not specified, the default is "https://{domain}/roles"
+# 3. Different Auth0 tenants may have different role storage locations:
+#    - Namespace (e.g., "https://{domain}/roles")
+#    - app_metadata (e.g., "app_metadata.roles")
+#    - permissions list
+# 4. The authentication provider will try these locations in sequence to find role information 

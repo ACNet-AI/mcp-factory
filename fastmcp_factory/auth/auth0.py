@@ -16,12 +16,17 @@ class Auth0Provider(OAuthAuthorizationServerProvider[Any, Any, Any]):
     Used for OAuth2 authentication via Auth0.
     """
 
+    #######################
+    # Initialization
+    #######################
+
     def __init__(
         self,
         domain: str,
         client_id: str,
         client_secret: str,
         audience: Optional[str] = None,
+        roles_namespace: Optional[str] = None,
     ) -> None:
         """Initialize the Auth0 authentication provider.
 
@@ -30,6 +35,7 @@ class Auth0Provider(OAuthAuthorizationServerProvider[Any, Any, Any]):
             client_id: Auth0 client ID
             client_secret: Auth0 client secret
             audience: Auth0 target audience, defaults to API v2 endpoint
+            roles_namespace: Custom namespace for roles in Auth0, defaults to domain
         """
         self.domain = domain
         self.client_id = client_id
@@ -37,6 +43,11 @@ class Auth0Provider(OAuthAuthorizationServerProvider[Any, Any, Any]):
         self.audience = audience or f"https://{domain}/api/v2/"
         self.token_url = f"https://{domain}/oauth/token"
         self.userinfo_url = f"https://{domain}/userinfo"
+        self.roles_namespace = roles_namespace or f"https://{domain}/roles"
+
+    #######################
+    # OAuth Flow Methods
+    #######################
 
     async def get_token(self, code: str, redirect_uri: str) -> Dict[str, Any]:
         """Exchange authorization code for token.
@@ -78,6 +89,10 @@ class Auth0Provider(OAuthAuthorizationServerProvider[Any, Any, Any]):
             resp.raise_for_status()
             return resp.json()
 
+    #######################
+    # Token and User Validation Methods
+    #######################
+
     async def validate_token(self, access_token: str) -> bool:
         """Validate token validity (usually successful userinfo fetch indicates valid token).
 
@@ -111,18 +126,28 @@ class Auth0Provider(OAuthAuthorizationServerProvider[Any, Any, Any]):
         try:
             user_info = await self.get_userinfo(access_token)
 
-            # Get role information from Auth0 - typically in metadata or namespace
-            # 1. Get roles from namespace (recommended, default in newer Auth0 versions)
-            roles: List[str] = user_info.get("https://your-domain.com/roles", [])
+            # Try to get role information from different locations
+            roles: List[str] = []
 
-            # Alternative namespace formats that might be used:
-            # roles = user_info.get(f"https://{self.domain}/roles", [])
+            # 1. First try using the configured namespace to get roles
+            if self.roles_namespace and self.roles_namespace in user_info:
+                namespace_roles = user_info.get(self.roles_namespace, [])
+                if namespace_roles:
+                    roles = namespace_roles
 
-            # 2. Get roles from app_metadata (common in older versions)
-            # roles = user_info.get("app_metadata", {}).get("roles", [])
+            # 2. If no roles were found, try other common ways to get roles
+            if not roles:
+                # Try getting from app_metadata
+                if "app_metadata" in user_info and isinstance(user_info["app_metadata"], dict):
+                    app_roles = user_info["app_metadata"].get("roles", [])
+                    if app_roles:
+                        roles = app_roles
 
-            # 3. Get from permissions (when using RBAC)
-            # roles = user_info.get("permissions", [])
+                # Try getting from permissions
+                elif "permissions" in user_info:
+                    perm_roles = user_info.get("permissions", [])
+                    if perm_roles:
+                        roles = perm_roles
 
             return {
                 "id": user_info.get("sub"),

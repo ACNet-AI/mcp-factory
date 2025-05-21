@@ -4,53 +4,52 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/fastmcp-factory/)
 
-Manageable server factory based on [fastmcp](https://github.com/jlowin/fastmcp), automatically registering native methods as tools, supporting remote invocation and permission-based management control.
+A server factory based on [fastmcp](https://github.com/jlowin/fastmcp), supporting automatic registration of methods as tools, remote invocation, and permission-based management.
 
 ## Features
 
-- 🔧 **Auto Tool Registration**: Automatically register FastMCP's native methods as callable tools
-- 🚀 **Remote Invocation**: Provide MCP-based remote method calling
-- 🔐 **Permission Control**: Implement server management based on authentication mechanisms
-- 🏭 **Factory Pattern**: Batch creation of managed server instances
-- 🔄 **Server Composition**: Support secure server mounting and importing operations
-- 🔁 **Config Hot Reload**: Update configuration without restarting services
+- 🔧 **Auto Tool Registration** - Automatically register FastMCP native methods as callable tools
+- 🚀 **Remote Invocation** - Provide MCP-based remote method invocation
+- 🔐 **Permission Control** - Server management based on authentication mechanisms
+- 🏭 **Factory Pattern** - Batch creation and management of server instances
+- 🔄 **Server Composition** - Support secure server mounting and importing operations
+- 🔁 **Config Hot Reload** - Update configuration without restarting
 
 ## Installation
 
 ```bash
-# Using pip
-pip install fastmcp-factory
-
-# Or using uv (recommended)
-uv install fastmcp-factory
+pip install fastmcp-factory  # Using pip
+# or
+uv install fastmcp-factory   # Using uv (recommended)
 ```
 
 ## Quick Start
 
 ```python
 from fastmcp_factory import FastMCPFactory
-from fastmcp_factory.auth.auth0 import Auth0Provider
-
-# Create Auth0 authentication provider
-auth_provider = Auth0Provider(
-    domain="your-domain.auth0.com",
-    client_id="your-client-id",
-    client_secret="your-client-secret"
-)
 
 # Create factory instance
-factory = FastMCPFactory(auth_server_provider=auth_provider)
+factory = FastMCPFactory()
 
-# Create managed server (auto-register FastMCP methods as tools)
+# Create authentication provider
+factory.create_auth_provider(
+    provider_id="demo-auth0",
+    provider_type="auth0",
+    config={
+        "domain": "your-domain.auth0.com",
+        "client_id": "your-client-id",
+        "client_secret": "your-client-secret"
+    }
+)
+
+# Create server
 server = factory.create_managed_server(
-    name="demo-server", 
-    instructions="Example server",
-    auto_register=True,
-    auth={"issuer_url": "https://your-domain.auth0.com"}
+    config_path="examples/server_config.yaml",
+    auth_provider_id="demo-auth0"
 )
 
 # Register custom tool
-@server.tool(description="Add two numbers")
+@server.tool(description="Calculate the sum of two numbers")
 def add(a: int, b: int) -> int:
     return a + b
 
@@ -58,9 +57,53 @@ def add(a: int, b: int) -> int:
 server.run(host="0.0.0.0", port=8000)
 ```
 
-## Auto-registered Management Tools
+## Configuration
 
-When setting `auto_register=True`, the server automatically registers the following management tools:
+Minimal configuration example:
+
+```yaml
+server:
+  name: "my-fastmcp-server"
+  instructions: "This is an example MCP server"
+  host: "0.0.0.0"
+  port: 8000
+
+auth:
+  provider_id: "demo-auth0"
+
+tools:
+  expose_management_tools: true
+```
+
+> For complete configuration examples, please refer to [examples/advanced_config.yaml](examples/advanced_config.yaml)
+
+## Advanced Features
+
+### Configuration Hot Reload
+
+```python
+# Reload configuration from specified path
+result = server.reload_config("new_config.yaml")
+print(result)  # Output: Server configuration reloaded (from new_config.yaml)
+```
+
+### Server Composition
+
+```python
+# Create two servers
+server1 = factory.create_managed_server(name="main-server")
+server2 = factory.create_managed_server(name="compute-server")
+
+# Securely mount server
+await server1.mount("compute", server2)
+
+# Unmount server
+server1.unmount("compute")
+```
+
+### Auto-registered Management Tools
+
+When setting `expose_management_tools=True`, the server automatically registers the following management tools:
 
 ```python
 # Get all auto-registered management tools
@@ -76,28 +119,26 @@ await server.mcp_list_mounted_servers()  # List mounted servers
 await server.mcp_get_auth_config()  # Get authentication configuration
 ```
 
-## Configuration Hot Reload
+> **Note**: FastMCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
+
+## Common APIs
 
 ```python
-# Reload configuration from specified path
-result = server.reload_config("/path/to/config.json")
-print(result)  # Output: Server configuration reloaded (from /path/to/config.json)
+# Authentication provider management
+factory.create_auth_provider(provider_id="id", provider_type="auth0", config={})
+factory.list_auth_providers()
+
+# Server management
+factory.list_servers()
+factory.delete_server("name")
 ```
 
-## Server Composition
+For more examples and complete API documentation, please refer to the `examples/` directory.
 
-```python
-# Create two servers
-server1 = factory.create_managed_server(name="main-server")
-server2 = factory.create_managed_server(name="compute-server")
+## Roadmap
 
-# Securely mount server
-await server1.mount("compute", server2)
+The following features are planned for future versions:
 
-# Unmount server
-server1.unmount("compute")
-```
-
-## License
-
-This project is licensed under the [Apache License 2.0](LICENSE).
+- **Command Line Tool** - Provide `mcpf` command-line tool to simplify the creation and management of servers and authentication providers
+- **More Authentication Providers** - Add support for various authentication mechanisms such as OAuth2, JWT, etc.
+- **Multi-environment Configuration** - Support configuration management for development, testing, production, and other environments
