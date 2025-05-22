@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class AuthProviderRegistry:
     """Authentication provider registry.
-    
+
     This class is responsible for creating and managing different types of
     authentication providers. It provides methods to create, get, list, and remove
     authentication providers.

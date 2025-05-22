@@ -89,7 +89,12 @@ class TestConfigValidation:
             assert len(errors) > 0
             # YAML errors might include various different formats in error messages
             assert any(
-                ("yaml" in error.lower() or "YAML" in error or "parse" in error or "format" in error)
+                (
+                    "yaml" in error.lower()
+                    or "YAML" in error
+                    or "parse" in error
+                    or "format" in error
+                )
                 for error in errors
             ), "Should include information about YAML format errors"
         finally:
@@ -160,7 +165,9 @@ class TestConfigValidation:
             # Verify results
             assert is_valid is False
             assert len(errors) > 0
-            assert any("name" in error.lower() for error in errors), "Should include error about missing name"
+            assert any("name" in error.lower() for error in errors), (
+                "Should include error about missing name"
+            )
         finally:
             # Clean up temporary file
             if os.path.exists(config_path):
@@ -214,7 +221,12 @@ class TestConfigValidation:
             assert is_valid is False
             assert len(errors) > 0
             assert any(
-                ("yaml" in error.lower() or "YAML" in error or "parse" in error or "format" in error)
+                (
+                    "yaml" in error.lower()
+                    or "YAML" in error
+                    or "parse" in error
+                    or "format" in error
+                )
                 for error in errors
             )
         finally:
