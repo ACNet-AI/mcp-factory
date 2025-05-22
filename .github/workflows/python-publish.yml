@@ -11,6 +11,9 @@ name: Upload Python Package
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*.*.*'  # Match semantic versioning tags
   workflow_dispatch:
 
 permissions:
@@ -47,16 +50,7 @@ jobs:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
 
-    # Dedicated environments with protections for publishing are strongly recommended.
-    # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
-    # environment:
-    #   name: github-pages
-    #   # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
-    #   # url: https://pypi.org/p/YOURPROJECT
-    #
-    # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
-    # ALTERNATIVE: exactly, uncomment the following line instead:
-    # url: https://pypi.org/project/YOURPROJECT/${{ github.event.release.name }}
+    # Note: Environment configuration was removed as we're using API token authentication
 
     steps:
       - name: Retrieve release distributions
