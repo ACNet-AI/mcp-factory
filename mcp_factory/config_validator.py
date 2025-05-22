@@ -22,7 +22,10 @@ SERVER_CONFIG_SCHEMA = {
             "type": "object",
             "required": ["name"],
             "properties": {
-                "name": {"type": "string", "description": "Server name, used to identify this MCP server instance"},
+                "name": {
+                    "type": "string",
+                    "description": "Server name, used to identify this MCP server instance",
+                },
                 "instructions": {
                     "type": "string",
                     "description": "Server instructions, providing guidance to clients on how to use this server",

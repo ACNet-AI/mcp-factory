@@ -62,7 +62,7 @@ class TestFactoryPerformance:
                 for i in range(3):
                     # Create but don't save variable reference, warmup phase
                     factory.create_managed_server(config_path=config_files[i])
-                
+
                 # Clear warmup servers
                 factory._servers.clear()
 
@@ -81,7 +81,9 @@ class TestFactoryPerformance:
                 avg_creation_time = total_time / server_count
 
                 # Validate performance metrics (set more lenient thresholds)
-                assert avg_creation_time < 0.2, f"Average server creation time too long: {avg_creation_time:.4f} seconds"
+                assert avg_creation_time < 0.2, (
+                    f"Average server creation time too long: {avg_creation_time:.4f} seconds"
+                )
 
                 # Output performance metrics
                 print("\nPerformance Test Results:")
@@ -124,7 +126,9 @@ class TestConfigPerformance:
         avg_reload_time = total_time / server_count
 
         # Validate performance metrics (set more lenient thresholds)
-        assert avg_reload_time < 0.5, f"Average configuration reload time too long: {avg_reload_time:.4f} seconds"
+        assert avg_reload_time < 0.5, (
+            f"Average configuration reload time too long: {avg_reload_time:.4f} seconds"
+        )
 
         # Output performance metrics
         print(f"\nConfiguration Reload Performance Results ({server_count} servers):")

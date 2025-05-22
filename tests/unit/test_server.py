@@ -232,7 +232,9 @@ class TestServerEdgeCases:
         server = ManagedServer(name="test-server", instructions="Test server")
 
         # Create a configuration that will cause error
-        invalid_config = {"server": {"invalid_field": lambda: None}}  # Contains non-serializable object
+        invalid_config = {
+            "server": {"invalid_field": lambda: None}
+        }  # Contains non-serializable object
 
         # Create patch for apply_config, simulating error
         with patch.object(server, "_apply_basic_configs", side_effect=Exception("Config error")):
