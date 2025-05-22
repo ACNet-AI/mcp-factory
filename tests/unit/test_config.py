@@ -124,7 +124,7 @@ class TestConfigValidation:
         assert "instructions" in default_config["server"]
 
         # Verify default values
-        assert default_config["server"]["name"] == "default-server"
+        assert default_config["server"]["name"] == "default-mcp-server"
         # Check that instructions exist but don't compare specific content, as it may change
         assert default_config["server"]["instructions"]
 
