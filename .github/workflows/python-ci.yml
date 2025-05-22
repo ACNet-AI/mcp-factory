@@ -7,6 +7,8 @@ on:
       - '**.py'
       - 'pyproject.toml'
       - '.github/workflows/python-ci.yml'
+    tags:
+      - 'v*'  # Match all version tags
   pull_request:
     branches: [ main, master ]
     paths:
