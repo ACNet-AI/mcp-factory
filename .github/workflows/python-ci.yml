@@ -3,12 +3,12 @@ name: Python CI
 on:
   push:
     branches: [ main, master ]
-    paths:
-      - '**.py'
-      - 'pyproject.toml'
-      - '.github/workflows/python-ci.yml'
     tags:
       - 'v*'  # Match all version tags
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
     branches: [ main, master ]
     paths:
