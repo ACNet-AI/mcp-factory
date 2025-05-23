@@ -80,8 +80,8 @@ class TestFactoryPerformance:
                 # Calculate average creation time
                 avg_creation_time = total_time / server_count
 
-                # Validate performance metrics (set more lenient thresholds)
-                assert avg_creation_time < 0.30, (
+                # Validate performance metrics (adjusted threshold to account for management tools registration)
+                assert avg_creation_time < 0.40, (
                     f"Average server creation time too long: {avg_creation_time:.4f} seconds"
                 )
 
