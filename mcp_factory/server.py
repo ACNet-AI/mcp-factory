@@ -96,24 +96,34 @@ class ManagedServer(FastMCP):
         # Separate runtime parameters and constructor parameters to avoid FastMCP 2.3.4+ deprecation warnings
         runtime_params = {}
         constructor_params = {}
-        
+
         # Define runtime parameters (these parameters should be passed during run())
         runtime_param_names = {
-            'host', 'port', 'transport', 'debug', 'cors_origins',
-            'cors_methods', 'cors_headers', 'cors_credentials',
-            'max_request_size', 'timeout', 'keep_alive'
+            "host",
+            "port",
+            "transport",
+            "debug",
+            "cors_origins",
+            "cors_methods",
+            "cors_headers",
+            "cors_credentials",
+            "max_request_size",
+            "timeout",
+            "keep_alive",
         }
-        
+
         # Define parameters supported by FastMCP constructor
         fastmcp_constructor_params = {
-            'cache_expiration_seconds', 'on_duplicate_tools',
-            'on_duplicate_resources', 'on_duplicate_prompts',
-            'resource_prefix_format'
+            "cache_expiration_seconds",
+            "on_duplicate_tools",
+            "on_duplicate_resources",
+            "on_duplicate_prompts",
+            "resource_prefix_format",
         }
-        
+
         # Define ManagedServer-specific parameters (should not be passed to FastMCP)
-        managed_server_params = {'expose_management_tools'}
-        
+        managed_server_params = {"expose_management_tools"}
+
         # Separate parameters
         for key, value in kwargs.items():
             if key in runtime_param_names:
@@ -128,14 +138,14 @@ class ManagedServer(FastMCP):
                 # Other unknown parameters, log warning and add to runtime parameters
                 logger.warning(f"Unknown parameter '{key}', treating as runtime parameter")
                 runtime_params[key] = value
-        
+
         # Initialize base class (only pass constructor parameters)
         # FastMCP 2.4.0 requires auth_server_provider and settings.auth to exist together or not exist together
         # Although there will be deprecation warnings, this is necessary validation
         auth_settings = {}
         if auth is not None:
-            auth_settings['auth'] = auth
-        
+            auth_settings["auth"] = auth
+
         super().__init__(
             name=name,
             instructions=instructions,
@@ -153,10 +163,10 @@ class ManagedServer(FastMCP):
         self._current_user = None
         # Save runtime parameters for use during run()
         self._runtime_kwargs = runtime_params
-        
+
         # Also save auth configuration in runtime parameters for backup
         if auth is not None:
-            self._runtime_kwargs['auth'] = auth
+            self._runtime_kwargs["auth"] = auth
 
         # If expose_management_tools is set, automatically register management tools
         if expose_management_tools:
@@ -299,7 +309,9 @@ class ManagedServer(FastMCP):
             else:
                 logger.warning(f"Extension tool already exists, skipping registration: {tool_name}")
 
-            logger.info(f"Extension management tools registration completed: {extension_count} successful")
+            logger.info(
+                f"Extension management tools registration completed: {extension_count} successful"
+            )
 
             total_count = native_count + extension_count
 
@@ -377,7 +389,9 @@ class ManagedServer(FastMCP):
                             )
                     else:
                         # For functions with more than 3 parameters, use a generic wrapper
-                        logger.debug(f"Function {name} has {param_count} parameters, using generic wrapper")
+                        logger.debug(
+                            f"Function {name} has {param_count} parameters, using generic wrapper"
+                        )
 
                         def wrapper() -> Any:
                             return self._execute_wrapped_function(original_func, name, ())
@@ -413,7 +427,9 @@ class ManagedServer(FastMCP):
                 logger.warning(f"Failed to register native tool {name}: {str(e)}")
                 failed_count += 1
 
-        logger.info(f"Native management tools registration completed: {registered_count} successful, {failed_count} failed")
+        logger.info(
+            f"Native management tools registration completed: {registered_count} successful, {failed_count} failed"
+        )
         return registered_count
 
     def _execute_wrapped_function(self, func: AnyFunction, name: str, args: tuple) -> Any:

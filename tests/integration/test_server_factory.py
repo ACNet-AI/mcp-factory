@@ -124,14 +124,14 @@ class TestAsyncIntegration:
 
                 # Verify server name
                 assert server.name == "auth-integration"
-                
+
                 # Verify authentication provider was set during construction
                 assert server._auth_server_provider is mock_auth_provider
-                
+
                 # Verify auth config was stored for runtime use
-                assert hasattr(server, '_runtime_kwargs')
-                assert 'auth' in server._runtime_kwargs
-                assert server._runtime_kwargs['auth'] == {"issuer_url": "https://example.auth0.com"}
+                assert hasattr(server, "_runtime_kwargs")
+                assert "auth" in server._runtime_kwargs
+                assert server._runtime_kwargs["auth"] == {"issuer_url": "https://example.auth0.com"}
 
                 # Run server (won't actually start)
                 server.run()
