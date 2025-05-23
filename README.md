@@ -42,10 +42,11 @@ factory.create_auth_provider(
     }
 )
 
-# Create server
+# Create server with configuration file
 server = factory.create_managed_server(
-    config_path="examples/server_config.yaml",
-    auth_provider_id="demo-auth0"
+    config_path="config.yaml",
+    auth_provider_id="demo-auth0",
+    expose_management_tools=True
 )
 
 # Register custom tool
@@ -54,7 +55,7 @@ def add(a: int, b: int) -> int:
     return a + b
 
 # Start server
-server.run(host="0.0.0.0", port=8000)
+server.run()
 ```
 
 ## Configuration
@@ -75,7 +76,7 @@ tools:
   expose_management_tools: true
 ```
 
-> For complete configuration examples, please refer to [examples/advanced_config.yaml](examples/advanced_config.yaml)
+> For complete configuration examples, please refer to [examples/config.example.yaml](examples/config.example.yaml)
 
 ## Advanced Features
 
@@ -91,8 +92,8 @@ print(result)  # Output: Server configuration reloaded (from new_config.yaml)
 
 ```python
 # Create two servers
-server1 = factory.create_managed_server(name="main-server")
-server2 = factory.create_managed_server(name="compute-server")
+server1 = factory.create_managed_server(config_path="main_config.yaml")
+server2 = factory.create_managed_server(config_path="compute_config.yaml")
 
 # Securely mount server
 await server1.mount("compute", server2)
@@ -103,20 +104,19 @@ server1.unmount("compute")
 
 ### Auto-registered Management Tools
 
-When setting `expose_management_tools=True`, the server automatically registers the following management tools:
+When setting `expose_management_tools=True`, the server automatically registers management tools:
 
 ```python
 # Get all auto-registered management tools
 tools = await server.get_tools()
 for tool in tools:
-    if tool.name.startswith("mcp_"):
+    if tool.name.startswith("manage_"):
         print(f"Management Tool: {tool.name} - {tool.description}")
 
 # Example management tools
-await server.mcp_reload_config()  # Reload configuration
-await server.mcp_get_server_info()  # Get server information
-await server.mcp_list_mounted_servers()  # List mounted servers
-await server.mcp_get_auth_config()  # Get authentication configuration
+await server.manage_reload_config()  # Reload configuration
+await server.manage_get_server_info()  # Get server information
+await server.manage_list_mounted_servers()  # List mounted servers
 ```
 
 > **Note**: MCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
@@ -127,10 +127,12 @@ await server.mcp_get_auth_config()  # Get authentication configuration
 # Authentication provider management
 factory.create_auth_provider(provider_id="id", provider_type="auth0", config={})
 factory.list_auth_providers()
+factory.remove_auth_provider("id")
 
 # Server management
 factory.list_servers()
 factory.delete_server("name")
+factory.get_server("name")
 ```
 
 For more examples and complete API documentation, please refer to the `examples/` directory.

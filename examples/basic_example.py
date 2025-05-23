@@ -27,13 +27,18 @@ async def main() -> None:
         config_path = os.path.join(temp_dir, "server_config.yaml")
         
         # Create initial configuration
-        config = {
+        config: Dict[str, Any] = {
             "server": {
                 "name": "demo-server",
                 "instructions": "Basic example server",
                 "host": "localhost",
                 "port": 8080,
                 "debug": True,
+            },
+            "auth": {
+                "issuer_url": "https://example.auth0.com",
+                "client_id": "your-client-id",
+                "audience": "your-api-audience"
             },
             "tools": {
                 "enabled_tools": ["add", "multiply"],
@@ -108,7 +113,8 @@ async def main() -> None:
             print(f"  - {tool}")
         
         # Display enabled tools
-        print(f"Currently enabled tools: {', '.join(config['tools']['enabled_tools'])}")
+        enabled_tools = config["tools"]["enabled_tools"]
+        print(f"Currently enabled tools: {', '.join(enabled_tools)}")
         
         # Simple tool call demonstration
         print("\nTool call demonstration:")
@@ -117,8 +123,15 @@ async def main() -> None:
         
         # Configuration modification demonstration
         print("\nModifying configuration file...")
-        config["tools"]["enabled_tools"].append("divide")
-        config["advanced"]["log_level"] = "DEBUG"
+        tools_config = config["tools"]
+        if isinstance(tools_config, dict) and "enabled_tools" in tools_config:
+            enabled_tools_list = tools_config["enabled_tools"]
+            if isinstance(enabled_tools_list, list):
+                enabled_tools_list.append("divide")
+        
+        advanced_config = config["advanced"]
+        if isinstance(advanced_config, dict):
+            advanced_config["log_level"] = "DEBUG"
         
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f, allow_unicode=True)
@@ -133,15 +146,17 @@ async def main() -> None:
         
         # Check updated tool status
         print("\nTool status after reload:")
-        print(f"Enabled tools: {', '.join(config['tools']['enabled_tools'])}")
+        updated_enabled_tools = config["tools"]["enabled_tools"]
+        print(f"Enabled tools: {', '.join(updated_enabled_tools)}")
         
         # Server composition demonstration
         print("\nServer composition demonstration:")
         server2 = factory.create_managed_server(
+            config_path=config_path,
             name="helper-server",
             instructions="Helper server"
         )
-        await server.mount("helper", server2)
+        server.mount("helper", server2)
         print("Helper server mounted: helper")
         
         # List all servers managed by the factory
