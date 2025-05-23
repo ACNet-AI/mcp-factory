@@ -1,19 +1,19 @@
-# Advanced Configuration Example
+# FastMCP-Factory Configuration Example
 # This configuration file contains all configuration options supported by MCP-Factory, including basic and advanced configurations
 
 # Server Basic Configuration
 server:
-  name: "advanced-mcp-server"  # Server name (constructor parameter)
-  instructions: "MCP server example with advanced configuration"  # Server description (constructor parameter)
-  host: "0.0.0.0"  # HTTP listening address (setting parameter - runtime environment)
+  name: "example-mcp-server"  # Server name (constructor parameter)
+  instructions: "Example MCP server demonstrating FastMCP-Factory configuration options"  # Server description (constructor parameter)
+  host: "localhost"  # HTTP listening address (setting parameter - runtime environment)
   port: 8000  # HTTP listening port (setting parameter - runtime environment)
   transport: "streamable-http"  # Transport protocol (setting parameter - runtime environment)
-  debug: true  # Debug mode (setting parameter - runtime environment)
+  debug: false  # Debug mode (setting parameter - runtime environment)
 
 # Authentication Configuration
 auth:
   # Reference to authentication provider ID (must be created in advance)
-  provider_id: "default-auth0"
+  provider_id: "example-auth0"
   
   # Authentication policies
   policies:
@@ -35,6 +35,8 @@ tools:
   enabled_tools: 
     - "manage_mount"
     - "manage_unmount"
+    - "manage_reload_config"
+    - "manage_get_server_info"
   
   # Custom tools (to be implemented)
   custom_tools: []
@@ -47,7 +49,7 @@ advanced:
   #############################################
   
   # Logging configuration
-  log_level: "DEBUG"  # Log level, options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: "INFO"  # Log level, options: DEBUG, INFO, WARNING, ERROR, CRITICAL
   
   # Duplicate handling strategies
   on_duplicate_tools: "warn"  # Tool duplication handling strategy, options: warn, error, replace, ignore
@@ -61,16 +63,15 @@ advanced:
   # Server tags (for categorizing and identifying servers)
   # Configuration values will be merged with existing tags
   tags:
-    - "production"
-    - "ml-models"
-    - "public-api"
+    - "example"
+    - "demo"
+    - "configurable"
   
   # Server dependencies
   # Configuration values will be merged with existing dependencies
   dependencies:
-    - "pandas"
-    - "numpy"
-    - "tensorflow"
+    - "fastmcp"
+    - "mcp-factory"
 
   #############################################
   # 3. Setting Parameters (Advanced Settings)
@@ -80,7 +81,7 @@ advanced:
   cache_expiration_seconds: 300  # Cache expiration time (seconds)
   
   # HTTP endpoint path configuration
-  sse_path: "/custom-sse"  # SSE endpoint path, applicable for transport="sse"
+  sse_path: "/sse"  # SSE endpoint path, applicable for transport="sse"
   message_path: "/api/messages/"  # Message endpoint path
   streamable_http_path: "/api/mcp"  # HTTP stream endpoint path, applicable for transport="streamable-http"
   
@@ -132,9 +133,9 @@ advanced:
 #############################################
 # 
 # Example of creating an Auth0 authentication provider:
-# ```
+# ```python
 # factory.create_auth_provider(
-#     provider_id="my-auth0",
+#     provider_id="example-auth0",
 #     provider_type="auth0",
 #     config={
 #         "domain": "your-tenant.auth0.com",         # Auth0 domain (required)

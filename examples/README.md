@@ -41,12 +41,12 @@ python -m examples.advanced_example create-auth --id test-auth --type auth0 --do
 python -m examples.advanced_example list-auth
 
 # Create and run advanced server
-python -m examples.advanced_example run-server --config examples/advanced_config.yaml --auth-provider test-auth
+python -m examples.advanced_example run-server --config examples/config.example.yaml --auth-provider test-auth
 
 # List all servers
 python -m examples.advanced_example list-servers
 ```
 
-### 3. advanced_config.yaml
+### 3. config.example.yaml
 
 Complete configuration example file, containing all configuration options supported by FastMCP-Factory with detailed comments. 

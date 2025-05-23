@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Advanced Server Example
+"""FastMCP-Factory Advanced Example
 
-This example demonstrates the advanced features of FastMCP-Factory, including:
-1. Creating and managing authentication providers
-2. Controlling server creation using command line parameters
-3. lifespan - Server lifecycle management
-4. tool_serializer - Custom tool result serialization
-5. tags and dependencies - Server metadata
+This example demonstrates the advanced features of FastMCP-Factory:
+
+1. Custom server lifecycle management
+2. Custom tool result serialization
+3. Server tags and dependencies
+4. Authentication provider management
+5. Command line interface
 
 Usage:
   # Create authentication provider
@@ -16,7 +17,7 @@ Usage:
   python -m examples.advanced_example list-auth
   
   # Create and run advanced server
-  python -m examples.advanced_example run-server --config examples/advanced_config.yaml --auth-provider test-auth
+  python -m examples.advanced_example run-server --config examples/config.example.yaml --auth-provider test-auth
   
   # List all servers
   python -m examples.advanced_example list-servers
@@ -32,7 +33,6 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Set, Union
 
 from mcp_factory import FastMCPFactory
-from mcp_factory.auth import AuthProviderRegistry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

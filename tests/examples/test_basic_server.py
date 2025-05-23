@@ -71,9 +71,6 @@ class TestBasicServerExample:
                 "server": {
                     "name": "config-server",
                     "instructions": "Server created using configuration file",
-                    "host": "127.0.0.1",
-                    "port": 9000,
-                    "transport": "streamable-http",
                     "settings": {
                         "debug": True,
                         "timeout": 30
@@ -93,7 +90,10 @@ class TestBasicServerExample:
                 # Create server using configuration file
                 server = factory.create_managed_server(
                     config_path=config_path,
-                    expose_management_tools=True
+                    expose_management_tools=True,
+                    host="127.0.0.1",
+                    port=9000,
+                    transport="streamable-http",
                 )
                 
                 # Verify server properties
@@ -117,8 +117,6 @@ class TestBasicServerExample:
                 "server": {
                     "name": "managed-server",
                     "instructions": "Server with management tools",
-                    "host": "localhost",
-                    "port": 8080
                 }
             }
             yaml_content = yaml.dump(config)
@@ -140,7 +138,9 @@ class TestBasicServerExample:
                 # Create server with management tools enabled
                 server = factory.create_managed_server(
                     config_path=config_path,
-                    expose_management_tools=True
+                    expose_management_tools=True,
+                    host="localhost",
+                    port=8080,
                 )
                 
                 # Register management tools
@@ -192,8 +192,6 @@ class TestAdvancedServerExample:
                 "server": {
                     "name": "lifespan-server",
                     "instructions": "Server with custom lifecycle",
-                    "host": "localhost",
-                    "port": 8080
                 }
             }
             yaml_content = yaml.dump(config)
