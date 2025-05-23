@@ -3,7 +3,7 @@
 Provides remote invocation, and permission management capabilities.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Export main classes
 # Export parameter utility module for custom server configuration
