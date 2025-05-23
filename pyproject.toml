@@ -1,6 +1,6 @@
 [project]
 name = "mcp-factory"
-version = "0.1.0"
+version = "0.1.1"
 description = "A factory and managed server extension for fastmcp"
 authors = [
   { name = "ACNet-AI", email = "agencollabnet@gmail.com" }
