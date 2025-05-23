@@ -256,7 +256,11 @@ class TestServerManagementTools:
         """Test create management tools wrapper function."""
         # Since the _create_management_wrapper method has been inlined into the registration process,
         # here we test the actual registration and calling functionality of management tools
-        server = ManagedServer(name="test-server", instructions="Test server instructions", expose_management_tools=False)
+        server = ManagedServer(
+            name="test-server",
+            instructions="Test server instructions",
+            expose_management_tools=False,
+        )
 
         # Manually create a simple management tool to test wrapper functionality
         @server.tool(name="test_manage_tool", description="Test management tool")
@@ -278,7 +282,11 @@ class TestServerManagementTools:
     def test_register_special_management_tools(self) -> None:
         """Test register special management tools."""
         # Create a server that doesn't automatically register management tools
-        server = ManagedServer(name="test-server", instructions="Test server instructions", expose_management_tools=False)
+        server = ManagedServer(
+            name="test-server",
+            instructions="Test server instructions",
+            expose_management_tools=False,
+        )
 
         # Get tool count before registration
         tools_before = len(getattr(server._tool_manager, "_tools", {}))
@@ -288,14 +296,18 @@ class TestServerManagementTools:
 
         # Get tool count and tool list after registration
         tools_after = getattr(server._tool_manager, "_tools", {})
-        
+
         # Verify management tools were registered
         assert len(tools_after) > tools_before
-        
+
         # Verify specific extension management tools exist
-        management_tools = [name for name in tools_after.keys() if isinstance(name, str) and name.startswith("manage_")]
+        management_tools = [
+            name
+            for name in tools_after.keys()
+            if isinstance(name, str) and name.startswith("manage_")
+        ]
         assert len(management_tools) > 0
-        
+
         # Verify at least reload_config extension tool exists
         assert "manage_reload_config" in management_tools
 
@@ -305,7 +317,11 @@ class TestServerManagementTools:
 
         # Server has already registered management tools during initialization, get current management tool count
         initial_tools = getattr(server._tool_manager, "_tools", {})
-        initial_mgmt_tools = [name for name in initial_tools.keys() if isinstance(name, str) and name.startswith("manage_")]
+        initial_mgmt_tools = [
+            name
+            for name in initial_tools.keys()
+            if isinstance(name, str) and name.startswith("manage_")
+        ]
         initial_count = len(initial_mgmt_tools)
 
         # Verify management tools actually exist
@@ -319,7 +335,11 @@ class TestServerManagementTools:
 
         # Verify management tools have been cleared
         remaining_tools = getattr(server._tool_manager, "_tools", {})
-        remaining_mgmt_tools = [name for name in remaining_tools.keys() if isinstance(name, str) and name.startswith("manage_")]
+        remaining_mgmt_tools = [
+            name
+            for name in remaining_tools.keys()
+            if isinstance(name, str) and name.startswith("manage_")
+        ]
         assert len(remaining_mgmt_tools) == 0, "All management tools should be cleared"
 
     def test_expose_management_tools(self) -> None:
@@ -542,7 +562,11 @@ class TestServerToolsConfiguration:
 
     def test_apply_tool_enablement(self) -> None:
         """Test apply tools enablement/disablement configuration."""
-        server = ManagedServer(name="test-server", instructions="Test server instructions", expose_management_tools=False)
+        server = ManagedServer(
+            name="test-server",
+            instructions="Test server instructions",
+            expose_management_tools=False,
+        )
 
         # Manually add some test tools
         @server.tool(name="tool1", description="Test tool 1")
@@ -581,7 +605,11 @@ class TestServerToolsConfiguration:
 
     def test_apply_tool_permissions(self) -> None:
         """Test apply tools permissions configuration."""
-        server = ManagedServer(name="test-server", instructions="Test server instructions", expose_management_tools=False)
+        server = ManagedServer(
+            name="test-server",
+            instructions="Test server instructions",
+            expose_management_tools=False,
+        )
 
         # Create test tools (without setting initial annotations, let system handle automatically)
         @server.tool(name="tool1", description="Test tool 1")
@@ -593,7 +621,7 @@ class TestServerToolsConfiguration:
             return "tool2"
 
         # Verify initial state
-        
+
         # Set permission configuration
         server._config = {
             "tools": {
@@ -613,7 +641,7 @@ class TestServerToolsConfiguration:
         updated_tools = getattr(server._tool_manager, "_tools", {})
         assert "tool1" in updated_tools
         assert "tool2" in updated_tools
-        
+
         # Verify tool objects still exist and have annotations attribute
         updated_tool1 = updated_tools["tool1"]
         updated_tool2 = updated_tools["tool2"]
@@ -622,7 +650,11 @@ class TestServerToolsConfiguration:
 
     def test_tools_config_integration(self) -> None:
         """Test tools configuration integration functionality."""
-        server = ManagedServer(name="test-server", instructions="Test server instructions", expose_management_tools=False)
+        server = ManagedServer(
+            name="test-server",
+            instructions="Test server instructions",
+            expose_management_tools=False,
+        )
 
         # Create test tools
         @server.tool(name="tool1", description="Test tool 1")
@@ -651,11 +683,11 @@ class TestServerToolsConfiguration:
 
         # Verify state after configuration application
         tools_after = getattr(server._tool_manager, "_tools", {})
-        
+
         # tool1 should be retained, tool2 should be removed
         assert "tool1" in tools_after
         assert "tool2" not in tools_after
-        
+
         # Verify tool1 object still exists
         tool1_obj = tools_after["tool1"]
         assert tool1_obj is not None

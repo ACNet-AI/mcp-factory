@@ -58,6 +58,7 @@ def create_config_file() -> str:
 
 def register_demo_tools(server: ManagedServer) -> None:
     """Register demo tools"""
+
     @server.tool(name="add", description="Calculate the sum of two numbers")
     def add(a: float, b: float) -> float:
         """Calculate the sum of two numbers"""
@@ -74,11 +75,11 @@ def register_demo_tools(server: ManagedServer) -> None:
 async def get_tools_count(server: ManagedServer) -> tuple[int, int]:
     """Get tools count statistics"""
     tools = await server.get_tools()
-    
+
     # Categorize tools statistics
     management_tools = [tool for tool in tools if str(tool).startswith("manage_")]
     normal_tools = [tool for tool in tools if not str(tool).startswith("manage_")]
-    
+
     return len(management_tools), len(normal_tools)
 
 
@@ -90,7 +91,7 @@ def print_server_status(mgmt_count: int, normal_count: int) -> None:
     print(f"   Business tools: {normal_count} tools")
     print(f"   Total: {mgmt_count + normal_count} tools")
     print("=" * 50)
-    
+
     if mgmt_count > 0:
         print("✅ Management tools registered successfully")
         print("   FastMCP-Factory factory mode working normally")
@@ -103,42 +104,42 @@ def main() -> None:
     """Main function"""
     print("🚀 FastMCP-Factory Demo Server")
     print("=" * 50)
-    
+
     # Create configuration file
     config_path = create_config_file()
     print(f"📝 Configuration file: {config_path}")
-    
+
     # Check port
     host = CONFIG["server"]["host"]
     port = CONFIG["server"]["port"]
-    
+
     if is_port_in_use(host, port):
         print(f"❌ Error: Port {port} is already in use")
         print(f"   Please modify the port setting in {config_path}")
         return
-    
+
     # Create factory and server
     print("🏭 Creating FastMCPFactory instance...")
     factory = FastMCPFactory()
-    
+
     print("🔧 Creating ManagedServer using factory...")
     server = factory.create_managed_server(
         config_path=config_path,
         expose_management_tools=CONFIG["tools"]["expose_management_tools"],
-        **CONFIG["server"]
+        **CONFIG["server"],
     )
-    
+
     # Register demo tools
     print("🛠️  Registering demo tools...")
     register_demo_tools(server)
-    
+
     # Get tools statistics
     print("📊 Counting registered tools...")
     mgmt_count, normal_count = asyncio.run(get_tools_count(server))
-    
+
     # Display server status
     print_server_status(mgmt_count, normal_count)
-    
+
     # Server startup information
     path = CONFIG["advanced"]["streamable_http_path"]
     print(f"\n🌐 Server address: http://{host}:{port}{path}")
@@ -147,14 +148,14 @@ def main() -> None:
     print("   python demo/client.py --mgmt # Management tools mode")
     print("\n⏹️  Press Ctrl+C to stop server")
     print("=" * 50)
-    
+
     # Start server
     try:
         server.run(
             transport=CONFIG["server"]["transport"],
             host=CONFIG["server"]["host"],
             port=CONFIG["server"]["port"],
-            streamable_http_path=path
+            streamable_http_path=path,
         )
     except KeyboardInterrupt:
         print("\n👋 Server stopped")
