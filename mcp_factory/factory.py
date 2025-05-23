@@ -278,6 +278,17 @@ class FastMCPFactory:
             if auth_server_provider:
                 server_params["auth_server_provider"] = auth_server_provider
 
+            # Check if auth_server_provider was passed through override_params
+            if "auth_server_provider" in override_params:
+                server_params["auth_server_provider"] = override_params["auth_server_provider"]
+
+            # If auth_server_provider exists (from any source), also pass auth configuration
+            if "auth_server_provider" in server_params:
+                # Also pass auth configuration (FastMCP 2.3.4+ requirement)
+                auth_config = param_utils.extract_config_section(config, "auth")
+                if auth_config:
+                    server_params["auth"] = auth_config
+
             # 3. Process advanced parameters
             advanced_params = self._process_advanced_params(
                 config=config,

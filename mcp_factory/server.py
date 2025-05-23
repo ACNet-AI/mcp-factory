@@ -7,8 +7,7 @@ of tools and configurations.
 
 import inspect
 import logging
-import warnings
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from fastmcp import FastMCP
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider
@@ -24,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Define common types
 AnyFunction = Callable[..., Any]
-LifespanResultT = TypeVar("LifespanResultT")
 
 
 class ManagedServer(FastMCP):
@@ -59,9 +57,9 @@ class ManagedServer(FastMCP):
         "run_async",
     }
 
-    #######################
+    ############################
     # Initialization
-    #######################
+    ############################
 
     def __init__(
         self,
@@ -76,64 +74,97 @@ class ManagedServer(FastMCP):
         tool_serializer: Optional[Callable[[Any], str]] = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a ManagedServer.
+        """Initialize Managed Server with extended capabilities.
 
         Args:
             name: Server name
             instructions: Server instructions
-            expose_management_tools: Whether to expose FastMCP methods as management tools
-            auth_server_provider: OAuth authentication service provider
+            expose_management_tools: Whether to expose management tools
+            auth_server_provider: OAuth Authorization Server provider
             auth: Authentication configuration
-            lifespan: Server lifespan context manager
-            tags: Set of tags for this server
-            dependencies: List of dependencies for this server
-            tool_serializer: Function to serialize tool results
-            **kwargs: Other parameters, will be used in the run method
-
-        Note: When expose_management_tools=True, it is strongly recommended to configure
-        the auth_server_provider parameter.
+            lifespan: Optional lifespan context manager for the server
+            tags: Tags for this server
+            dependencies: Dependencies for this server
+            tool_serializer: Tool serializer
+            **kwargs: Extra arguments passed to FastMCP
         """
-        # Pass advanced parameters to FastMCP constructor
+        # Check and remove unsupported fastmcp parameters
+        if "streamable_http_path" in kwargs:
+            logger.warning("FastMCP does not support streamable_http_path parameter, removed")
+            kwargs.pop("streamable_http_path")
+
+        # Separate runtime parameters and constructor parameters to avoid FastMCP 2.3.4+ deprecation warnings
+        runtime_params = {}
+        constructor_params = {}
+        
+        # Define runtime parameters (these parameters should be passed during run())
+        runtime_param_names = {
+            'host', 'port', 'transport', 'debug', 'cors_origins',
+            'cors_methods', 'cors_headers', 'cors_credentials',
+            'max_request_size', 'timeout', 'keep_alive'
+        }
+        
+        # Define parameters supported by FastMCP constructor
+        fastmcp_constructor_params = {
+            'cache_expiration_seconds', 'on_duplicate_tools',
+            'on_duplicate_resources', 'on_duplicate_prompts',
+            'resource_prefix_format'
+        }
+        
+        # Define ManagedServer-specific parameters (should not be passed to FastMCP)
+        managed_server_params = {'expose_management_tools'}
+        
+        # Separate parameters
+        for key, value in kwargs.items():
+            if key in runtime_param_names:
+                runtime_params[key] = value
+            elif key in managed_server_params:
+                # ManagedServer-specific parameters, already handled in method parameters, do not pass to FastMCP
+                pass
+            elif key in fastmcp_constructor_params:
+                # Parameters supported by FastMCP constructor
+                constructor_params[key] = value
+            else:
+                # Other unknown parameters, log warning and add to runtime parameters
+                logger.warning(f"Unknown parameter '{key}', treating as runtime parameter")
+                runtime_params[key] = value
+        
+        # Initialize base class (only pass constructor parameters)
+        # FastMCP 2.4.0 requires auth_server_provider and settings.auth to exist together or not exist together
+        # Although there will be deprecation warnings, this is necessary validation
+        auth_settings = {}
+        if auth is not None:
+            auth_settings['auth'] = auth
+        
         super().__init__(
             name=name,
             instructions=instructions,
+            auth_server_provider=auth_server_provider,
             lifespan=lifespan,
             tags=tags,
             dependencies=dependencies,
             tool_serializer=tool_serializer,
+            **constructor_params,
+            **auth_settings,
         )
 
-        # Initialize configuration storage
-        self._config = None
-        self._runtime_kwargs = kwargs.copy()
+        # Initialize configuration
+        self._config = {}
+        self._current_user = None
+        # Save runtime parameters for use during run()
+        self._runtime_kwargs = runtime_params
+        
+        # Also save auth configuration in runtime parameters for backup
+        if auth is not None:
+            self._runtime_kwargs['auth'] = auth
 
-        # Set authentication provider
-        if auth_server_provider:
-            self._auth_server_provider = auth_server_provider
-
-        # Set authentication configuration
-        if auth:
-            self._auth = auth
-
-        # Auto-register management tools
-        has_provider = hasattr(self, "_auth_server_provider") and self._auth_server_provider
-        if expose_management_tools and not has_provider:
-            warnings.warn(
-                "Exposing FastMCP native methods as management tools without authentication. "
-                "This may allow unauthorized users to access sensitive functions. "
-                "While tools are configured to require authentication (requiresAuth=True) and "
-                "administrator privileges (adminOnly=True), these restrictions cannot be enforced "
-                "without a properly configured auth_server_provider parameter.",
-                UserWarning,
-                stacklevel=2,
-            )
-
+        # If expose_management_tools is set, automatically register management tools
         if expose_management_tools:
             self._expose_management_tools()
 
-    #######################
-    # Public Methods
-    #######################
+    ############################
+    # Public Interface Methods
+    ############################
 
     def run(self, transport: Optional[str] = None, **kwargs: Any) -> Any:
         """Run the server with the specified transport.
@@ -154,6 +185,7 @@ class ManagedServer(FastMCP):
 
         # Call the base class run method
         logger.info(f"Starting server with transport: {transport or 'default'}")
+
         if transport:
             return super().run(transport=transport, **runtime_kwargs)
         else:
@@ -215,120 +247,212 @@ class ManagedServer(FastMCP):
             logger.error(error_msg)
             return error_msg
 
-    #######################
-    # Private Methods - Tool Registration
-    #######################
+    ############################
+    # Management Tools Methods
+    ############################
 
     def _expose_management_tools(self) -> None:
-        """Register FastMCP native methods as management tools.
+        """Register management tools in two categories.
 
-        This enables remote management of the server's functionality.
-        All tools are prefixed with "manage_" to allow easy filtering.
+        1. Native management tools: FastMCP native methods
+        2. Extension management tools: Our extended functionality
         """
         try:
-            registered_count = 0
+            logger.info("Starting management tools registration...")
 
-            # Get all members of the current class (including inherited ones)
-            for name, member in inspect.getmembers(self.__class__):
-                # Skip private methods, excluded methods, and non-function members
-                if (
-                    name.startswith("_")
-                    or name in self.EXCLUDED_METHODS
-                    or not inspect.isfunction(member)
-                ):
-                    continue
+            # Register native management tools (FastMCP native methods)
+            native_count = self._register_native_management_tools()
 
-                # Create wrapper functions for native methods and register as tools
-                logger.debug(f"Registering management tool: manage_{name}")
+            # Register extension management tools (our functionality extensions)
+            logger.info("Starting extension management tools registration...")
+            extension_count = 0
 
-                # Get original method signature and create wrapper function
+            # Check if tool already exists
+            tool_name = "manage_reload_config"
+            existing_tools = getattr(self._tool_manager, "_tools", {})
+            if tool_name not in existing_tools:
+                try:
+                    # Create tool function
+                    def reload_func(config_path: Optional[str] = None) -> str:
+                        """Reload server configuration.
+
+                        Args:
+                            config_path: Optional configuration file path
+
+                        Returns:
+                            Result message
+                        """
+                        return self.reload_config(config_path)
+
+                    # Register tool
+                    self.tool(
+                        name=tool_name,
+                        description="Reload server configuration",
+                        annotations=self.MANAGEMENT_TOOL_ANNOTATIONS,
+                    )(reload_func)
+
+                    extension_count = 1
+                    logger.debug(f"Registered extension tool: {tool_name}")
+
+                except Exception as e:
+                    logger.error(f"Failed to register extension tool {tool_name}: {str(e)}")
+            else:
+                logger.warning(f"Extension tool already exists, skipping registration: {tool_name}")
+
+            logger.info(f"Extension management tools registration completed: {extension_count} successful")
+
+            total_count = native_count + extension_count
+
+            logger.info(
+                f"Management tools registration completed: {native_count} native tools, {extension_count} extension tools, {total_count} total"
+            )
+
+        except Exception as e:
+            logger.error(f"Error occurred during management tools registration: {e}")
+            import traceback
+
+            logger.debug(f"Error details: {traceback.format_exc()}")
+
+    def _register_native_management_tools(self) -> int:
+        """Register FastMCP native methods as management tools.
+
+        Returns:
+            Number of successfully registered native tools
+        """
+        logger.info("Starting native management tools registration (FastMCP native methods)...")
+        registered_count = 0
+        failed_count = 0
+
+        # Get all members of FastMCP base class
+        from fastmcp import FastMCP
+
+        for name, member in inspect.getmembers(FastMCP):
+            # Skip private methods, excluded methods, and non-function members
+            if (
+                name.startswith("_")
+                or name in self.EXCLUDED_METHODS
+                or not inspect.isfunction(member)
+            ):
+                continue
+
+            # Check if tool name already exists
+            tool_name = f"manage_{name}"
+            existing_tools = getattr(self._tool_manager, "_tools", {})
+            if tool_name in existing_tools:
+                logger.debug(f"Native tool already exists, skipping registration: {tool_name}")
+                continue
+
+            try:
+                # Try to register directly, let FastMCP handle compatibility itself
+                logger.debug(f"Registering native management tool: {tool_name}")
                 original_func = getattr(self, name)
 
-                # Use custom function wrapper
-                wrapped_func = self._create_management_wrapper(original_func, name)
+                # Try to get function signature, use generic wrapper if failed
+                try:
+                    sig = inspect.signature(original_func)
 
-                # Register as tool (using annotated decorator)
+                    # Create management tool wrapper function
+                    # Get non-self parameters
+                    non_self_params = [p for p in sig.parameters.values() if p.name != "self"]
+                    param_count = len(non_self_params)
+
+                    # Create wrapper based on parameter count
+                    if param_count == 0:
+
+                        def wrapper() -> Any:
+                            return self._execute_wrapped_function(original_func, name, ())
+                    elif param_count == 1:
+
+                        def wrapper(arg1: Any) -> Any:
+                            return self._execute_wrapped_function(original_func, name, (arg1,))
+                    elif param_count == 2:
+
+                        def wrapper(arg1: Any, arg2: Any) -> Any:
+                            return self._execute_wrapped_function(original_func, name, (arg1, arg2))
+                    elif param_count == 3:
+
+                        def wrapper(arg1: Any, arg2: Any, arg3: Any) -> Any:
+                            return self._execute_wrapped_function(
+                                original_func, name, (arg1, arg2, arg3)
+                            )
+                    else:
+                        # For functions with more than 3 parameters, use a generic wrapper
+                        logger.debug(f"Function {name} has {param_count} parameters, using generic wrapper")
+
+                        def wrapper() -> Any:
+                            return self._execute_wrapped_function(original_func, name, ())
+
+                    # Set function metadata
+                    wrapper.__name__ = original_func.__name__
+                    wrapper.__doc__ = original_func.__doc__ or f"Management wrapper for {name}"
+                    wrapper.__module__ = original_func.__module__
+                    wrapped_func = wrapper
+
+                except Exception:
+                    # If unable to get signature, create a simple generic wrapper
+                    def simple_wrapper() -> Any:
+                        return self._execute_wrapped_function(original_func, name, ())
+
+                    simple_wrapper.__name__ = original_func.__name__
+                    simple_wrapper.__doc__ = (
+                        original_func.__doc__ or f"Management wrapper for {name}"
+                    )
+                    simple_wrapper.__module__ = original_func.__module__
+                    wrapped_func = simple_wrapper
+
+                # Register as tool
                 self.tool(
-                    name=f"manage_{name}",
-                    description=f"Management function: {name}",
+                    name=tool_name,
+                    description=f"Native management function: {name}",
                     annotations=self.MANAGEMENT_TOOL_ANNOTATIONS,
                 )(wrapped_func)
 
                 registered_count += 1
 
-            # Additional registration of special management tools
-            self._register_special_management_tools()
+            except Exception as e:
+                logger.warning(f"Failed to register native tool {name}: {str(e)}")
+                failed_count += 1
 
-            logger.info(
-                f"Automatically registered {registered_count} management tools "
-                f"with authentication requirements"
-            )
+        logger.info(f"Native management tools registration completed: {registered_count} successful, {failed_count} failed")
+        return registered_count
 
-        except Exception as e:
-            logger.error(f"Error exposing management tools: {e}")
-
-    def _create_management_wrapper(self, func: AnyFunction, name: str) -> AnyFunction:
-        """Create management tool wrapper function for the original method.
+    def _execute_wrapped_function(self, func: AnyFunction, name: str, args: tuple) -> Any:
+        """Execute wrapped function with common logic
 
         Args:
-            func: Original method
-            name: Method name
+            func: Original function
+            name: Function name
+            args: Parameter tuple
 
         Returns:
-            Wrapped function
+            Function execution result
         """
+        # Get caller information
+        caller_info = ""
+        caller_user = getattr(self, "_current_user", None)
+        if caller_user:
+            caller_info = f" [User: {caller_user.get('id', 'Unknown')}]"
 
-        def wrapped_func(*args: Any, **kwargs: Any) -> Any:
-            # Enhanced audit log
-            caller_info = ""
-            # Try to get caller information (if available)
-            caller_user = getattr(self, "_current_user", None)
-            if caller_user:
-                caller_info = f" [User: {caller_user.get('id', 'Unknown')}]"
+        # Format parameter information
+        if args:
+            args_str = ", ".join(str(arg) for arg in args)
+            logger.info(f"Management tool call: {name}{caller_info} | Parameters: {args_str}")
+        else:
+            logger.info(f"Management tool call: {name}{caller_info} | No parameters")
 
-            # Record detailed log for management tool calls
-            logger.info(f"Management tool call: {name}{caller_info} | Parameters: {args}, {kwargs}")
+        try:
+            # Execute function
+            if args:
+                result = func(self, *args)
+            else:
+                result = func(self)
 
-            try:
-                result = func(*args, **kwargs)
-                # Record execution result log
-                logger.info(f"Management tool {name} executed successfully")
-                return result
-            except Exception as e:
-                # Record execution failure log
-                logger.error(f"Management tool {name} execution failed: {str(e)}")
-                raise
+            logger.info(f"Management tool {name} executed successfully")
+            return result
 
-        # Copy original function signature and docstring
-        wrapped_func.__name__ = func.__name__
-        wrapped_func.__doc__ = func.__doc__
-        wrapped_func.__module__ = func.__module__
-
-        # Return wrapped function
-        return wrapped_func
-
-    def _register_special_management_tools(self) -> None:
-        """Register special management tools.
-
-        These tools are not directly from FastMCP methods, but are specially created for managing the server.
-        """
-
-        # Register reload configuration tool
-        @self.tool(
-            name="manage_reload_config",
-            description="Reload server configuration",
-            annotations=self.MANAGEMENT_TOOL_ANNOTATIONS,
-        )
-        def wrapped_reload_config(config_path: Optional[str] = None) -> str:
-            """Reload server configuration.
-
-            Args:
-                config_path: Optional path to configuration file
-
-            Returns:
-                Result message
-            """
-            return self.reload_config(config_path)
+        except Exception as e:
+            logger.error(f"Management tool {name} execution failed: {str(e)}")
+            raise
 
     def _clear_management_tools(self) -> int:
         """Clear all registered management tools.
@@ -343,7 +467,7 @@ class ManagedServer(FastMCP):
             # Get snapshot of tool list (to avoid modifying set during iteration)
             tool_keys = [
                 name
-                for name in self.__dict__.get("_tools", {}).keys()
+                for name in getattr(self._tool_manager, "_tools", {}).keys()
                 if isinstance(name, str) and name.startswith("manage_")
             ]
 
@@ -366,9 +490,9 @@ class ManagedServer(FastMCP):
             logger.error(f"Error clearing management tools: {e}")
             return 0
 
-    #######################
-    # Private Methods - Configuration Application
-    #######################
+    ############################
+    # Configuration Methods
+    ############################
 
     def _apply_basic_configs(self) -> None:
         """Apply basic configuration parameters (server info and authentication)."""
@@ -427,77 +551,61 @@ class ManagedServer(FastMCP):
         if "enabled_tools" in tools_config:
             enabled_tools = tools_config["enabled_tools"]
             if isinstance(enabled_tools, list):
-                self._apply_tool_enablement(enabled_tools)
+                try:
+                    # Get all non-management tools
+                    all_tools = [
+                        name
+                        for name in getattr(self._tool_manager, "_tools", {}).keys()
+                        if isinstance(name, str) and not name.startswith("manage_")
+                    ]
+
+                    # Find tools to disable (tools not in enabled list)
+                    to_disable = [name for name in all_tools if name not in enabled_tools]
+
+                    # Disable tools
+                    for tool_name in to_disable:
+                        try:
+                            self.remove_tool(tool_name)
+                            logger.debug(f"Disabled tool: {tool_name}")
+                        except Exception as e:
+                            logger.warning(f"Failed to disable tool {tool_name}: {e}")
+
+                    if to_disable:
+                        logger.info(f"Disabled {len(to_disable)} tools based on configuration")
+                except Exception as e:
+                    logger.error(f"Error applying tool enablement: {e}")
 
         # Process tool permissions configuration
         if "tool_permissions" in tools_config:
             tool_permissions = tools_config["tool_permissions"]
             if isinstance(tool_permissions, dict):
-                self._apply_tool_permissions(tool_permissions)
-
-    def _apply_tool_enablement(self, enabled_tools: List[str]) -> None:
-        """Apply tool enablement/disablement configuration.
-
-        Args:
-            enabled_tools: List of enabled tool names, other tools will be disabled
-        """
-        try:
-            # Get all non-management tools
-            all_tools = [
-                name
-                for name in self.__dict__.get("_tools", {}).keys()
-                if isinstance(name, str) and not name.startswith("manage_")
-            ]
-
-            # Find tools to disable (tools not in enabled list)
-            to_disable = [name for name in all_tools if name not in enabled_tools]
-
-            # Disable tools
-            for tool_name in to_disable:
                 try:
-                    self.remove_tool(tool_name)
-                    logger.debug(f"Disabled tool: {tool_name}")
+                    tools_updated = 0
+
+                    # Iterate over permission configuration
+                    for tool_name, permissions in tool_permissions.items():
+                        if not isinstance(permissions, dict):
+                            continue
+
+                        # Get tool
+                        tool = getattr(self._tool_manager, "_tools", {}).get(tool_name)
+                        if not tool:
+                            logger.warning(f"Cannot apply permissions: Tool {tool_name} not found")
+                            continue
+
+                        # Update tool annotations
+                        current_annotations = getattr(tool, "annotations", {}) or {}
+                        updated_annotations = {**current_annotations, **permissions}
+
+                        # Apply updated annotations
+                        setattr(tool, "annotations", updated_annotations)
+                        tools_updated += 1
+                        logger.debug(f"Updated permissions for tool: {tool_name}")
+
+                    if tools_updated:
+                        logger.info(f"Updated permissions for {tools_updated} tools")
                 except Exception as e:
-                    logger.warning(f"Failed to disable tool {tool_name}: {e}")
-
-            if to_disable:
-                logger.info(f"Disabled {len(to_disable)} tools based on configuration")
-        except Exception as e:
-            logger.error(f"Error applying tool enablement: {e}")
-
-    def _apply_tool_permissions(self, tool_permissions: Dict[str, Dict[str, Any]]) -> None:
-        """Apply tool permissions configuration.
-
-        Args:
-            tool_permissions: Mapping of tool names to permission configurations
-        """
-        try:
-            tools_updated = 0
-
-            # Iterate over permission configuration
-            for tool_name, permissions in tool_permissions.items():
-                if not isinstance(permissions, dict):
-                    continue
-
-                # Get tool
-                tool = self.__dict__.get("_tools", {}).get(tool_name)
-                if not tool:
-                    logger.warning(f"Cannot apply permissions: Tool {tool_name} not found")
-                    continue
-
-                # Update tool annotations
-                current_annotations = getattr(tool, "annotations", {}) or {}
-                updated_annotations = {**current_annotations, **permissions}
-
-                # Apply updated annotations
-                setattr(tool, "annotations", updated_annotations)
-                tools_updated += 1
-                logger.debug(f"Updated permissions for tool: {tool_name}")
-
-            if tools_updated:
-                logger.info(f"Updated permissions for {tools_updated} tools")
-        except Exception as e:
-            logger.error(f"Error applying tool permissions: {e}")
+                    logger.error(f"Error applying tool permissions: {e}")
 
     def _apply_advanced_config(self) -> None:
         """Apply advanced configuration parameters.
@@ -507,18 +615,22 @@ class ManagedServer(FastMCP):
         if not self._config:
             return
 
-        # Extract advanced configuration
-        advanced_config = param_utils.extract_config_section(self._config, "advanced")
-        if not advanced_config:
-            return
+        try:
+            # Extract advanced configuration
+            advanced_config = param_utils.extract_config_section(self._config, "advanced")
+            if not advanced_config:
+                return
 
-        # Use tool functions to handle advanced parameters
-        param_utils.apply_advanced_params(self, advanced_config, self._runtime_kwargs)
-        logger.debug("Applied advanced configuration parameters")
+            # Use tool functions to handle advanced parameters
+            param_utils.apply_advanced_params(self, advanced_config, self._runtime_kwargs)
+            logger.debug("Applied advanced configuration parameters")
+        except Exception as e:
+            logger.error(f"Error applying advanced configuration: {e}")
+            # Continue gracefully without crashing the server
 
-    #######################
-    # Private Methods - Runtime Parameter Processing
-    #######################
+    ############################
+    # Runtime Parameter Methods
+    ############################
 
     def _prepare_runtime_params(
         self, transport: Optional[str] = None, **kwargs: Any
@@ -538,10 +650,12 @@ class ManagedServer(FastMCP):
             Tuple: (transport, runtime_kwargs)
         """
         # First, merge saved runtime parameters
-        runtime_kwargs = self._runtime_kwargs.copy()
+        runtime_kwargs = (
+            getattr(self, "_runtime_kwargs", {}).copy() if hasattr(self, "_runtime_kwargs") else {}
+        )
 
         # Next, extract runtime-related parameters from configuration (if any)
-        if self._config:
+        if hasattr(self, "_config") and self._config:
             # Apply server-related runtime parameters (host, port, transport, etc.)
             server_config = param_utils.extract_config_section(self._config, "server")
             for key in ["host", "port", "transport", "debug"]:
@@ -555,23 +669,16 @@ class ManagedServer(FastMCP):
         if not transport:
             transport = runtime_kwargs.pop("transport", None)
 
-        # Add authentication parameters (if any)
-        self._add_auth_params(runtime_kwargs)
+        # Avoid repeated transport parameter passing
+        if "transport" in runtime_kwargs and transport is not None:
+            logger.warning(f"Detected repeated transport parameter, using: {transport}")
+            runtime_kwargs.pop("transport", None)
+
+        # Handle FastMCP base class unsupported advanced parameters
+        if "streamable_http_path" in runtime_kwargs:
+            path = runtime_kwargs.pop("streamable_http_path")
+            logger.warning(
+                f"Removing unsupported parameter streamable_http_path: {path} (note: this parameter does not work in FastMCP)"
+            )
 
         return transport, runtime_kwargs
-
-    def _add_auth_params(self, runtime_kwargs: Dict[str, Any]) -> None:
-        """Add authentication-related parameters to runtime parameters.
-
-        Args:
-            runtime_kwargs: Runtime parameters dictionary
-        """
-        # If there is an authentication service provider, add to runtime parameters
-        if hasattr(self, "_auth_server_provider") and self._auth_server_provider:
-            runtime_kwargs["auth_server_provider"] = self._auth_server_provider
-
-        # If there is an authentication configuration, add to runtime parameters
-        if hasattr(self, "_auth") and self._auth:
-            # Security check: Ensure not overwriting explicitly provided auth_server_provider
-            if "auth_server_provider" not in runtime_kwargs:
-                runtime_kwargs["auth"] = self._auth
