@@ -76,7 +76,7 @@ tools:
   expose_management_tools: true
 ```
 
-> For complete configuration examples, please refer to [examples/config.example.yaml](examples/config.example.yaml)
+> 📋 **[Complete configuration examples](examples/config.example.yaml)** and **[more examples](docs/examples.md)**
 
 ## Advanced Features
 
@@ -121,26 +121,43 @@ await server.manage_list_mounted_servers()  # List mounted servers
 
 > **Note**: MCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
 
-## Common APIs
+## API Reference
 
 ```python
-# Authentication provider management
+# Authentication providers
 factory.create_auth_provider(provider_id="id", provider_type="auth0", config={})
 factory.list_auth_providers()
 factory.remove_auth_provider("id")
 
-# Server management
+# Server management  
 factory.list_servers()
 factory.delete_server("name")
 factory.get_server("name")
 ```
 
-For more examples and complete API documentation, please refer to the `examples/` directory.
+## Command Line Tool
+
+```bash
+# Quick start - no configuration needed
+mcpf quick --name my-server --port 8888
+
+# Or use configuration files
+mcpf template --type simple > server.yaml
+mcpf run server.yaml
+
+# Main commands: template, validate, run, quick, auth, list
+mcpf --help
+```
+
+> 📖 **[CLI Guide](docs/cli-guide.md)** for complete usage and examples
+
+## Documentation
+
+📖 **[Complete Documentation](docs/README.md)** | 💻 **[CLI Guide](docs/cli-guide.md)** | 📝 **[Examples](docs/examples.md)**
 
 ## Roadmap
 
 The following features are planned for future versions:
 
-- **Command Line Tool** - Provide `mcpf` command-line tool to simplify the creation and management of servers and authentication providers
 - **More Authentication Providers** - Add support for various authentication mechanisms such as OAuth2, JWT, etc.
 - **Multi-environment Configuration** - Support configuration management for development, testing, production, and other environments
