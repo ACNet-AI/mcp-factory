@@ -697,4 +697,14 @@ class ManagedServer(FastMCP):
                 f"Removing unsupported parameter streamable_http_path: {path} (note: this parameter does not work in FastMCP)"
             )
 
+        # Remove debug parameter as FastMCP doesn't support it
+        if "debug" in runtime_kwargs:
+            debug_value = runtime_kwargs.pop("debug")
+            logger.debug(
+                f"Removing unsupported debug parameter: {debug_value} (FastMCP uses log_level instead)"
+            )
+            # Convert debug to log_level if needed
+            if debug_value and "log_level" not in runtime_kwargs:
+                runtime_kwargs["log_level"] = "debug"
+
         return transport, runtime_kwargs
