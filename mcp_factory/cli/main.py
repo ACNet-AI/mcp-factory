@@ -192,7 +192,9 @@ def list(ctx: click.Context) -> None:
 
 @cli.command()
 @click.argument("provider_id")
-@click.option("--type", "-t", required=True, type=click.Choice(["auth0"]), help="Authentication provider type")
+@click.option(
+    "--type", "-t", required=True, type=click.Choice(["auth0"]), help="Authentication provider type"
+)
 @click.option("--domain", required=True, help="Auth0 domain")
 @click.option("--client-id", required=True, help="Client ID")
 @click.option("--client-secret", required=True, help="Client secret")
@@ -234,7 +236,9 @@ def auth(
         )
 
         if provider:
-            success_message(f"Authentication provider '{provider_id}' ({type}) created successfully")
+            success_message(
+                f"Authentication provider '{provider_id}' ({type}) created successfully"
+            )
         else:
             error_message("Failed to create authentication provider")
             sys.exit(1)
@@ -311,7 +315,9 @@ def quick_server(
             # Clean up temporary file
             if temp_config_file and os.path.exists(temp_config_file):
                 os.unlink(temp_config_file)
-                verbose_message(f"Cleaned up temporary configuration file: {temp_config_file}", verbose)
+                verbose_message(
+                    f"Cleaned up temporary configuration file: {temp_config_file}", verbose
+                )
 
     except KeyboardInterrupt:
         success_message("\nQuick server stopped")

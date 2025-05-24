@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-05-24
+
+### Added
+- **CLI Tool**: Brand new command-line interface (`mcpf`)
+  - `mcpf template`: Generate configuration templates (minimal/simple/full)
+  - `mcpf validate`: Validate configuration files
+  - `mcpf run`: Run MCP servers
+  - `mcpf quick`: Quickly create and run servers
+  - `mcpf list`: List all servers and authentication providers
+  - `mcpf auth`: Create authentication providers
+- Added `click>=8.0.0` dependency for CLI functionality
+- Complete CLI module structure: `mcp_factory.cli`
+
+### Changed
+- Enabled CLI entry point in pyproject.toml
+- Updated README.md with CLI usage documentation
+
+### Fixed
+- Improved configuration template reuse and user experience optimization
+
 ## [0.1.1] - 2025-05-23
 
 ### Added
