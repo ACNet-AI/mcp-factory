@@ -33,7 +33,9 @@ Welcome to MCP Factory documentation! This contains all the information you need
 
 | Version | Status | Update Date |
 |---------|--------|-------------|
-| v0.1.1 | Current | 2024-12 |
+| v0.2.0 | Current | 2025-05-24 |
+| v0.1.1 | Previous | 2025-05-23 |
+| v0.1.0 | Initial | 2025-05-22 |
 
 ## 🤝 Help Improve Documentation
 

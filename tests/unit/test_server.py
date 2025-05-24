@@ -61,7 +61,8 @@ class TestServerBasicFunctionality:
 
             # Check if parameters were correctly passed
             assert call_args["transport"] == "streamable-http"
-            assert call_args["debug"] is True
+            # debug parameter is converted to log_level by _prepare_runtime_params
+            assert call_args["log_level"] == "debug"
             # host and port are set in constructor, not passed to run method
             # auth_server_provider is set in constructor, not passed to run method
 
@@ -81,7 +82,8 @@ class TestServerBasicFunctionality:
 
             # Check if parameters were correctly passed
             assert "transport" not in call_args
-            assert call_args["debug"] is True
+            # debug parameter is converted to log_level by _prepare_runtime_params
+            assert call_args["log_level"] == "debug"
             # host and port are set in constructor, not passed to run method
 
 
@@ -554,7 +556,9 @@ class TestConfigApplicationMethods:
         assert transport == "streamable-http"
         assert runtime_kwargs["host"] == "override-host"  # Overridden value
         assert runtime_kwargs["port"] == 8000  # Retained value
-        assert runtime_kwargs["debug"] is True  # Overridden value
+        # debug parameter is converted to log_level by _prepare_runtime_params
+        assert runtime_kwargs["log_level"] == "debug"
+        assert "debug" not in runtime_kwargs  # debug should be removed
 
 
 class TestServerToolsConfiguration:
