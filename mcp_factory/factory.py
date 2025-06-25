@@ -524,6 +524,7 @@ class MCPFactory:
 
             # Type cast to satisfy mypy
             from typing import Literal, cast
+
             transport_typed = cast(Literal["stdio", "http", "sse", "streamable-http"], final_transport)
 
             # Run server with appropriate parameters
@@ -742,7 +743,9 @@ class MCPFactory:
             return server
         except Exception as e:
             self._error_handler.handle_error(
-                "Failed to build server instance", e, {"server_name": str(config.get("server", {}).get("name", "unknown"))}
+                "Failed to build server instance",
+                e,
+                {"server_name": str(config.get("server", {}).get("name", "unknown"))},
             )
             raise  # Re-raise exception to maintain type consistency
 

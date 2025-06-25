@@ -370,12 +370,7 @@ def run(ctx: click.Context, config_file: str, transport: str | None, host: str |
         click.echo(f"🚀 Starting server from config: {config_file}")
 
         # Use Factory's run_server method for core logic
-        server_id = factory.run_server(
-            source=config_file,
-            transport=transport,
-            host=host,
-            port=port
-        )
+        server_id = factory.run_server(source=config_file, transport=transport, host=host, port=port)
 
         success_message(f"Server '{server_id}' started successfully!")
 
@@ -520,12 +515,12 @@ def quick(ctx: click.Context) -> None:
     try:
         factory = get_factory(ctx.obj.get("workspace"))
         info_message("Starting quick server...")
-# Create a basic quick server using default configuration
+        # Create a basic quick server using default configuration
         basic_config = {
             "server": {
                 "name": "quick-server",
                 "instructions": "Quick start temporary server for testing",
-                "transport": "stdio"
+                "transport": "stdio",
             }
         }
         server_id = factory.create_server("quick-server", basic_config)
