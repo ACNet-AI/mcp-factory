@@ -56,7 +56,7 @@ class DiscoveredServer:
         """Whether it's a remote HTTP server"""
         return "url" in self.config_template
 
-    def to_server_config(self) -> "ServerConfig":
+    def to_server_config(self) -> ServerConfig:
         """Convert to ServerConfig object"""
         return ServerConfig.from_discovered_server(self)
 
@@ -96,7 +96,7 @@ class ServerConfig:
             self.headers = {}
 
     @classmethod
-    def from_discovered_server(cls, discovered: "DiscoveredServer") -> "ServerConfig":
+    def from_discovered_server(cls, discovered: DiscoveredServer) -> ServerConfig:
         """Create configuration from discovered server"""
         template = discovered.config_template
         return cls(
@@ -111,7 +111,7 @@ class ServerConfig:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ServerConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ServerConfig:
         """Create configuration from dictionary (Agent-friendly interface)"""
         return cls(
             name=data["name"],

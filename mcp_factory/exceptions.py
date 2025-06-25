@@ -46,7 +46,7 @@ class MCPFactoryError(Exception):
 class ConfigurationError(MCPFactoryError):
     """Configuration related exception."""
 
-    def __init__(self, message: str, config_path: str | None = None, **kwargs):
+    def __init__(self, message: str, config_path: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="CONFIG_ERROR", **kwargs)
         if config_path:
             self.details["config_path"] = config_path
@@ -55,7 +55,7 @@ class ConfigurationError(MCPFactoryError):
 class ValidationError(MCPFactoryError):
     """Validation related exception."""
 
-    def __init__(self, message: str, validation_errors: list[str] | None = None, **kwargs):
+    def __init__(self, message: str, validation_errors: list[str] | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="VALIDATION_ERROR", **kwargs)
         if validation_errors:
             self.details["validation_errors"] = validation_errors
@@ -64,7 +64,7 @@ class ValidationError(MCPFactoryError):
 class ServerError(MCPFactoryError):
     """Server related exception."""
 
-    def __init__(self, message: str, server_id: str | None = None, **kwargs):
+    def __init__(self, message: str, server_id: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="SERVER_ERROR", **kwargs)
         if server_id:
             self.details["server_id"] = server_id
@@ -73,7 +73,7 @@ class ServerError(MCPFactoryError):
 class ProjectError(MCPFactoryError):
     """Project related exception."""
 
-    def __init__(self, message: str, project_path: str | None = None, **kwargs):
+    def __init__(self, message: str, project_path: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="PROJECT_ERROR", **kwargs)
         if project_path:
             self.details["project_path"] = project_path
@@ -82,7 +82,7 @@ class ProjectError(MCPFactoryError):
 class MountingError(MCPFactoryError):
     """Server mounting related exception."""
 
-    def __init__(self, message: str, mount_point: str | None = None, **kwargs):
+    def __init__(self, message: str, mount_point: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="MOUNTING_ERROR", **kwargs)
         if mount_point:
             self.details["mount_point"] = mount_point
@@ -91,7 +91,7 @@ class MountingError(MCPFactoryError):
 class BuildError(MCPFactoryError):
     """Project build related exception."""
 
-    def __init__(self, message: str, build_target: str | None = None, **kwargs):
+    def __init__(self, message: str, build_target: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, error_code="BUILD_ERROR", **kwargs)
         if build_target:
             self.details["build_target"] = build_target
@@ -100,11 +100,11 @@ class BuildError(MCPFactoryError):
 class ErrorMetrics:
     """Error metrics collection"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._error_counts: dict[str, int] = {}
         self._error_history: list[dict[str, Any]] = []
 
-    def record_error(self, module: str, operation: str, error_type: str):
+    def record_error(self, module: str, operation: str, error_type: str) -> None:
         """Record error metrics"""
         key = f"{module}.{operation}.{error_type}"
         self._error_counts[key] = self._error_counts.get(key, 0) + 1
@@ -131,7 +131,7 @@ class ErrorMetrics:
             "recent_errors": self._error_history[-10:] if self._error_history else [],
         }
 
-    def reset_metrics(self):
+    def reset_metrics(self) -> None:
         """Reset all metrics"""
         self._error_counts.clear()
         self._error_history.clear()
@@ -187,7 +187,7 @@ class ErrorHandler:
         if reraise:
             self._reraise_as_factory_error(operation, error, context)
 
-    def _log_structured_error(self, operation: str, error: Exception, context: dict[str, Any]):
+    def _log_structured_error(self, operation: str, error: Exception, context: dict[str, Any]) -> None:
         """Log error with structured information"""
         error_data = {
             "module": self.module_name,
@@ -211,7 +211,7 @@ class ErrorHandler:
         # Also log structured data for monitoring systems
         self.logger.debug(f"Structured error data: {error_data}")
 
-    def _reraise_as_factory_error(self, operation: str, error: Exception, context: dict[str, Any]):
+    def _reraise_as_factory_error(self, operation: str, error: Exception, context: dict[str, Any]) -> None:
         """Re-raise error as MCPFactoryError if needed"""
         if isinstance(error, MCPFactoryError):
             # Update operation if not set
@@ -223,30 +223,28 @@ class ErrorHandler:
         error_message = f"{operation} failed: {error!s}"
 
         if "server" in operation.lower() or "server_id" in context:
-            wrapped_error = ServerError(
+            raise ServerError(
                 error_message, server_id=context.get("server_id"), operation=operation, details=context
-            )
+            ) from error
         elif "config" in operation.lower() or "config_path" in context:
-            wrapped_error = ConfigurationError(
+            raise ConfigurationError(
                 error_message, config_path=context.get("config_path"), operation=operation, details=context
-            )
+            ) from error
         elif "project" in operation.lower() or "project_path" in context:
-            wrapped_error = ProjectError(
+            raise ProjectError(
                 error_message, project_path=context.get("project_path"), operation=operation, details=context
-            )
+            ) from error
         elif "mount" in operation.lower() or "mount_point" in context:
-            wrapped_error = MountingError(
+            raise MountingError(
                 error_message, mount_point=context.get("mount_point"), operation=operation, details=context
-            )
+            ) from error
         elif "build" in operation.lower() or "build_target" in context:
-            wrapped_error = BuildError(
+            raise BuildError(
                 error_message, build_target=context.get("build_target"), operation=operation, details=context
-            )
+            ) from error
         else:
             # Default to generic MCPFactoryError
-            wrapped_error = MCPFactoryError(message=error_message, operation=operation, details=context)
-
-        raise wrapped_error from error
+            raise MCPFactoryError(message=error_message, operation=operation, details=context) from error
 
     def get_error_count(self) -> int:
         """Get error count"""
