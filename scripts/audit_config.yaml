@@ -1,0 +1,94 @@
+# MCP Factory Simplified Audit Configuration
+# Reduced complexity while maintaining essential quality checks
+
+metadata:
+  project_name: mcp-factory
+  version: 1.0.0
+  audit_version: 2.0.0
+  description: Simplified module audit configuration
+
+# Global quality standards
+standards:
+  code_quality:
+    min_coverage: 95%
+    max_complexity: 10
+    linting_score: 8.5
+  security:
+    critical_issues: 0
+    high_issues: 3
+  performance:
+    max_build_time: 30s
+
+# Module definitions - simplified structure
+modules:
+  core:
+    priority: critical
+    description: Core factory and server management
+    paths:
+      - "mcp_factory/factory.py"
+      - "mcp_factory/server.py"
+    weight: 40%
+    
+  config:
+    priority: high
+    description: Configuration management system
+    paths:
+      - "mcp_factory/config/"
+    weight: 25%
+    
+  cli:
+    priority: medium
+    description: Command line interface
+    paths:
+      - "mcp_factory/cli/"
+    weight: 20%
+    
+  project:
+    priority: medium
+    description: Project building and templates
+    paths:
+      - "mcp_factory/project/"
+    weight: 15%
+
+# Audit tools configuration
+tools:
+  static_analysis:
+    ruff:
+      enabled: true
+      config: "pyproject.toml"
+    mypy:
+      enabled: true
+      config: "pyproject.toml"
+    bandit:
+      enabled: true
+      args: ["-r", "mcp_factory/", "-f", "json"]
+      
+  testing:
+    pytest:
+      enabled: true
+      coverage_target: 95%
+      timeout: 300s
+      
+  documentation:
+    check_readme: true
+    check_docstrings: true
+
+# Scoring system - simplified
+scoring:
+  weights:
+    functionality: 30%
+    reliability: 25%
+    security: 20%
+    maintainability: 15%
+    performance: 10%
+    
+  thresholds:
+    pass: 75
+    good: 85
+    excellent: 95
+    
+# Report configuration
+reporting:
+  formats: ["markdown", "json"]
+  output_dir: "scripts/reports"
+  include_details: true 

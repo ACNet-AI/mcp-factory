@@ -178,3 +178,31 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# Project-specific ignores
+# Rules to prevent clutter in root directory
+test_*.py
+*_SUMMARY.md
+*_PLAN.md
+*_ANALYSIS.md
+*_REFACTOR*.md
+*_STRUCTURE.md
+KEEP_*.md
+
+# MCP Factory specific
+# Runtime data directory
+.mcp-factory/
+# Server state file (will be in ~/.mcp-factory)
+servers_state.json
+# Default workspace directory for MCPFactory
+workspace/
+# Any workspace directories ending with -workspace
+*-workspace/
+# Development tool outputs
+audit_results/
+scripts/reports/
+.scripts/
+# Test and development artifacts
+*.tmp
+*.bak
+temp_*

@@ -1,1 +1,1 @@
-"""Test package for FastMCP-Factory project."""
+"""Test package for MCP-Factory project."""

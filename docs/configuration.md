@@ -2,6 +2,8 @@
 
 This document provides detailed information about all MCP Factory configuration options.
 
+> 📋 **For Developers**: See [Configuration Architecture](architecture/configuration_architecture.md) for technical implementation details and internal design.
+
 ## 🗂️ Configuration File Structure
 
 ```yaml
@@ -57,13 +59,14 @@ auth:
 
 #### Creating Authentication Provider
 
+> 🔐 **Authentication Setup**: For detailed authentication setup instructions, see [Troubleshooting Guide](troubleshooting.md#authentication-issues).
+
 ```bash
-# Auth0 provider
-mcpf auth production-auth0 \
-  --type auth0 \
-  --domain your-tenant.auth0.com \
-  --client-id "your-client-id" \
-  --client-secret "your-client-secret"
+# Check authentication environment
+mcpf auth check --fastmcp
+
+# See authentication help
+mcpf auth help
 ```
 
 ## 🛠️ Tools Configuration
@@ -118,7 +121,19 @@ advanced:
 
 ## 📝 Configuration Templates
 
-### Minimal Configuration
+### Configuration Templates
+
+> 📝 **Generate Templates**: Use `mcpf config template` command to generate configuration templates automatically.
+
+```bash
+# Generate basic template
+mcpf config template --name my-server --description "My MCP server" -o config.yaml
+
+# Generate template with mount examples
+mcpf config template --name my-server --description "My MCP server" --with-mounts -o config.yaml
+```
+
+#### Minimal Configuration
 
 ```yaml
 server:
@@ -126,19 +141,7 @@ server:
   instructions: "Minimal MCP server"
 ```
 
-### Basic Configuration
-
-```yaml
-server:
-  name: "basic-server"
-  instructions: "Basic MCP server with management tools"
-  port: 8888
-
-tools:
-  expose_management_tools: true
-```
-
-### Production Configuration
+#### Production Configuration
 
 ```yaml
 server:
@@ -162,24 +165,7 @@ advanced:
   timeout: 30
 ```
 
-### Development Configuration
-
-```yaml
-server:
-  name: "dev-server"
-  instructions: "Development MCP server"
-  host: "localhost"
-  port: 8888
-
-tools:
-  expose_management_tools: true
-
-advanced:
-  debug: true
-  cors_origins: ["*"]
-  max_connections: 50
-  timeout: 60
-```
+> 📖 **More Examples**: See [`examples/configs/`](../examples/configs/) directory for complete configuration examples.
 
 ## 🔍 Configuration Validation
 
@@ -187,10 +173,10 @@ advanced:
 
 ```bash
 # Validate configuration file
-mcpf validate config.yaml
+mcpf config validate config.yaml
 
-# Detailed validation information
-mcpf validate config.yaml --verbose
+# Detailed validation with mount checking
+mcpf config validate config.yaml --check-mounts
 ```
 
 ### Common Validation Errors

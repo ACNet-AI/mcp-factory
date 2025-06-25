@@ -1,0 +1,22 @@
+# FastMCP-Factory Basic Server Configuration
+# Basic server configuration - Entry-level example
+
+server:
+  name: "basic-mcp-server"
+  instructions: "This is a basic MCP server example demonstrating FastMCP-Factory core functionality"
+
+# Transport and connection settings
+runtime:
+  transport: "stdio"  # Use standard input/output, suitable for command line tools
+  host: "localhost"
+  port: 8080
+  log_level: "INFO"
+
+# Tool configuration
+tools:
+  expose_management_tools: true  # Expose management tools for debugging convenience
+
+# Advanced settings
+advanced:
+  debug: true
+  on_duplicate_tools: "warn"

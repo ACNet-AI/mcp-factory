@@ -1,0 +1,84 @@
+# FastMCP-Factory Production Configuration
+# Production environment configuration - Enterprise deployment with security, monitoring, and error handling
+
+server:
+  name: "production-mcp-server"
+  instructions: "Production-grade MCP server with complete security, monitoring, and error handling mechanisms"
+
+# Security and authentication configuration
+auth:
+  enabled: true
+  provider: "jwt"
+  jwt:
+    # Production environment should use environment variable configuration
+    # export FASTMCP_AUTH_BEARER_PUBLIC_KEY="your-public-key"
+    # export FASTMCP_AUTH_BEARER_ISSUER="https://your-auth-server.com"
+    verify_signature: true
+    verify_expiration: true
+    leeway: 30  # Clock skew tolerance (seconds)
+
+# Transport and network configuration
+runtime:
+  transport: "streamable-http"
+  host: "0.0.0.0"
+  port: 8080
+  log_level: "WARNING"
+  
+# SSL/TLS configuration (recommended for production)
+ssl:
+  enabled: false  # Should be set to true in production environment
+  cert_file: "/path/to/cert.pem"
+  key_file: "/path/to/key.pem"
+  ca_file: "/path/to/ca.pem"
+
+# Monitoring and health checks
+monitoring:
+  enabled: true
+  health_check_endpoint: "/health"
+  metrics_endpoint: "/metrics"
+  prometheus_enabled: false
+  
+# Error handling and recovery
+error_handling:
+  max_retries: 3
+  retry_delay: 1.0
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 5
+  graceful_shutdown_timeout: 30
+
+# Performance and connection limits
+performance:
+  max_connections: 1000
+  connection_timeout: 30
+  request_timeout: 120
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 1000
+    
+# Logging configuration
+logging:
+  level: "WARNING"
+  format: "json"
+  file: "/var/log/mcp-factory/server.log"
+  rotation: "daily"
+  retention_days: 30
+
+# Tool configuration
+tools:
+  expose_management_tools: false  # Hide management tools in production environment
+  expose_debug_tools: false
+
+# Advanced security settings
+security:
+  cors_enabled: true
+  cors_origins: ["https://your-app.com"]
+  csrf_protection: true
+  content_security_policy: "default-src 'self'"
+  hide_server_headers: true
+  
+# Advanced settings
+advanced:
+  debug: false
+  on_duplicate_tools: "error"  # Strict handling of duplicate tools in production environment
+  cache_enabled: true
+  cache_ttl: 300

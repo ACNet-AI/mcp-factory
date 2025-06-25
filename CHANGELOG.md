@@ -1,59 +1,38 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+This document records all significant changes to the MCP Factory project.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0] - 2025-06-25
 
-## [0.2.0] - 2025-05-24
+### 🎯 Major Refactoring - Stable Release
+- **Architecture Simplification** - Focus on MCP server creation, building and management
+- **Lightweight Design** - Remove complex factory management interfaces, switch to configuration-driven approach
+- **Feature Separation** - Separate factory MCP server application into independent project
 
-### Added
-- **CLI Tool**: Brand new command-line interface (`mcpf`)
-  - `mcpf template`: Generate configuration templates (minimal/simple/full)
-  - `mcpf validate`: Validate configuration files
-  - `mcpf run`: Run MCP servers
-  - `mcpf quick`: Quickly create and run servers
-  - `mcpf list`: List all servers and authentication providers
-  - `mcpf auth`: Create authentication providers
-- Added `click>=8.0.0` dependency for CLI functionality
-- Complete CLI module structure: `mcp_factory.cli`
+### ✨ Core Features
+- **MCPFactory** - Lightweight server factory class
+- **ManagedServer** - Managed server with authentication and permission management support
+- **Project Builder** - Automatically generate MCP project structure
+- **Configuration Management** - YAML-based configuration system
+- **CLI Tools** - Simple and easy-to-use command line interface
 
-### Changed
-- Enabled CLI entry point in pyproject.toml
-- Updated README.md with CLI usage documentation
+### 🔧 Breaking Changes
+- Authentication configuration changed to parameter passing approach
+- Removed authentication provider management methods (such as `create_auth_provider`)
+- Maintain complete authentication and permission checking functionality
 
-### Fixed
-- Improved configuration template reuse and user experience optimization
+---
 
-## [0.1.1] - 2025-05-23
+## Migration Guide
 
-### Added
-- Complete demo examples showing basic and advanced usage patterns
-- Enhanced test coverage with performance benchmarks
+### From 0.x to 1.0.0
+1. Update imports: `from mcp_factory import MCPFactory`
+2. Pass authentication configuration through `auth` parameter or configuration file
+3. For factory server applications, use the independent `mcp-factory-server` project
 
-### Changed
-- Renamed `examples/advanced_config.yaml` to `examples/config.example.yaml` for better naming convention
-- Improved configuration file structure and documentation
-- Updated configuration examples with production-friendly defaults (localhost instead of 0.0.0.0, INFO instead of DEBUG logging)
-- Applied consistent code formatting across all files using ruff
+---
 
-### Fixed
-- Corrected test assertion message from "Detected duplicate transport parameter" to "Detected repeated transport parameter"
-- Adjusted performance test threshold from 0.30 to 0.40 seconds to account for management tools registration overhead
-- Removed unused `AuthProviderRegistry` import from examples
-
-### Improved
-- Enhanced English documentation and internationalization
-- Better code organization and consistency
-- More realistic performance test expectations
-
-## [0.1.0] - 2025-05-22
-
-### Added
-- Initial release of FastMCP-Factory
-- Core factory pattern implementation for FastMCP servers
-- Managed server functionality with automatic tool registration
-- Comprehensive authentication and authorization framework
-- YAML-based configuration management
-- Extensive test suite with >90% coverage
-- Complete documentation and examples 
+## Version Notes
+- **Major version**: Incompatible API changes
+- **Minor version**: Backward-compatible functional additions
+- **Patch version**: Backward-compatible bug fixes 

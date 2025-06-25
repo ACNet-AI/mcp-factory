@@ -1,163 +1,178 @@
-# mcp-factory
+# MCP Factory
 
-[![PyPI](https://img.shields.io/pypi/v/mcp-factory.svg)](https://pypi.org/project/mcp-factory/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/mcp-factory/)
+<div align="center">
 
-A server factory based on [fastmcp](https://github.com/jlowin/fastmcp), supporting automatic registration of methods as tools, remote invocation, and permission-based management.
+![MCP Factory](https://img.shields.io/badge/MCP-Factory-blue?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.11+-green?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
 
-## Features
+**A factory framework focused on MCP server creation and management**
 
-- 🔧 **Auto Tool Registration** - Automatically register FastMCP native methods as callable tools
-- 🚀 **Remote Invocation** - Provide MCP-based remote method invocation
-- 🔐 **Permission Control** - Server management based on authentication mechanisms
-- 🏭 **Factory Pattern** - Batch creation and management of server instances
-- 🔄 **Server Composition** - Support secure server mounting and importing operations
-- 🔁 **Config Hot Reload** - Update configuration without restarting
+</div>
 
-## Installation
+## 🎯 Overview
+
+MCP Factory is a lightweight MCP (Model Context Protocol) server creation factory. It focuses on simplifying the building, configuration and management process of MCP servers, enabling developers to quickly create and deploy MCP servers.
+
+### 🌟 Core Features
+
+- **🏭 Server Factory** - Quickly create and configure MCP server instances
+- **📁 Project Building** - Automatically generate complete MCP project structure
+- **🔧 Configuration Management** - Flexible YAML configuration system
+- **🔗 Server Mounting** - Support multi-server mounting and management
+- **🛠️ CLI Tools** - Simple and easy-to-use command line interface
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
-pip install mcp-factory  # Using pip
-# or
-uv install mcp-factory   # Using uv (recommended)
+pip install mcp-factory
 ```
 
-## Quick Start
+Or using uv:
+
+```bash
+uv add mcp-factory
+```
+
+### Basic Usage
+
+#### 1. Create project using factory
 
 ```python
-from mcp_factory import FastMCPFactory
+from mcp_factory import MCPFactory
 
 # Create factory instance
-factory = FastMCPFactory()
+factory = MCPFactory(workspace_root="./workspace")
 
-# Create authentication provider
-factory.create_auth_provider(
-    provider_id="demo-auth0",
-    provider_type="auth0",
-    config={
-        "domain": "your-domain.auth0.com",
-        "client_id": "your-client-id",
-        "client_secret": "your-client-secret"
-    }
+# Build new MCP project
+project_path = factory.build_project(
+    "my-server", 
+    {"server": {"description": "My first MCP server"}}
 )
 
-# Create server with configuration file
-server = factory.create_managed_server(
-    config_path="config.yaml",
-    auth_provider_id="demo-auth0",
-    expose_management_tools=True
+# Create server instance
+server_id = factory.create_server(
+    name="my-server",
+    source=project_path
+)
+```
+
+#### 2. Directly create managed server
+
+```python
+from mcp_factory import ManagedServer
+
+# Create managed server
+server = ManagedServer(
+    name="example-server",
+    instructions="This is an example server"
 )
 
-# Register custom tool
-@server.tool(description="Calculate the sum of two numbers")
-def add(a: int, b: int) -> int:
-    return a + b
+# Add tools
+@server.tool()
+def hello(name: str) -> str:
+    """Greet the specified user"""
+    return f"Hello, {name}!"
 
-# Start server
+# Run server
 server.run()
 ```
 
-## Configuration
-
-Minimal configuration example:
-
-```yaml
-server:
-  name: "my-mcp-server"
-  instructions: "This is an example MCP server"
-  host: "0.0.0.0"
-  port: 8000
-
-auth:
-  provider_id: "demo-auth0"
-
-tools:
-  expose_management_tools: true
-```
-
-> 📋 **[Complete configuration examples](examples/config.example.yaml)** and **[more examples](docs/examples.md)**
-
-## Advanced Features
-
-### Configuration Hot Reload
-
-```python
-# Reload configuration from specified path
-result = server.reload_config("new_config.yaml")
-print(result)  # Output: Server configuration reloaded (from new_config.yaml)
-```
-
-### Server Composition
-
-```python
-# Create two servers
-server1 = factory.create_managed_server(config_path="main_config.yaml")
-server2 = factory.create_managed_server(config_path="compute_config.yaml")
-
-# Securely mount server
-await server1.mount("compute", server2)
-
-# Unmount server
-server1.unmount("compute")
-```
-
-### Auto-registered Management Tools
-
-When setting `expose_management_tools=True`, the server automatically registers management tools:
-
-```python
-# Get all auto-registered management tools
-tools = await server.get_tools()
-for tool in tools:
-    if tool.name.startswith("manage_"):
-        print(f"Management Tool: {tool.name} - {tool.description}")
-
-# Example management tools
-await server.manage_reload_config()  # Reload configuration
-await server.manage_get_server_info()  # Get server information
-await server.manage_list_mounted_servers()  # List mounted servers
-```
-
-> **Note**: MCP-Factory fully supports the native features of FastMCP, including lifecycle management (lifespan), tool serializers (tool_serializer), etc. Please refer to the FastMCP documentation for details.
-
-## API Reference
-
-```python
-# Authentication providers
-factory.create_auth_provider(provider_id="id", provider_type="auth0", config={})
-factory.list_auth_providers()
-factory.remove_auth_provider("id")
-
-# Server management  
-factory.list_servers()
-factory.delete_server("name")
-factory.get_server("name")
-```
-
-## Command Line Tool
+#### 3. Using CLI tools
 
 ```bash
-# Quick start - no configuration needed
-mcpf quick --name my-server --port 8888
+# Quickly create project
+mcp-factory create my-project
 
-# Or use configuration files
-mcpf template --type simple > server.yaml
-mcpf run server.yaml
-
-# Main commands: template, validate, run, quick, auth, list
-mcpf --help
+# Run from configuration file
+mcp-factory run config.yaml
 ```
 
-> 📖 **[CLI Guide](docs/cli-guide.md)** for complete usage and examples
+## 📁 Project Structure
 
-## Documentation
+```
+mcp-factory/
+├── mcp_factory/           # Core modules
+│   ├── factory.py         # Factory main class
+│   ├── server.py          # Managed server
+│   ├── config/            # Configuration management
+│   ├── project/           # Project building
+│   ├── mounting/          # Server mounting
+│   └── cli/               # Command line tools
+├── examples/              # Usage examples
+├── tests/                 # Test suite
+└── docs/                  # Documentation
+```
 
-📖 **[Complete Documentation](docs/README.md)** | 💻 **[CLI Guide](docs/cli-guide.md)** | 📝 **[Examples](docs/examples.md)**
+## 🛠️ Core Components
 
-## Roadmap
+### MCPFactory
 
-The following features are planned for future versions:
+Factory main class, responsible for creating and managing MCP servers:
 
-- **More Authentication Providers** - Add support for various authentication mechanisms such as OAuth2, JWT, etc.
-- **Multi-environment Configuration** - Support configuration management for development, testing, production, and other environments
+```python
+factory = MCPFactory(workspace_root="./workspace")
+
+# Build project
+project_path = factory.build_project("server-name", config_dict)
+
+# Create server
+server_id = factory.create_server("server-name", source)
+
+# Manage servers
+servers = factory.list_servers()
+```
+
+### ManagedServer
+
+Managed server class, providing complete MCP server functionality:
+
+```python
+server = ManagedServer(name="my-server")
+
+# Add tools
+@server.tool()
+def my_tool(param: str) -> str:
+    return f"Processing: {param}"
+
+# Run server
+server.run()
+```
+
+## 📚 Examples
+
+Check the [examples/](examples/) directory for more usage examples:
+
+- [Basic Server](examples/basic_server.py) - Create simple MCP server
+- [Factory Complete Example](examples/factory_complete.py) - Complete workflow using factory
+- [Server Mounting](examples/mounting_servers.py) - Multi-server mounting
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest
+
+# Generate coverage report
+pytest --cov=mcp_factory
+```
+
+## 📖 Documentation
+
+- [Configuration Guide](docs/configuration.md)
+- [CLI Usage Guide](docs/cli-guide.md)
+- [Architecture Documentation](docs/architecture/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please check our contribution guidelines.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+> **Note**: This is the stable version of MCP Factory (v1.0.0), focusing on core factory functionality. If you need more advanced features like authentication, remote calls, etc., please consider using the [mcp-factory-server](https://github.com/ACNet-AI/mcp-factory-server) project. 
