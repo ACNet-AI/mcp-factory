@@ -16,7 +16,13 @@ from typing import Any
 
 import yaml
 
-from .dependency_checker import DependencyChecker
+# Add current directory to path and import local module
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
+# Local import - placed after path setup
+from dependency_checker import DependencyChecker  # noqa: E402  # type: ignore[import-untyped]
 
 
 class AuditRunner:

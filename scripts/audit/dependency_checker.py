@@ -7,6 +7,7 @@ Centralizes dependency checking logic to eliminate code duplication
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 
 class DependencyChecker:
@@ -71,13 +72,13 @@ class DependencyChecker:
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             return False, str(e)
 
-    def check_all_dependencies(self) -> dict[str, dict[str, any]]:
+    def check_all_dependencies(self) -> dict[str, dict[str, Any]]:
         """Check all required dependencies
 
         Returns:
             Dictionary with dependency check results
         """
-        results = {"python": {}, "tools": {}, "summary": {}}
+        results: dict[str, dict[str, Any]] = {"python": {}, "tools": {}, "summary": {}}
 
         # Check Python version
         py_compatible, py_version = self.check_python_version()
@@ -213,7 +214,7 @@ class DependencyChecker:
         return guide
 
 
-def main():
+def main() -> None:
     """Main function for standalone usage"""
     import argparse
 
