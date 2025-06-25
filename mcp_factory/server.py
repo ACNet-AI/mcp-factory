@@ -162,103 +162,10 @@ class ManagedServer(FastMCP):
 
     def _get_management_methods(self) -> dict[str, dict[str, Any]]:
         """Get management method configuration dictionary."""
-        return {
-            # Query methods (4) - Safe, read-only operations
-            "get_tools": {
-                "description": "Get all registered tools on the server",
-                "async": True,
-                "title": "View tool list",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_resources": {
-                "description": "Get all registered resources on the server",
-                "async": True,
-                "title": "View resource list",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_resource_templates": {
-                "description": "Get all registered resource templates on the server",
-                "async": True,
-                "title": "View resource templates",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_prompts": {
-                "description": "Get all registered prompts on the server",
-                "async": True,
-                "title": "View prompt templates",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            # Server composition management (3) - High-risk operations
-            "mount": {
-                "description": "Mount another FastMCP server to the current server",
-                "async": False,
-                "title": "Mount server",
-                "annotation_type": "external",
-                "tags": {"admin", "external", "dangerous", "composition"},
-                "enabled": True,
-            },
-            "unmount": {
-                "description": "Unmount a mounted server",
-                "async": False,
-                "title": "Unmount server",
-                "annotation_type": "destructive",
-                "tags": {"admin", "destructive", "dangerous", "composition"},
-                "enabled": True,
-            },
-            "import_server": {
-                "description": "Import all tools and resources from another FastMCP server",
-                "async": True,
-                "title": "Import server",
-                "annotation_type": "external",
-                "tags": {"admin", "external", "dangerous", "composition"},
-                "enabled": True,
-            },
-            # Dynamic management (4) - Medium risk operations
-            "add_tool": {
-                "description": "Dynamically add tool to server",
-                "async": False,
-                "title": "Add tool",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "remove_tool": {
-                "description": "Remove specified tool from server",
-                "async": False,
-                "title": "Remove tool",
-                "annotation_type": "destructive",
-                "tags": {"admin", "destructive", "dangerous", "dynamic"},
-                "enabled": True,
-            },
-            "add_resource": {
-                "description": "Dynamically add resource to server",
-                "async": False,
-                "title": "Add resource",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "add_prompt": {
-                "description": "Dynamically add prompt to server",
-                "async": False,
-                "title": "Add prompt template",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            # Meta management tools (4) - Manage management tools themselves
+
+        # Custom management methods (defined in ManagedServer class, guaranteed to exist)
+        self_implemented_methods = {
+            # Meta management tools - Manage management tools themselves
             "get_management_tools_info": {
                 "description": "Get information and status of currently registered management tools",
                 "async": False,
@@ -295,7 +202,6 @@ class ManagedServer(FastMCP):
                 "tags": {"admin", "destructive", "dangerous", "meta", "emergency"},
                 "enabled": True,
             },
-            # Tool management (2) - fastmcp 2.8.0 new features
             "toggle_management_tool": {
                 "description": "Dynamically enable/disable specified management tool",
                 "async": False,
@@ -312,7 +218,122 @@ class ManagedServer(FastMCP):
                 "tags": {"readonly", "safe", "meta", "query"},
                 "enabled": True,
             },
-            # Tool Transformation management tool (1) - fastmcp 2.8.0 new feature
+        }
+
+        # FastMCP native methods (inherited from FastMCP, need existence check)
+        fastmcp_native_methods = {
+            # Query methods - Safe, read-only operations
+            "get_tools": {
+                "description": "Get all registered tools on the server",
+                "async": True,
+                "title": "View tool list",
+                "annotation_type": "readonly",
+                "no_params": True,
+                "tags": {"readonly", "safe", "query"},
+                "enabled": True,
+            },
+            "get_resources": {
+                "description": "Get all registered resources on the server",
+                "async": True,
+                "title": "View resource list",
+                "annotation_type": "readonly",
+                "no_params": True,
+                "tags": {"readonly", "safe", "query"},
+                "enabled": True,
+            },
+            "get_resource_templates": {
+                "description": "Get all registered resource templates on the server",
+                "async": True,
+                "title": "View resource templates",
+                "annotation_type": "readonly",
+                "no_params": True,
+                "tags": {"readonly", "safe", "query"},
+                "enabled": True,
+            },
+            "get_prompts": {
+                "description": "Get all registered prompts on the server",
+                "async": True,
+                "title": "View prompt templates",
+                "annotation_type": "readonly",
+                "no_params": True,
+                "tags": {"readonly", "safe", "query"},
+                "enabled": True,
+            },
+            # Server composition management - High-risk operations
+            "mount": {
+                "description": "Mount another FastMCP server to the current server",
+                "async": False,
+                "title": "Mount server",
+                "annotation_type": "external",
+                "tags": {"admin", "external", "dangerous", "composition"},
+                "enabled": True,
+            },
+            "import_server": {
+                "description": "Import all tools and resources from another FastMCP server",
+                "async": True,
+                "title": "Import server",
+                "annotation_type": "external",
+                "tags": {"admin", "external", "dangerous", "composition"},
+                "enabled": True,
+            },
+            # Dynamic management - Medium risk operations
+            "add_tool": {
+                "description": "Dynamically add tool to server",
+                "async": False,
+                "title": "Add tool",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "dynamic"},
+                "enabled": True,
+            },
+            "remove_tool": {
+                "description": "Remove specified tool from server",
+                "async": False,
+                "title": "Remove tool",
+                "annotation_type": "destructive",
+                "tags": {"admin", "destructive", "dangerous", "dynamic"},
+                "enabled": True,
+            },
+            "add_resource": {
+                "description": "Dynamically add resource to server",
+                "async": False,
+                "title": "Add resource",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "dynamic"},
+                "enabled": True,
+            },
+            "add_prompt": {
+                "description": "Dynamically add prompt to server",
+                "async": False,
+                "title": "Add prompt template",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "dynamic"},
+                "enabled": True,
+            },
+            "add_template": {
+                "description": "Add a resource template to the server",
+                "async": False,
+                "title": "Add resource template",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "dynamic"},
+                "enabled": True,
+            },
+            "add_resource_fn": {
+                "description": "Add a resource or template to the server from a function",
+                "async": False,
+                "title": "Add resource from function",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "dynamic", "advanced"},
+                "enabled": True,
+            },
+            "add_middleware": {
+                "description": "Add middleware to the server",
+                "async": False,
+                "title": "Add middleware",
+                "annotation_type": "modify",
+                "tags": {"admin", "modify", "middleware", "advanced"},
+                "enabled": True,
+            },
+            # Tool Transformation - FastMCP 2.8.0+ feature
             "transform_tool": {
                 "description": "Transform existing tools using official Tool Transformation API. Use manage_get_tools to view transformable tool list.",
                 "async": False,
@@ -322,6 +343,17 @@ class ManagedServer(FastMCP):
                 "enabled": True,
             },
         }
+
+        # Merge methods: custom management methods + existing FastMCP native methods
+        result = self_implemented_methods.copy()
+
+        for method_name, config in fastmcp_native_methods.items():
+            if hasattr(self, method_name) and callable(getattr(self, method_name)):
+                result[method_name] = config
+            else:
+                logger.debug(f"FastMCP method '{method_name}' not available in current version, skipping")
+
+        return result
 
     # =============================================================================
     # Tool Creation Main Logic

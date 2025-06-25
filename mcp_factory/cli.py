@@ -497,7 +497,19 @@ def build(ctx: click.Context, config_file: str) -> None:
     """Build project"""
     try:
         factory = get_factory(ctx.obj.get("workspace"))
-        project_path = factory.build_project(config_file)
+
+        # Load configuration from file
+        from .config.manager import load_config_file
+        config_dict = load_config_file(config_file)
+
+        # Extract project name from config or use filename
+        project_name = config_dict.get("server", {}).get("name")
+        if not project_name:
+            # Use filename without extension as project name
+            from pathlib import Path
+            project_name = Path(config_file).stem
+
+        project_path = factory.build_project(project_name, config_dict)
         success_message(f"Project build completed: {project_path}")
 
     except Exception as e:
