@@ -1,0 +1,64 @@
+# FastMCP-Factory Server Mounting Configuration
+# Server mounting configuration - External MCP server integration and microservice architecture
+
+server:
+  name: "mounting-demo-server"
+  instructions: "Server demonstrating external MCP server mounting and microservice architecture"
+
+# External MCP server configuration
+mcpServers:
+  # Local script server
+  weather-service:
+    command: "python"
+    args: ["-c", "print('Weather service running')"]
+    env:
+      API_KEY: "demo-api-key"
+      DEBUG: "true"
+    transport: "stdio"
+    timeout: 30.0
+    prefix: "weather"
+    
+  # File system server
+  filesystem-service:
+    command: "python"
+    args: ["-m", "http.server", "8081"]
+    env:
+      PORT: "8081"
+    transport: "stdio"
+    timeout: 60.0
+    prefix: "fs"
+    
+  # Remote HTTP server (example)
+  remote-api-service:
+    url: "https://httpbin.org/json"
+    transport: "sse"
+    timeout: 30.0
+    prefix: "api"
+    headers:
+      User-Agent: "FastMCP-Factory-Demo"
+
+# Mounting options
+mounting:
+  auto_start: true
+  health_check: true
+  health_check_interval: 60
+  restart_on_failure: true
+  prefix_tools: true
+
+# Transport settings
+runtime:
+  transport: "streamable-http"
+  host: "localhost"
+  port: 8082
+  log_level: "INFO"
+
+# Tool configuration
+tools:
+  expose_management_tools: true
+  expose_mounting_tools: true
+
+# Advanced settings
+advanced:
+  debug: true
+  max_connections: 50
+  timeout: 45

@@ -35,10 +35,10 @@ mcpf quick --name hello-world --port 8888
 ### Method 2: Use Python API
 
 ```python
-from mcp_factory import FastMCPFactory
+from mcp_factory import MCPFactory
 
 # Create factory
-factory = FastMCPFactory()
+factory = MCPFactory()
 
 # Generate minimal configuration
 config_content = '''

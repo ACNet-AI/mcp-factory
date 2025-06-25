@@ -1,0 +1,48 @@
+# Test external server configuration file
+# Used for unit tests and integration tests of servers module
+
+mcpServers:
+  # Local server example
+  weather-server:
+    command: "python"
+    args: ["-m", "weather_mcp"]
+    env:
+      API_KEY: "test-api-key"
+      DEBUG: "true"
+    transport: "stdio"
+    timeout: 30.0
+
+  filesystem-server:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    transport: "stdio"
+    timeout: 60.0
+
+  # Remote server example
+  remote-api-server:
+    url: "http://localhost:8080/mcp"
+    transport: "sse"
+    headers:
+      Authorization: "Bearer test-token"
+      Content-Type: "application/json"
+    timeout: 30.0
+
+  # WebSocket server example
+  websocket-server:
+    url: "ws://localhost:9090/mcp"
+    transport: "websocket"
+    timeout: 45.0
+
+  # Local server with environment variables
+  database-server:
+    command: "python"
+    args: ["-m", "database_mcp"]
+    env:
+      DB_HOST: "localhost"
+      DB_PORT: "5432"
+      DB_NAME: "testdb"
+      DB_USER: "testuser"
+      DB_PASSWORD: "testpass"
+    transport: "stdio"
+    cwd: "/opt/database_mcp"
+    timeout: 120.0

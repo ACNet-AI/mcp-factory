@@ -1,0 +1,13 @@
+server:
+  name: demo-server
+  instructions: FastMCP-Factory demo server providing calculation functionality and management tools
+
+transport:
+  transport: streamable-http
+  host: localhost
+  port: 8888
+  log_level: INFO
+  path: /api/mcp
+
+management:
+  expose_management_tools: true

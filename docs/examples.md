@@ -8,49 +8,71 @@ This page provides example code and usage tutorials for MCP Factory to help you 
 
 ### 🚀 Basic Examples
 
-**File**: [`examples/basic_example.py`](../examples/basic_example.py)
+**File**: [`examples/basic_server.py`](../examples/basic_server.py)
 
 Demonstrates core functionality:
 - Creating and managing servers
-- Registering and using tools
-- Configuration hot reloading
-- Mounting sub-servers
-- Authentication providers
+- Basic server configuration
+- Simple tool registration
 
 ```bash
 # Run basic example
-python -m examples.basic_example
+python -m examples.basic_server
 ```
 
-### 🔧 Advanced Examples
+### 🏭 Factory Complete Example
 
-**File**: [`examples/advanced_example.py`](../examples/advanced_example.py)
+**File**: [`examples/factory_complete.py`](../examples/factory_complete.py)
 
-Demonstrates advanced functionality:
-- Command-line interface
-- Authentication provider management
-- Lifecycle management
-- Custom tool serialization
-- Tags and dependency management
+Demonstrates advanced factory functionality:
+- Complete server lifecycle management
+- Configuration hot reloading
+- Component discovery and registration
+- Server mounting capabilities
 
 ```bash
-# Create authentication provider
-python -m examples.advanced_example create-auth \
-  --id test-auth --type auth0 \
-  --domain example.auth0.com \
-  --client-id xxxx --client-secret xxxx
+# Run factory complete example
+python -m examples.factory_complete
+```
 
-# Run advanced server
-python -m examples.advanced_example run-server \
-  --config examples/config.example.yaml \
-  --auth-provider test-auth
+### 🚀 Production Ready Example
+
+**File**: [`examples/production_ready.py`](../examples/production_ready.py)
+
+Demonstrates production deployment features:
+- Authentication integration
+- Advanced configuration management
+- Error handling and monitoring
+- Performance optimization
+
+```bash
+# Run production ready example
+python -m examples.production_ready
+```
+
+### 🔗 Server Mounting Example
+
+**File**: [`examples/mounting_servers.py`](../examples/mounting_servers.py)
+
+Demonstrates server composition:
+- External MCP server mounting
+- Multi-server coordination
+- Routing and management
+
+```bash
+# Run mounting example
+python -m examples.mounting_servers
 ```
 
 ### 📄 Configuration Examples
 
-**File**: [`examples/config.example.yaml`](../examples/config.example.yaml)
+**Directory**: [`examples/configs/`](../examples/configs/)
 
-Complete configuration file template with all supported configuration options and detailed comments.
+Complete configuration file examples with different use cases:
+- `basic.yaml` - Minimal configuration
+- `factory.yaml` - Factory-specific features
+- `mounting.yaml` - Server mounting configuration
+- `production.yaml` - Production deployment settings
 
 ## 📚 Tutorial Scenarios
 
@@ -58,20 +80,20 @@ Complete configuration file template with all supported configuration options an
 
 #### 1. First Server
 ```bash
-# Quick start
-mcpf quick --name my-first-server --port 8888
+# Interactive project creation
+mcpf project quick
 
-# Or use configuration file
-mcpf template --type minimal > server.yaml
-mcpf run server.yaml
+# Or using configuration template
+mcpf config template --name my-first-server --description "My first server" -o server.yaml
+mcpf server run server.yaml
 ```
 
 #### 2. Adding Custom Tools
 ```python
-from mcp_factory import FastMCPFactory
+from mcp_factory import MCPFactory
 
-factory = FastMCPFactory()
-server = factory.create_managed_server("config.yaml")
+factory = MCPFactory()
+server = factory.create_server("my-server", "config.yaml")
 
 @server.tool(description="Calculate the sum of two numbers")
 def add(a: int, b: int) -> int:
@@ -82,6 +104,8 @@ server.run()
 ```
 
 #### 3. Configure Management Tools
+> 📖 **Configuration Details**: See [Configuration Reference](configuration.md) for complete configuration options.
+
 ```yaml
 # config.yaml
 server:
@@ -94,24 +118,16 @@ tools:
 
 ### 🔐 Authentication Configuration Scenarios
 
-#### 1. Create Auth0 Authentication
-```bash
-# Create using CLI
-mcpf auth production-auth \
-  --type auth0 \
-  --domain your-tenant.auth0.com \
-  --client-id "your-client-id" \
-  --client-secret "your-client-secret"
-```
+> 📖 **Authentication Setup**: For detailed authentication configuration, see [Configuration Reference](configuration.md#authentication-configuration).
 
-#### 2. Use Authentication in Configuration
+#### 1. Basic Authentication Setup
 ```yaml
 server:
   name: "secure-server"
   instructions: "Authenticated MCP server"
 
 auth:
-  provider_id: "production-auth"
+  provider_id: "my-auth-provider"
 
 tools:
   expose_management_tools: true
@@ -119,34 +135,15 @@ tools:
 
 ### 🏗️ Production Deployment Scenarios
 
-#### 1. Production Configuration
-```yaml
-server:
-  name: "production-mcp-server"
-  instructions: "Production ready MCP server"
-  host: "0.0.0.0"
-  port: 8080
+> 📖 **Production Configuration**: See [Configuration Reference](configuration.md#production-configuration) for complete production settings.
 
-auth:
-  provider_id: "production-auth0"
-
-tools:
-  expose_management_tools: true
-
-advanced:
-  debug: false
-  cors_origins: ["https://your-app.com"]
-  max_connections: 500
-  timeout: 30
-```
-
-#### 2. Deployment Commands
+#### 1. Deployment Commands
 ```bash
 # Validate configuration
-mcpf validate production.yaml
+mcpf config validate production.yaml
 
 # Start production server
-mcpf run production.yaml --host 0.0.0.0 --port 8080
+mcpf server run production.yaml
 ```
 
 ### 🔄 Server Composition Scenarios
@@ -154,10 +151,10 @@ mcpf run production.yaml --host 0.0.0.0 --port 8080
 #### 1. Create Multiple Servers
 ```python
 # Main server
-main_server = factory.create_managed_server("main-config.yaml")
+main_server = factory.create_server("main-server", "main-config.yaml")
 
 # Compute server
-compute_server = factory.create_managed_server("compute-config.yaml")
+compute_server = factory.create_server("compute-server", "compute-config.yaml")
 
 # Mount compute server to main server
 await main_server.mount("compute", compute_server)
@@ -192,18 +189,29 @@ curl -X POST http://localhost:8080/api/mcp \
 ### Configuration Validation
 ```bash
 # Validate configuration file
-mcpf validate config.yaml
+mcpf config validate config.yaml
 
-# Detailed validation information
-mcpf validate config.yaml --verbose
+# Detailed validation with mount checking
+mcpf config validate config.yaml --check-mounts
 ```
+
+## 📖 Additional Resources
+
+- [Getting Started Guide](getting-started.md) - Step-by-step setup instructions
+- [Configuration Reference](configuration.md) - Complete configuration documentation
+- [CLI Guide](cli-guide.md) - Command-line tool usage
+- [Architecture Overview](architecture/README.md) - System architecture documentation
+
+> 💡 **Tip**: Start with the basic examples and gradually explore more advanced features. Each example includes detailed comments explaining the key concepts.
 
 ## 📋 Example Comparison
 
 | Example | Difficulty | Main Features | Use Case |
 |---------|------------|---------------|----------|
-| `basic_example.py` | 🟢 Simple | Core functionality demo | Learning basic concepts |
-| `advanced_example.py` | 🟠 Medium | CLI + advanced features | Production applications |
+| `basic_server.py` | 🟢 Simple | Core functionality demo | Learning basic concepts |
+| `factory_complete.py` | 🟠 Medium | CLI + advanced features | Production applications |
+| `production_ready.py` | 🟠 Medium | CLI + advanced features | Production applications |
+| `mounting_servers.py` | 🟠 Medium | CLI + advanced features | Production applications |
 | CLI Quick Start | 🟢 Simple | One-click startup | Quick testing |
 | Configuration File Mode | 🟡 Normal | Structured configuration | Formal development |
 

@@ -1,522 +1,558 @@
-"""Unit test module for authentication-related components."""
+"""Authentication system unit tests"""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, patch
 
-import pytest
+from mcp_factory.auth import (
+    ANNOTATION_TO_SCOPE_MAPPING,
+    SCOPE_DESCRIPTIONS,
+    PermissionCheckResult,
+    check_annotation_type,
+    check_permission_disabled,
+    check_scopes,
+    format_permission_error,
+    get_all_available_scopes,
+    get_current_user_info,
+    get_required_scopes,
+    require_annotation_type,
+    require_scopes,
+)
 
-from mcp_factory.auth.auth0 import Auth0Provider
 
+class TestPermissionCheckResult:
+    """Test permission check result data structure"""
 
-class TestAuth0Provider:
-    """Test Auth0Provider authentication provider."""
-
-    def test_provider_initialization(self) -> None:
-        """Test Auth0Provider initialization parameter settings."""
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-            audience="https://example.auth0.com/api/v2/",
+    def test_permission_check_result_creation(self):
+        """Test permission check result creation"""
+        result = PermissionCheckResult(
+            allowed=True,
+            user_id="test-user",
+            user_scopes=["mcp:read"],
+            required_scopes=["mcp:read"],
+            missing_scopes=[],
+            message="Access allowed",
         )
 
-        # Verify initialization parameters
-        assert provider.domain == "example.auth0.com"
-        assert provider.client_id == "client_id_example"
-        assert provider.client_secret == "client_secret_example"
-        assert provider.audience == "https://example.auth0.com/api/v2/"
-        assert provider.token_url == "https://example.auth0.com/oauth/token"
-        assert provider.userinfo_url == "https://example.auth0.com/userinfo"
+        assert result.allowed is True
+        assert result.user_id == "test-user"
+        assert result.user_scopes == ["mcp:read"]
+        assert result.required_scopes == ["mcp:read"]
+        assert result.missing_scopes == []
+        assert result.message == "Access allowed"
 
-        # Test default audience value (when not provided)
-        provider_default_audience = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
+    def test_permission_check_result_defaults(self):
+        """Test permission check result defaults"""
+        result = PermissionCheckResult(allowed=False)
+
+        assert result.allowed is False
+        assert result.user_id is None
+        assert result.user_scopes is None
+        assert result.required_scopes is None
+        assert result.missing_scopes is None
+        assert result.message == ""
+
+
+class TestMappingConstants:
+    """Test permission mapping constants"""
+
+    def test_annotation_to_scope_mapping(self):
+        """Test annotation type to scope mapping"""
+        assert "readonly" in ANNOTATION_TO_SCOPE_MAPPING
+        assert "modify" in ANNOTATION_TO_SCOPE_MAPPING
+        assert "destructive" in ANNOTATION_TO_SCOPE_MAPPING
+        assert "external" in ANNOTATION_TO_SCOPE_MAPPING
+
+        # Verify permission escalation
+        assert ANNOTATION_TO_SCOPE_MAPPING["readonly"] == ["mcp:read"]
+        assert ANNOTATION_TO_SCOPE_MAPPING["modify"] == ["mcp:read", "mcp:write"]
+        assert ANNOTATION_TO_SCOPE_MAPPING["destructive"] == ["mcp:read", "mcp:write", "mcp:admin"]
+        assert ANNOTATION_TO_SCOPE_MAPPING["external"] == ["mcp:read", "mcp:write", "mcp:admin", "mcp:external"]
+
+    def test_scope_descriptions(self):
+        """Test scope descriptions"""
+        assert "mcp:read" in SCOPE_DESCRIPTIONS
+        assert "mcp:write" in SCOPE_DESCRIPTIONS
+        assert "mcp:admin" in SCOPE_DESCRIPTIONS
+        assert "mcp:external" in SCOPE_DESCRIPTIONS
+
+        # Verify descriptions are not empty
+        for _scope, description in SCOPE_DESCRIPTIONS.items():
+            assert isinstance(description, str)
+            assert len(description) > 0
+
+
+class TestCurrentUserInfo:
+    """Test current user info retrieval"""
+
+    @patch("mcp_factory.auth.get_access_token")
+    def test_get_current_user_info_with_token(self, mock_get_token):
+        """Test get user info with token"""
+        # Mock access token
+        mock_token = Mock()
+        mock_token.client_id = "test-user"
+        mock_token.scopes = ["mcp:read", "mcp:write"]
+        mock_get_token.return_value = mock_token
+
+        user_id, user_scopes = get_current_user_info()
+
+        assert user_id == "test-user"
+        assert user_scopes == ["mcp:read", "mcp:write"]
+
+    @patch("mcp_factory.auth.get_access_token")
+    def test_get_current_user_info_without_token(self, mock_get_token):
+        """Test get user info without token"""
+        mock_get_token.return_value = None
+
+        user_id, user_scopes = get_current_user_info()
+
+        assert user_id is None
+        assert user_scopes == []
+
+
+class TestScopeChecking:
+    """Test scope checking"""
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_success(self, mock_get_user_info):
+        """Test scope check success"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:write"])
+
+        result = check_scopes(["mcp:read"])
+
+        assert result.allowed is True
+        assert result.user_id == "test-user"
+        assert result.required_scopes == ["mcp:read"]
+        assert result.missing_scopes == []
+        assert "has permission" in result.message
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_insufficient(self, mock_get_user_info):
+        """Test insufficient permission"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        result = check_scopes(["mcp:read", "mcp:write"])
+
+        assert result.allowed is False
+        assert result.user_id == "test-user"
+        assert result.missing_scopes == ["mcp:write"]
+        assert "insufficient permission" in result.message
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_no_user(self, mock_get_user_info):
+        """Test no user permission check"""
+        mock_get_user_info.return_value = (None, [])
+
+        result = check_scopes(["mcp:read"])
+
+        assert result.allowed is False
+        assert result.user_id is None
+        assert "No valid authentication token provided" in result.message
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_empty_requirements(self, mock_get_user_info):
+        """Test empty permission requirements"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        result = check_scopes([])
+
+        assert result.allowed is True
+        assert result.missing_scopes == []
+
+
+class TestAnnotationTypeChecking:
+    """Test annotation type permission check"""
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_annotation_type_readonly(self, mock_get_user_info):
+        """Test readonly permission check"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        result = check_annotation_type("readonly")
+
+        assert result.allowed is True
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_annotation_type_modify(self, mock_get_user_info):
+        """Test modify permission check"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:write"])
+
+        result = check_annotation_type("modify")
+
+        assert result.allowed is True
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_annotation_type_destructive(self, mock_get_user_info):
+        """Test destructive permission check"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:write", "mcp:admin"])
+
+        result = check_annotation_type("destructive")
+
+        assert result.allowed is True
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_annotation_type_external(self, mock_get_user_info):
+        """Test external permission check"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:write", "mcp:admin", "mcp:external"])
+
+        result = check_annotation_type("external")
+
+        assert result.allowed is True
+
+    def test_check_annotation_type_unknown(self):
+        """Test unknown annotation type"""
+        result = check_annotation_type("unknown")
+
+        assert result.allowed is False
+        assert "Unknown tool type" in result.message
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_annotation_type_insufficient_permissions(self, mock_get_user_info):
+        """Test annotation type with insufficient permissions"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        result = check_annotation_type("modify")  # requires mcp:write
+
+        assert result.allowed is False
+        assert "mcp:write" in result.missing_scopes
+
+
+class TestPermissionDisabled:
+    """Test permission disabled mode"""
+
+    def test_check_permission_disabled(self):
+        """Test permission check disabled"""
+        result = check_permission_disabled()
+
+        assert result.allowed is True
+        assert result.user_id == "anonymous"
+        assert result.user_scopes == []
+        assert result.required_scopes == []
+        assert result.missing_scopes == []
+        assert "Permission checking is disabled" in result.message
+
+
+class TestUtilityFunctions:
+    """Test utility functions"""
+
+    def test_get_required_scopes(self):
+        """Test get required scopes"""
+        scopes = get_required_scopes("readonly")
+        assert scopes == ["mcp:read"]
+
+        scopes = get_required_scopes("modify")
+        assert scopes == ["mcp:read", "mcp:write"]
+
+        scopes = get_required_scopes("unknown")
+        assert scopes == []
+
+    def test_get_all_available_scopes(self):
+        """Test get all available scopes"""
+        scopes = get_all_available_scopes()
+
+        assert isinstance(scopes, list)
+        assert "mcp:read" in scopes
+        assert "mcp:write" in scopes
+        assert "mcp:admin" in scopes
+        assert "mcp:external" in scopes
+
+    def test_format_permission_error_allowed(self):
+        """Test format permission error for allowed result"""
+        result = PermissionCheckResult(allowed=True, message="Access allowed")
+        formatted = format_permission_error(result)
+
+        assert formatted.startswith("✅")
+        assert "Access allowed" in formatted
+
+    def test_format_permission_error_no_token(self):
+        """Test format permission error for no token"""
+        result = PermissionCheckResult(allowed=False, user_id=None)
+        formatted = format_permission_error(result)
+
+        assert formatted.startswith("❌")
+        assert "No valid authentication token provided" in formatted
+
+    def test_format_permission_error_missing_scopes(self):
+        """Test format permission error for missing scopes"""
+        result = PermissionCheckResult(allowed=False, user_id="test-user", missing_scopes=["mcp:write"])
+        formatted = format_permission_error(result)
+
+        assert formatted.startswith("❌")
+        assert "test-user" in formatted
+        assert "mcp:write" in formatted
+
+    def test_format_permission_error_generic(self):
+        """Test format generic permission error"""
+        result = PermissionCheckResult(allowed=False, user_id="test-user", message="Custom error")
+        formatted = format_permission_error(result)
+
+        assert formatted.startswith("❌")
+        assert "Custom error" in formatted
+
+
+class TestDecorators:
+    """Test decorators"""
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_scopes_decorator_success(self, mock_get_user_info):
+        """Test permission decorator success"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_scopes("mcp:read")
+        def test_function():
+            return "success"
+
+        result = test_function()
+        assert result == "success"
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_scopes_decorator_failure(self, mock_get_user_info):
+        """Test permission decorator failure"""
+        mock_get_user_info.return_value = ("test-user", [])
+
+        @require_scopes("mcp:read")
+        def test_function():
+            return "success"
+
+        result = test_function()
+        assert isinstance(result, str)
+        assert "❌" in result
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    async def test_require_scopes_decorator_async_success(self, mock_get_user_info):
+        """Test async permission decorator success"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_scopes("mcp:read")
+        async def test_async_function():
+            return "async success"
+
+        result = await test_async_function()
+        assert result == "async success"
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    async def test_require_scopes_decorator_async_failure(self, mock_get_user_info):
+        """Test async permission decorator failure"""
+        mock_get_user_info.return_value = ("test-user", [])
+
+        @require_scopes("mcp:read")
+        async def test_async_function():
+            return "async success"
+
+        result = await test_async_function()
+        assert isinstance(result, str)
+        assert "❌" in result
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_annotation_type_decorator_success(self, mock_get_user_info):
+        """Test annotation type decorator success"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_annotation_type("readonly")
+        def test_function():
+            return "success"
+
+        result = test_function()
+        assert result == "success"
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_annotation_type_decorator_failure(self, mock_get_user_info):
+        """Test annotation type decorator failure"""
+        mock_get_user_info.return_value = ("test-user", [])
+
+        @require_annotation_type("readonly")
+        def test_function():
+            return "success"
+
+        result = test_function()
+        assert isinstance(result, str)
+        assert "❌" in result
+
+
+class TestEdgeCases:
+    """Test edge cases"""
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_partial_match(self, mock_get_user_info):
+        """Test partial permission match"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:admin"])
+
+        result = check_scopes(["mcp:read", "mcp:write", "mcp:admin"])
+
+        assert result.allowed is False
+        assert result.missing_scopes == ["mcp:write"]
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_duplicate_requirements(self, mock_get_user_info):
+        """Test duplicate permission requirements"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        result = check_scopes(["mcp:read", "mcp:read"])
+
+        assert result.allowed is True
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_check_scopes_case_sensitivity(self, mock_get_user_info):
+        """Test permission case sensitivity"""
+        mock_get_user_info.return_value = ("test-user", ["MCP:READ"])
+
+        result = check_scopes(["mcp:read"])
+
+        # Permission check should be case sensitive
+        assert result.allowed is False
+        assert "mcp:read" in result.missing_scopes
+
+
+class TestImportFallback:
+    """Test import fallback implementation"""
+
+    @patch("mcp_factory.auth.get_access_token")
+    def test_fallback_get_access_token_returns_none(self, mock_get_token):
+        """Test fallback get_access_token implementation returns None"""
+        # Direct call to fallback implementation
+        from mcp_factory.auth import get_access_token
+
+        # Ensure fallback implementation is called in import failure case
+        mock_get_token.return_value = None
+        result = get_access_token()
+
+        assert result is None
+
+    def test_import_fallback_scenario(self):
+        """Test mock import failure scenario"""
+        # This tests behavior when mcp.server.auth.middleware.auth_context is unavailable
+        # Since we have successfully imported the module, we can test None return handling
+        from mcp_factory.auth import get_current_user_info
+
+        with patch("mcp_factory.auth.get_access_token", return_value=None):
+            user_id, user_scopes = get_current_user_info()
+            assert user_id is None
+            assert user_scopes == []
+
+
+class TestDecoratorInternalImplementation:
+    """Test decorator internal implementation details"""
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_scopes_decorator_sync_wrapper_direct(self, mock_get_user_info):
+        """Test require_scopes decorator sync wrapper direct call"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_scopes("mcp:read")
+        def sync_function():
+            return "success"
+
+        # Test success case
+        result = sync_function()
+        assert result == "success"
+
+        # Test failure case
+        mock_get_user_info.return_value = ("test-user", [])
+        result = sync_function()
+        assert "Permission check failed" in result
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_annotation_type_decorator_sync_wrapper_direct(self, mock_get_user_info):
+        """Test require_annotation_type decorator sync wrapper direct call"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_annotation_type("readonly")
+        def sync_function():
+            return "success"
+
+        # Test success case
+        result = sync_function()
+        assert result == "success"
+
+        # Test failure case
+        mock_get_user_info.return_value = ("test-user", [])
+        result = sync_function()
+        assert "Permission check failed" in result
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_require_scopes_with_multiple_scopes(self, mock_get_user_info):
+        """Test require_scopes decorator handling multiple scopes"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read", "mcp:write"])
+
+        @require_scopes("mcp:read", "mcp:write")
+        def function_with_multiple_scopes():
+            return "success"
+
+        result = function_with_multiple_scopes()
+        assert result == "success"
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    async def test_require_annotation_type_decorator_async_wrapper_direct(self, mock_get_user_info):
+        """Test require_annotation_type decorator async wrapper direct call"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_annotation_type("readonly")
+        async def async_function():
+            return "async_success"
+
+        # Test success case
+        result = await async_function()
+        assert result == "async_success"
+
+        # Test failure case
+        mock_get_user_info.return_value = ("test-user", [])
+        result = await async_function()
+        assert "Permission check failed" in result
+
+
+class TestFunctionInspection:
+    """Test function inspection and decorator application"""
+
+    def test_decorator_preserves_function_metadata(self):
+        """Test decorator preserves function metadata"""
+
+        @require_scopes("mcp:read")
+        def original_function():
+            """This is the original function docstring"""
+            return "original"
+
+        # Check if functools.wraps correctly preserved metadata
+        assert original_function.__name__ == "original_function"
+        assert "This is the original function docstring" in original_function.__doc__
+
+    @patch("mcp_factory.auth.get_current_user_info")
+    def test_decorator_handles_function_args_and_kwargs(self, mock_get_user_info):
+        """Test decorator correctly handles function parameters"""
+        mock_get_user_info.return_value = ("test-user", ["mcp:read"])
+
+        @require_scopes("mcp:read")
+        def function_with_args(a, b, c=None):
+            return f"args: {a}, {b}, {c}"
+
+        result = function_with_args("test1", "test2", c="test3")
+        assert result == "args: test1, test2, test3"
+
+
+class TestPermissionErrorMessageFormatting:
+    """Test permission error message formatting edge cases"""
+
+    def test_format_permission_error_with_empty_missing_scopes(self):
+        """Test format permission error message when missing_scopes is empty"""
+        result = PermissionCheckResult(
+            allowed=False,
+            user_id="test-user",
+            user_scopes=["mcp:read"],
+            required_scopes=["mcp:read"],
+            missing_scopes=[],
+            message="Custom error message",
         )
-        assert provider_default_audience.audience == "https://example.auth0.com/api/v2/"
 
-    @pytest.mark.asyncio
-    async def test_get_token(self) -> None:
-        """Test get_token method with authorization code exchange flow."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
+        formatted = format_permission_error(result)
+        assert "❌ Permission check failed: Custom error message" in formatted
+
+    def test_format_permission_error_with_none_missing_scopes(self):
+        """Test format permission error message when missing_scopes is None"""
+        result = PermissionCheckResult(
+            allowed=False,
+            user_id="test-user",
+            user_scopes=["mcp:read"],
+            required_scopes=["mcp:read"],
+            missing_scopes=None,
+            message="Custom error message",
         )
 
-        # Mock POST response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json = MagicMock(
-            return_value={
-                "access_token": "mock_access_token",
-                "token_type": "Bearer",
-                "expires_in": 86400,
-            }
-        )
-
-        # Patch httpx.AsyncClient.post method
-        with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
-            # Call the method being tested
-            result = await provider.get_token("auth_code", "https://example.com/callback")
-
-            # Verify results
-            assert result["access_token"] == "mock_access_token"
-            assert result["token_type"] == "Bearer"
-
-            # Verify call parameters
-            mock_post.assert_called_once()
-            args, kwargs = mock_post.call_args
-            assert args[0] == "https://example.auth0.com/oauth/token"
-            assert kwargs["data"]["grant_type"] == "authorization_code"
-            assert kwargs["data"]["code"] == "auth_code"
-            assert kwargs["data"]["client_id"] == "client_id_example"
-            assert kwargs["data"]["client_secret"] == "client_secret_example"
-
-    @pytest.mark.asyncio
-    async def test_get_userinfo(self) -> None:
-        """Test get_userinfo method with token."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Mock GET response
-        mock_userinfo = {
-            "sub": "user123",
-            "name": "Test User",
-            "email": "test@example.com",
-            "https://example.auth0.com/roles": ["user", "admin"],
-        }
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json = MagicMock(return_value=mock_userinfo)
-
-        # Patch httpx.AsyncClient.get method
-        with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
-            # Call the method being tested
-            userinfo = await provider.get_userinfo("test_token")
-
-            # Verify results
-            assert userinfo["sub"] == "user123"
-            assert userinfo["name"] == "Test User"
-
-            # Verify call parameters
-            mock_get.assert_called_once()
-            args, kwargs = mock_get.call_args
-            assert args[0] == "https://example.auth0.com/userinfo"
-            assert kwargs["headers"]["Authorization"] == "Bearer test_token"
-
-    @pytest.mark.asyncio
-    async def test_validate_token(self) -> None:
-        """Test token validation method."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Test valid token
-        with patch.object(
-            provider, "get_userinfo", return_value={"sub": "user123"}
-        ) as mock_get_userinfo:
-            # Verify valid token returns True
-            assert await provider.validate_token("valid_token") is True
-            mock_get_userinfo.assert_called_once_with("valid_token")
-
-        # Test invalid token
-        with patch.object(
-            provider, "get_userinfo", side_effect=Exception("Invalid token")
-        ) as mock_get_userinfo:
-            # Verify invalid token returns False
-            assert await provider.validate_token("invalid_token") is False
-            mock_get_userinfo.assert_called_once_with("invalid_token")
-
-    @pytest.mark.asyncio
-    async def test_get_user_roles(self) -> None:
-        """Test method for getting user roles."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Set roles namespace
-        provider.roles_namespace = "https://example.auth0.com/roles"
-
-        # Test user info with roles
-        mock_userinfo = {
-            "sub": "user123",
-            "name": "Test User",
-            "email": "test@example.com",
-            "https://example.auth0.com/roles": ["user", "admin"],
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo
-        ) as mock_get_userinfo:
-            # Get user info using get_user_for_token method
-            user_info = await provider.get_user_for_token("test_token")
-
-            # Get roles
-            roles = user_info["roles"]
-
-            # Verify results
-            assert "user" in roles
-            assert "admin" in roles
-            assert len(roles) == 2
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-        # Test user info without roles
-        mock_userinfo_no_roles = {
-            "sub": "user456",
-            "name": "Regular User",
-            "email": "normal@example.com",
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo_no_roles
-        ) as mock_get_userinfo:
-            # Get user info
-            user_info = await provider.get_user_for_token("test_token")
-
-            # Get roles
-            roles = user_info["roles"]
-
-            # Verify results
-            assert roles == []
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-    @pytest.mark.asyncio
-    async def test_get_user_for_token(self) -> None:
-        """Test method for getting user information from token."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Set roles namespace
-        provider.roles_namespace = "https://example.auth0.com/roles"
-
-        # Test user info with roles
-        mock_userinfo = {
-            "sub": "user123",
-            "name": "Test User",
-            "email": "test@example.com",
-            "https://example.auth0.com/roles": ["user", "admin"],
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo
-        ) as mock_get_userinfo:
-            # Get user info
-            user = await provider.get_user_for_token("test_token")
-
-            # Verify results
-            assert user["id"] == "user123"
-            assert user["name"] == "Test User"
-            assert user["email"] == "test@example.com"
-            assert "admin" in user["roles"]
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-        # Test user info without roles
-        mock_userinfo_no_roles = {
-            "sub": "user456",
-            "name": "Regular User",
-            "email": "normal@example.com",
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo_no_roles
-        ) as mock_get_userinfo:
-            # Get user info
-            user = await provider.get_user_for_token("test_token")
-
-            # Verify results
-            assert user["id"] == "user456"
-            assert user["name"] == "Regular User"
-            assert user["roles"] == []
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-        # Test exception handling
-        with patch.object(
-            provider, "get_userinfo", side_effect=Exception("API Error")
-        ) as mock_get_userinfo:
-            # Get user info
-            user = await provider.get_user_for_token("test_token")
-
-            # Verify results
-            assert "error" in user
-            assert "API Error" in user["error"]
-            assert user["roles"] == []
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-    @pytest.mark.asyncio
-    async def test_get_user_roles_from_app_metadata(self) -> None:
-        """Test getting user roles from app_metadata."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Set roles namespace, but user info does not include it
-        provider.roles_namespace = "https://example.auth0.com/roles"
-
-        # User info includes app_metadata field and roles
-        mock_userinfo = {
-            "sub": "user789",
-            "name": "Metadata User",
-            "email": "metadata@example.com",
-            "app_metadata": {"roles": ["developer", "tester"], "other_data": "some value"},
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo
-        ) as mock_get_userinfo:
-            # Get user info
-            user_info = await provider.get_user_for_token("test_token")
-
-            # Verify results
-            assert "developer" in user_info["roles"]
-            assert "tester" in user_info["roles"]
-            assert len(user_info["roles"]) == 2
-            assert user_info["is_admin"] is False  # No admin role
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-    @pytest.mark.asyncio
-    async def test_get_user_roles_from_permissions(self) -> None:
-        """Test getting user roles from permissions."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Set roles namespace, but user info does not include it or app_metadata
-        provider.roles_namespace = "https://example.auth0.com/roles"
-
-        # User info includes permissions field
-        mock_userinfo = {
-            "sub": "user789",
-            "name": "Permissions User",
-            "email": "permissions@example.com",
-            "permissions": ["read:data", "write:data", "admin"],
-        }
-
-        with patch.object(
-            provider, "get_userinfo", return_value=mock_userinfo
-        ) as mock_get_userinfo:
-            # Get user info
-            user_info = await provider.get_user_for_token("test_token")
-
-            # Verify results
-            assert "read:data" in user_info["roles"]
-            assert "write:data" in user_info["roles"]
-            assert "admin" in user_info["roles"]
-            assert len(user_info["roles"]) == 3
-            assert user_info["is_admin"] is True  # Includes admin role
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("test_token")
-
-    @pytest.mark.asyncio
-    async def test_get_user_for_token_exception_handling(self) -> None:
-        """Test handling exceptions when getting user information."""
-        # Create Auth0Provider instance
-        provider = Auth0Provider(
-            domain="example.auth0.com",
-            client_id="client_id_example",
-            client_secret="client_secret_example",
-        )
-
-        # Mock get_userinfo method to raise exception
-        with patch.object(
-            provider, "get_userinfo", side_effect=Exception("API error")
-        ) as mock_get_userinfo:
-            # Get user info
-            user_info = await provider.get_user_for_token("invalid_token")
-
-            # Verify results
-            assert "error" in user_info
-            assert "API error" in user_info["error"]
-            assert user_info["roles"] == []
-            assert user_info["is_admin"] is False
-
-            # Verify call
-            mock_get_userinfo.assert_called_once_with("invalid_token")
-
-
-class TestAuthRegistry:
-    """Test authentication provider registry."""
-
-    def test_provider_management(self) -> None:
-        """Test authentication provider registry provider management functionality."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Create mock provider
-        mock_provider = MagicMock()
-        mock_provider.domain = "example.auth0.com"
-
-        # Test adding provider
-        if hasattr(registry, "add_provider"):
-            registry.add_provider("test-provider", mock_provider)
-        elif hasattr(registry, "create_provider"):
-            # If using factory method to create provider
-            with patch.object(registry, "create_provider", return_value=mock_provider):
-                registry._providers = {"test-provider": mock_provider}
-
-        # Test getting provider
-        assert registry.get_provider("test-provider") is mock_provider
-        assert registry.get_provider("non-existent") is None
-
-    def test_create_provider(self) -> None:
-        """Test method for creating authentication provider."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Mock Auth0Provider class
-        mock_auth0_provider = MagicMock()
-
-        # Test creating Auth0 provider
-        with patch(
-            "mcp_factory.auth.auth0.Auth0Provider", return_value=mock_auth0_provider
-        ) as mock_provider_class:
-            # Create provider
-            provider_config = {
-                "domain": "test.auth0.com",
-                "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
-                "audience": "test-audience",
-                "roles_namespace": "test-namespace",
-            }
-
-            provider = registry.create_provider(
-                provider_id="test-auth0", provider_type="auth0", config=provider_config
-            )
-
-            # Verify provider created successfully
-            assert provider is mock_auth0_provider
-
-            # Verify call parameters
-            mock_provider_class.assert_called_once_with(
-                domain="test.auth0.com",
-                client_id="test-client-id",
-                client_secret="test-client-secret",
-                audience="test-audience",
-                roles_namespace="test-namespace",
-            )
-
-            # Verify provider added to registry
-            assert registry.get_provider("test-auth0") is mock_auth0_provider
-
-    def test_create_provider_missing_params(self) -> None:
-        """Test creating provider when missing necessary parameters."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Config with missing necessary parameters
-        incomplete_config = {
-            "domain": "test.auth0.com",
-            # Missing client_id and client_secret
-        }
-
-        # Test creating provider
-        provider = registry.create_provider(
-            provider_id="test-auth0", provider_type="auth0", config=incomplete_config
-        )
-
-        # Verify provider created failed
-        assert provider is None
-
-    def test_create_provider_unsupported_type(self) -> None:
-        """Test creating unsupported type provider."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Test creating unsupported provider type
-        provider = registry.create_provider(
-            provider_id="test-unsupported", provider_type="unsupported", config={}
-        )
-
-        # Verify provider created failed
-        assert provider is None
-
-    def test_list_providers(self) -> None:
-        """Test listing all providers."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Add mock providers
-        mock_provider1 = MagicMock()
-        mock_provider1.__class__.__name__ = "Auth0Provider"
-
-        mock_provider2 = MagicMock()
-        mock_provider2.__class__.__name__ = "OAuthProvider"
-
-        registry._providers = {"provider1": mock_provider1, "provider2": mock_provider2}
-
-        # Get provider list
-        providers = registry.list_providers()
-
-        # Verify results
-        assert providers == {"provider1": "Auth0Provider", "provider2": "OAuthProvider"}
-
-    def test_remove_provider(self) -> None:
-        """Test removing provider."""
-        from mcp_factory.auth.registry import AuthProviderRegistry
-
-        # Create registry
-        registry = AuthProviderRegistry()
-
-        # Add mock provider
-        mock_provider = MagicMock()
-        registry._providers = {"test-provider": mock_provider}
-
-        # Remove provider
-        result = registry.remove_provider("test-provider")
-
-        # Verify results
-        assert result is True
-        assert "test-provider" not in registry._providers
-
-        # Test removing non-existent provider
-        result = registry.remove_provider("non-existent")
-
-        # Verify results
-        assert result is False
+        formatted = format_permission_error(result)
+        assert "❌ Permission check failed: Custom error message" in formatted

@@ -14,61 +14,61 @@ Usage: mcpf [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version          Show the version and exit.
-  --config-dir PATH  Specify configuration directory path (default: ~/.mcpf)
+  --workspace PATH   Specify workspace directory path (default: ./workspace)
   -v, --verbose      Enable verbose output
   -q, --quiet        Silent mode
   --help             Show this message and exit.
 
 Commands:
-  auth      Create authentication provider.
-  list      List all servers and authentication providers.
-  quick     Quickly create and run server.
-  run       Run MCP server.
-  template  Generate configuration template.
-  validate  Validate configuration file.
+  auth      Authentication management.
+  config    Configuration management.
+  project   Project management.
+  server    Server management.
+  health    System health check.
 ```
 
 ### 2. **Generate Configuration Template**
 
 ```bash
-# Generate minimal configuration
-$ mcpf template --type minimal
-# Minimal MCP server configuration
-server:
-  name: "my-mcp-server"
-  instructions: "My MCP server"
-  host: "localhost"
-  port: 8888
-  transport: "streamable-http"
+# Generate configuration template using config command
+$ mcpf config template --name my-server --description "My MCP server"
+# Configuration template with specified name and description
 
-tools:
-  expose_management_tools: true
-
-# Generate full configuration template and save to file
-$ mcpf template --type full -o my-config.yaml
+# Generate template and save to file
+$ mcpf config template --name my-server --description "My MCP server" -o my-config.yaml
 ✅ Template saved to: my-config.yaml
+
+# Include mounted server examples
+$ mcpf config template --name my-server --description "My MCP server" --with-mounts
 ```
 
 ### 3. **Validate Configuration File**
 
 ```bash
-$ mcpf validate test-server.yaml
+$ mcpf config validate test-server.yaml
 ✅ Configuration file validation passed: test-server.yaml
+
+# Detailed validation with mount checking
+$ mcpf config validate test-server.yaml --check-mounts
 ```
 
-### 4. **Quick Start Server**
+### 4. **Quick Start Project**
 
 ```bash
-$ mcpf quick --name demo-server --port 8080 --debug
-ℹ️ Quick server starting: demo-server
-🌐 Access URL: http://localhost:8080/api/mcp
+$ mcpf project quick
+# Interactive project creation wizard
+
+# Initialize project with specific parameters
+$ mcpf project init --name demo-server --port 8080 --debug --start-server
+ℹ️ Project initialized: demo-server
+🌐 Server started at: http://localhost:8080/api/mcp
 ⏹️  Press Ctrl+C to stop server
 ```
 
 ### 5. **Run Server with Configuration File**
 
 ```bash
-$ mcpf run test-server.yaml
+$ mcpf server run test-server.yaml
 ℹ️ Starting server: test-server
 🌐 Access URL: http://localhost:8888/api/mcp
 ⏹️  Press Ctrl+C to stop server
@@ -77,24 +77,26 @@ $ mcpf run test-server.yaml
 ### 6. **List All Resources**
 
 ```bash
-$ mcpf list
+$ mcpf server list
 📊 Server List:
   🖥️  demo-server: demo-server - Created by mcpf CLI
   🖥️  test-server: Test server
 
-🔐 Authentication Providers:
-  (No authentication providers)
-
+$ mcpf config list
 📄 Configuration files in current directory:
   📋 test-server.yaml
   📋 my-config.yaml
 ```
 
-### 7. **Create Authentication Provider**
+### 7. **Project Management**
 
 ```bash
-$ mcpf auth my-auth0 --type auth0 --domain example.auth0.com --client-id xxx --client-secret yyy
-✅ Authentication provider 'my-auth0' (auth0) created successfully
+# Build project from configuration
+$ mcpf project build config.yaml
+✅ Project built successfully
+
+# Initialize new project
+$ mcpf project init --name my-project --description "My project" --auto-discovery
 ```
 
 ## 🎯 **Real-world Usage Scenarios**
@@ -102,72 +104,80 @@ $ mcpf auth my-auth0 --type auth0 --domain example.auth0.com --client-id xxx --c
 ### **Scenario 1: Quick Start for Beginners**
 
 ```bash
-# 1. Quickly start a test server
-mcpf quick --name hello-world
+# 1. Use interactive project creation
+mcpf project quick
 
-# Server starts immediately, ready for development and testing
+# 2. Or create with parameters and start immediately
+mcpf project init --name hello-world --start-server
 ```
 
 ### **Scenario 2: Configuration-based Deployment**
 
 ```bash
 # 1. Generate configuration template
-mcpf template --type simple > production.yaml
+mcpf config template --name production --description "Production server" -o production.yaml
 
 # 2. Edit configuration file (modify port, authentication, etc.)
 # 3. Validate configuration
-mcpf validate production.yaml
+mcpf config validate production.yaml
 
 # 4. Run production server
-mcpf run production.yaml --port 80
+mcpf server run production.yaml
 ```
 
 ### **Scenario 3: Development Environment Setup**
 
 ```bash
-# 1. Create development authentication provider
-mcpf auth dev-auth --type auth0 --domain dev.auth0.com --client-id xxx --client-secret yyy
+# 1. Generate development configuration with mounts
+mcpf config template --name dev-server --description "Development server" --with-mounts -o dev-config.yaml
 
-# 2. Generate development configuration
-mcpf template --type full > dev-config.yaml
-# (Edit configuration file, add authentication provider)
+# 2. Validate configuration including mounts
+mcpf config validate dev-config.yaml --check-mounts
 
 # 3. Start development server
-mcpf run dev-config.yaml --debug
+mcpf server run dev-config.yaml
 ```
 
 ## 📋 **Complete Command Reference**
 
 | Command | Purpose | Options |
 |---------|---------|---------|
-| `mcpf template` | Generate configuration template | `--type {minimal,simple,full}`, `-o output_file` |
-| `mcpf validate` | Validate configuration file | `config_file` |
-| `mcpf run` | Run server | `config_file`, `--host`, `--port`, `--debug` |
-| `mcpf quick` | Quick start server | `--name`, `--port`, `--host`, `--auth`, `--debug`, `--save-config` |
-| `mcpf list` | List resources | (no options) |
-| `mcpf auth` | Create authentication provider | `provider_id`, `--type`, `--domain`, `--client-id`, `--client-secret`, `--audience`, `--roles-namespace` |
+| `mcpf config template` | Generate configuration template | `--name`, `--description`, `-o output_file`, `--with-mounts` |
+| `mcpf config validate` | Validate configuration file | `config_file`, `--check-mounts` |
+| `mcpf config list` | List configuration files | (no options) |
+| `mcpf server run` | Run server | `config_file` |
+| `mcpf server list` | List servers | `--status-filter`, `--format`, `--show-mounts` |
+| `mcpf server status` | Get server status | `server_id`, `--show-mounts` |
+| `mcpf server delete` | Delete server | `server_id`, `--force` |
+| `mcpf server restart` | Restart server | `server_id` |
+| `mcpf project init` | Initialize project | `--name`, `--description`, `--host`, `--port`, `--transport`, `--auth`, `--auto-discovery`, `--debug`, `--start-server` |
+| `mcpf project build` | Build project | `config_file` |
+| `mcpf project quick` | Interactive project creation | (no options) |
+| `mcpf auth help` | Authentication help | (no options) |
+| `mcpf auth check` | Check authentication | `--fastmcp` |
+| `mcpf health` | System health check | `--check-config`, `--check-env` |
 
 ## 🔧 **Advanced Usage**
 
-### **Save Quick Server Configuration**
+### **Health Check**
 
 ```bash
-# Create server and save configuration for future use
-mcpf quick --name production-server --port 8888 --save-config prod.yaml
+# Complete system health check
+mcpf health --check-config --check-env
 ```
 
 ### **Verbose Output**
 
 ```bash
 # Enable verbose output to see more information
-mcpf --verbose run config.yaml
+mcpf --verbose server run config.yaml
 ```
 
-### **Custom Configuration Directory**
+### **Custom Workspace**
 
 ```bash
-# Use custom configuration directory
-mcpf --config-dir ./my-configs list
+# Use custom workspace directory
+mcpf --workspace ./my-workspace server list
 ```
 
 This CLI tool greatly simplifies the creation and management of MCP servers, allowing users to get started quickly and efficiently manage server instances. 

@@ -1,0 +1,42 @@
+# FastMCP-Factory Complete Factory Configuration
+# Complete factory configuration - includes project management, authentication, hot reload and other advanced features
+
+server:
+  name: "factory-complete-server"
+  instructions: "Complete factory mode MCP server demonstrating project management, authentication and configuration hot reload functionality"
+
+# Project management configuration
+project:
+  enabled: true
+  auto_discovery: true
+  base_directory: "./workspace"
+  
+# Authentication configuration (development environment - for testing)
+auth:
+  enabled: false  # Temporarily disable authentication in development environment
+  provider: "none"
+
+# Transport settings
+runtime:
+  transport: "streamable-http"
+  host: "0.0.0.0"
+  port: 8080
+  log_level: "INFO"
+
+# Tool configuration
+tools:
+  expose_management_tools: true
+  expose_project_tools: true
+
+# Hot reload configuration
+hot_reload:
+  enabled: true
+  watch_directories: ["./workspace", "./configs"]
+  debounce_seconds: 1.0
+
+# Advanced settings
+advanced:
+  debug: false
+  max_connections: 100
+  timeout: 30
+  on_duplicate_tools: "warn"

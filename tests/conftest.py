@@ -5,17 +5,16 @@ import os
 import shutil
 import tempfile
 import tracemalloc
-from typing import Any, Generator
-from unittest.mock import MagicMock
+from collections.abc import Generator
+from typing import Any
 
 import pytest
 import yaml
 
-from mcp_factory import FastMCPFactory
-from mcp_factory.server import ManagedServer
+from mcp_factory import MCPFactory
 
 
-# Set up asynchronous pytest session
+# Set up pytest session
 def pytest_configure(config: Any) -> None:
     """Configure pytest session."""
     # Ensure asyncio warnings are handled
@@ -23,25 +22,11 @@ def pytest_configure(config: Any) -> None:
     # Enable tracemalloc for memory allocation tracking
     tracemalloc.start()
 
-    # Add filter to ignore expected authentication provider warnings
+    # Add filter to ignore expected warnings
     config.addinivalue_line(
         "filterwarnings",
-        "ignore:Exposing FastMCP native methods as management tools without "
-        "authentication.*:UserWarning",
+        "ignore:Exposing FastMCP native methods as management tools without authentication.*:UserWarning",
     )
-
-
-# Provide mock authentication provider object
-@pytest.fixture
-def mock_auth_provider() -> MagicMock:
-    """Return a mock authentication provider object."""
-    provider = MagicMock()
-    provider.domain = "example.auth0.com"
-    provider.client_id = "test_client_id"
-    provider.client_secret = "test_client_secret"
-    provider.validate_token = MagicMock(return_value=True)
-    provider.get_user_for_token = MagicMock(return_value={"id": "test-user", "roles": ["user"]})
-    return provider
 
 
 # Provide temporary configuration file
@@ -84,27 +69,15 @@ def temp_dir() -> Generator[str, None, None]:
     shutil.rmtree(temp_dir_path, ignore_errors=True)
 
 
-# Provide configured FastMCPFactory instance
+# Provide configured MCPFactory instance
 @pytest.fixture
-def factory() -> FastMCPFactory:
-    """Return a configured FastMCPFactory instance."""
-    return FastMCPFactory()
+def factory(temp_dir: str) -> MCPFactory:
+    """Return a configured MCPFactory instance with temporary workspace."""
+    return MCPFactory(workspace_root=temp_dir)
 
 
-# Provide configured ManagedServer instance
+# Provide factory with workspace
 @pytest.fixture
-def server() -> ManagedServer:
-    """Return a basic configured ManagedServer instance."""
-    return ManagedServer(name="test-server", instructions="Test server for pytest")
-
-
-# Provide ManagedServer instance with authentication
-@pytest.fixture
-def auth_server(mock_auth_provider: MagicMock) -> ManagedServer:
-    """Return a ManagedServer instance configured with authentication."""
-    return ManagedServer(
-        name="auth-test-server",
-        instructions="Test authentication configuration",
-        auth_server_provider=mock_auth_provider,
-        auth={"issuer_url": "https://example.auth0.com", "token_endpoint": "/oauth/token"},
-    )
+def factory_with_workspace(temp_dir: str) -> MCPFactory:
+    """Return a MCPFactory instance with temporary workspace."""
+    return MCPFactory(workspace_root=temp_dir)
