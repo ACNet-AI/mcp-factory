@@ -359,13 +359,25 @@ def restart(ctx: click.Context, server_id: str) -> None:
 
 @server.command()
 @click.argument("config_file", type=click.Path(exists=True))
+@click.option("--transport", type=click.Choice(["stdio", "http", "sse"]), help="Override transport method")
+@click.option("--host", help="Override host address")
+@click.option("--port", type=int, help="Override port number")
 @click.pass_context
-def run(ctx: click.Context, config_file: str) -> None:
-    """Run server"""
+def run(ctx: click.Context, config_file: str, transport: str | None, host: str | None, port: int | None) -> None:
+    """Run server using FastMCP"""
     try:
         factory = get_factory(ctx.obj.get("workspace"))
-        click.echo(f"🚀 Running server from config: {config_file}")
-        factory.run_server(config_file)
+        click.echo(f"🚀 Starting server from config: {config_file}")
+
+        # Use Factory's run_server method for core logic
+        server_id = factory.run_server(
+            source=config_file,
+            transport=transport,
+            host=host,
+            port=port
+        )
+
+        success_message(f"Server '{server_id}' started successfully!")
 
     except Exception as e:
         if is_verbose(ctx):
@@ -467,7 +479,7 @@ def init(
         if start_server:
             click.echo()
             info_message("Creating server...")
-            server_id = factory.create_server(config_file)
+            server_id = factory.create_server(name, config_file)
             success_message(f"Server created successfully: {server_id}")
         else:
             # Show manual startup command
@@ -508,7 +520,15 @@ def quick(ctx: click.Context) -> None:
     try:
         factory = get_factory(ctx.obj.get("workspace"))
         info_message("Starting quick server...")
-        server_id = factory.create_quick_server()
+# Create a basic quick server using default configuration
+        basic_config = {
+            "server": {
+                "name": "quick-server",
+                "instructions": "Quick start temporary server for testing",
+                "transport": "stdio"
+            }
+        }
+        server_id = factory.create_server("quick-server", basic_config)
         success_message(f"Quick server created successfully: {server_id}")
 
         click.echo("\n📋 Quick server information:")

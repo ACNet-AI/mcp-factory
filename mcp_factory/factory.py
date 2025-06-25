@@ -84,7 +84,7 @@ class ServerStateManager:
         if server_id in self._states:
             del self._states[server_id]
 
-    def load_states(self, states_data: dict[str, dict[str, Any]]) -> None:
+    def load_states(self, states_data: dict[str, Any]) -> None:
         """Batch load state data with validation"""
         for server_id, state_data in states_data.items():
             # Validate loaded state data
@@ -477,6 +477,67 @@ class MCPFactory:
             self._error_handler.handle_error("Failed to restart server", e, {"server_id": server_id})
             raise  # Re-raise exception to maintain type consistency
 
+    def run_server(
+        self,
+        source: str | dict[str, Any] | Path,
+        name: str = "runtime-server",
+        transport: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        **server_kwargs: Any,
+    ) -> str:
+        """Run server directly from configuration source
+
+        Args:
+            source: Configuration source (file path, dict, or directory)
+            name: Server name
+            transport: Transport protocol override
+            host: Host address override
+            port: Port number override
+            **server_kwargs: Additional server parameters
+
+        Returns:
+            Server ID of the running server
+        """
+        try:
+            # Load configuration
+            config_data = self._load_config_from_source(source)
+            server_config = config_data.get("server", {})
+
+            # Create server
+            server_id = self.create_server(name, source, **server_kwargs)
+            if server_id is None:
+                raise ServerError("Failed to create server")
+
+            # Get server instance
+            managed_server = self.get_server(server_id)
+
+            # Determine transport settings with override priority
+            final_transport = transport or server_config.get("transport", "stdio")
+            final_host = host or server_config.get("host", "127.0.0.1")
+            final_port = port or server_config.get("port", 8000)
+
+            # Validate transport
+            valid_transports = ["stdio", "http", "sse", "streamable-http"]
+            if final_transport not in valid_transports:
+                final_transport = "stdio"
+
+            # Type cast to satisfy mypy
+            from typing import Literal, cast
+            transport_typed = cast(Literal["stdio", "http", "sse", "streamable-http"], final_transport)
+
+            # Run server with appropriate parameters
+            if transport_typed in ["http", "sse", "streamable-http"]:
+                managed_server.run(transport=transport_typed, host=final_host, port=final_port)
+            else:
+                managed_server.run(transport=transport_typed)
+
+            return server_id
+
+        except Exception as e:
+            self._error_handler.handle_error("Failed to run server", e, {"source": str(source)})
+            raise  # Re-raise exception to maintain type consistency
+
     # =========================================================================
     # Project Management
     # =========================================================================
@@ -681,7 +742,7 @@ class MCPFactory:
             return server
         except Exception as e:
             self._error_handler.handle_error(
-                "Failed to build server instance", str(config.get("server", {}).get("name", "unknown")), e
+                "Failed to build server instance", e, {"server_name": str(config.get("server", {}).get("name", "unknown"))}
             )
             raise  # Re-raise exception to maintain type consistency
 

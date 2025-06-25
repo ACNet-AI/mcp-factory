@@ -80,16 +80,22 @@ def load_config_file(config_path: str | Path) -> dict[str, Any]:
 
     except yaml.YAMLError as e:
         error_handler.handle_error("parse_yaml", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
     except json.JSONDecodeError as e:
         error_handler.handle_error("parse_json", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
     except UnicodeDecodeError as e:
         error_handler.handle_error("read_file_encoding", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
     except PermissionError as e:
         error_handler.handle_error("file_permissions", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
     except OSError as e:
         error_handler.handle_error("file_system", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
     except Exception as e:
         error_handler.handle_error("load_config_file", e, {"config_path": str(config_path)})
+        raise  # This line will never be reached due to error_handler.handle_error raising
 
 
 def load_config_from_string(content: str, format_hint: str = "yaml") -> dict[str, Any]:
