@@ -45,6 +45,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
 *.cover
 *.py,cover
 .hypothesis/
@@ -200,7 +201,7 @@ workspace/
 *-workspace/
 # Development tool outputs
 audit_results/
-scripts/reports/
+scripts/audit/reports/
 .scripts/
 # Test and development artifacts
 *.tmp

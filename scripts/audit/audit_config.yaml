@@ -90,5 +90,5 @@ scoring:
 # Report configuration
 reporting:
   formats: ["markdown", "json"]
-  output_dir: "scripts/reports"
+  output_dir: "scripts/audit/reports"
   include_details: true 
