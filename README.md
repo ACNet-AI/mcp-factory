@@ -3,8 +3,8 @@
 <div align="center">
 
 ![MCP Factory](https://img.shields.io/badge/MCP-Factory-blue?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3.11+-green?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.10+-green?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Apache--2.0-red?style=for-the-badge)
 
 **A factory framework focused on MCP server creation and management**
 
@@ -83,11 +83,14 @@ server.run()
 #### 3. Using CLI tools
 
 ```bash
-# Quickly create project
-mcp-factory create my-project
+# Create new project
+mcp-factory project create my-project
 
-# Run from configuration file
-mcp-factory run config.yaml
+# Run server from configuration file
+mcp-factory server run config.yaml
+
+# Run with custom transport
+mcp-factory server run config.yaml --transport http --host 0.0.0.0 --port 8080
 ```
 
 ## 📁 Project Structure
@@ -100,7 +103,7 @@ mcp-factory/
 │   ├── config/            # Configuration management
 │   ├── project/           # Project building
 │   ├── mounting/          # Server mounting
-│   └── cli/               # Command line tools
+│   └── cli.py             # Command line tools
 ├── examples/              # Usage examples
 ├── tests/                 # Test suite
 └── docs/                  # Documentation
@@ -157,6 +160,13 @@ pytest
 
 # Generate coverage report
 pytest --cov=mcp_factory
+
+# Type checking
+mypy mcp_factory
+
+# Code formatting
+ruff format .
+ruff check .
 ```
 
 ## 📖 Documentation
@@ -171,8 +181,8 @@ Contributions are welcome! Please check our contribution guidelines.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-> **Note**: This is the stable version of MCP Factory (v1.0.0), focusing on core factory functionality. If you need more advanced features like authentication, remote calls, etc., please consider using the [mcp-factory-server](https://github.com/ACNet-AI/mcp-factory-server) project. 
+> **Note**: This is the stable version of MCP Factory (v1.0.0), focusing on core factory functionality with full type safety and modern Python practices. 
