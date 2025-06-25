@@ -500,6 +500,7 @@ def build(ctx: click.Context, config_file: str) -> None:
 
         # Load configuration from file
         from .config.manager import load_config_file
+
         config_dict = load_config_file(config_file)
 
         # Extract project name from config or use filename
@@ -507,6 +508,7 @@ def build(ctx: click.Context, config_file: str) -> None:
         if not project_name:
             # Use filename without extension as project name
             from pathlib import Path
+
             project_name = Path(config_file).stem
 
         project_path = factory.build_project(project_name, config_dict)
