@@ -145,13 +145,14 @@ class ManagedServer(FastMCP):
 
             if is_production:
                 msg = (
-                    "🚨 Production security error: Exposing management tools with disabled permission check is not allowed in production environment. "
-                    "Please set enable_permission_check=True or expose_management_tools=False"
+                    "🚨 Production security error: Exposing management tools "
+                    "with disabled permission check not allowed. "
+                    "Set enable_permission_check=True or expose_management_tools=False"
                 )
                 raise ServerError(msg)
             warnings.warn(
                 "⚠️ Security warning: Management tools are exposed but permission check is not enabled. "
-                "This is dangerous in production environment! Recommend setting enable_permission_check=True or configuring auth parameters",
+                "This is dangerous in production! Recommend setting enable_permission_check=True or configuring auth",
                 UserWarning,
                 stacklevel=3,
             )
@@ -185,7 +186,7 @@ class ManagedServer(FastMCP):
                 "enabled": True,
             },
             "recreate_management_tools": {
-                "description": "Recreate all management tools (smart deduplication, won't affect meta management tools)",
+                "description": "Recreate all management tools (smart deduplication, won't affect meta tools)",
                 "async": False,
                 "title": "Recreate management tools",
                 "annotation_type": "modify",
@@ -335,7 +336,7 @@ class ManagedServer(FastMCP):
             },
             # Tool Transformation - FastMCP 2.8.0+ feature
             "transform_tool": {
-                "description": "Transform existing tools using official Tool Transformation API. Use manage_get_tools to view transformable tool list.",
+                "description": "Transform existing tools using Tool Transformation API. Use manage_get_tools.",
                 "async": False,
                 "title": "Transform tool",
                 "annotation_type": "modify",
@@ -537,7 +538,7 @@ class ManagedServer(FastMCP):
 
                     if has_params:
                         logger.warning(
-                            f"Async method {name} requires parameters, but FastMCP doesn't support complex parameters, fallback to no-parameter call"
+                            f"Async method {name} requires parameters, but FastMCP doesn't support complex parameters"
                         )
 
                     result = await original_method()
@@ -563,7 +564,7 @@ class ManagedServer(FastMCP):
 
                     if has_params:
                         logger.warning(
-                            f"Sync method {name} requires parameters, but FastMCP doesn't support complex parameters, using unified execution handling"
+                            f"Sync method {name} requires parameters, but FastMCP doesn't support complex parameters"
                         )
 
                     result = execute_method(original_method)
@@ -887,7 +888,7 @@ class ManagedServer(FastMCP):
                             logger.warning(f"Error removing tool {tool_name}: {e}")
 
             logger.info(
-                f"Successfully cleared {removed_count} management tools (preserved {len(self._META_MANAGEMENT_TOOLS)} meta management tools)"
+                f"Successfully cleared {removed_count} management tools (preserved {len(self._META_MANAGEMENT_TOOLS)})"
             )
             return removed_count
 

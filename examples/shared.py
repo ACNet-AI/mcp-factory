@@ -20,7 +20,8 @@ class ConfigHelper:
         """Load YAML configuration file"""
         try:
             with open(config_path, encoding="utf-8") as f:
-                return yaml.safe_load(f)
+                config = yaml.safe_load(f)
+                return config if isinstance(config, dict) else {}
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Configuration file not found: {config_path}") from e
         except yaml.YAMLError as e:
@@ -77,7 +78,7 @@ class ToolUtils:
         }
 
     @staticmethod
-    def create_echo_tool():
+    def create_echo_tool() -> Any:
         """Create simple echo tool"""
 
         def echo(text: str) -> str:
@@ -86,7 +87,7 @@ class ToolUtils:
         return echo
 
     @staticmethod
-    def create_timestamp_tool():
+    def create_timestamp_tool() -> Any:
         """Create timestamp tool"""
         import datetime
 
@@ -175,7 +176,7 @@ def validate_example_environment() -> dict[str, bool]:
     return results
 
 
-def print_example_status():
+def print_example_status() -> bool:
     """Print example environment status"""
     status = validate_example_environment()
 

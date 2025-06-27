@@ -131,7 +131,7 @@ class ServerMounter:
             # Note: FastMCP Client is primarily for HTTP connections, stdio connections need different handling
             # Skip client creation for now, as FastMCP primarily supports HTTP transport
             logger.warning(
-                f"Local stdio server {server_info.name} started successfully, but FastMCP Client primarily supports HTTP transport"
+                f"Local stdio server {server_info.name} started successfully, but FastMCP Client supports HTTP"
             )
 
             return True

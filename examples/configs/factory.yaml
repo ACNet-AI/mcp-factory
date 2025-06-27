@@ -23,6 +23,29 @@ runtime:
   port: 8080
   log_level: "INFO"
 
+# Middleware configuration for development
+middleware:
+  # Request timing middleware
+  - type: "timing"
+    enabled: true
+    config:
+      log_level: 20  # INFO level for development
+      
+  # Request logging middleware for debugging
+  - type: "logging"
+    enabled: true
+    config:
+      include_payloads: true  # Include payloads for debugging
+      max_payload_length: 1000
+      log_level: 20  # INFO level
+      
+  # Error handling middleware
+  - type: "error_handling"
+    enabled: true
+    config:
+      include_traceback: true  # Include stack traces for debugging
+      transform_errors: true
+
 # Tool configuration
 tools:
   expose_management_tools: true

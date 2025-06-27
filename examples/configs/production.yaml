@@ -46,6 +46,37 @@ error_handling:
   circuit_breaker_threshold: 5
   graceful_shutdown_timeout: 30
 
+# Middleware configuration for production
+middleware:
+  # Error handling middleware (recommended first)
+  - type: "error_handling"
+    enabled: true
+    config:
+      include_traceback: false  # Don't expose stack traces in production
+      transform_errors: true
+      
+  # Rate limiting middleware
+  - type: "rate_limiting"
+    enabled: true
+    config:
+      max_requests_per_second: 10.0
+      burst_capacity: 20
+      global_limit: true
+      
+  # Request timing middleware
+  - type: "timing"
+    enabled: true
+    config:
+      log_level: 30  # WARNING level for production
+      
+  # Request logging middleware (recommended last)
+  - type: "logging"
+    enabled: true
+    config:
+      include_payloads: false  # Don't log payloads in production
+      max_payload_length: 200
+      log_level: 30  # WARNING level
+
 # Performance and connection limits
 performance:
   max_connections: 1000

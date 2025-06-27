@@ -29,9 +29,11 @@ Demo includes:
 |---------|-------|---------|---------|
 | `demo/` | ⭐ | **Quick experience**, server-client interaction | **Get started immediately** |
 | `basic_server.py` | ⭐ | Basic server creation, tool registration | Beginner introduction |
-| `factory_complete.py` | ⭐⭐⭐ | Factory pattern, project management, hot reload | Core architecture learning |
+| `factory_complete.py` | ⭐⭐⭐ | Factory pattern, project management, **middleware integration** | Core architecture learning |
+| `middleware_demo.py` | ⭐⭐⭐ | **Comprehensive middleware usage**, configuration strategies | **Middleware learning** |
 | `mounting_servers.py` | ⭐⭐⭐⭐ | External server mounting, microservices | Distributed systems |
 | `production_ready.py` | ⭐⭐⭐⭐⭐ | Enterprise deployment, security, monitoring | Production environment |
+| `custom_middleware.py` | ⭐⭐⭐⭐ | **Custom middleware development** | Advanced customization |
 
 ## 🚀 Quick Start
 
@@ -172,6 +174,43 @@ mounter = ServerMounter()
 await mounter.mount_from_config("configs/mounting.yaml")
 ```
 
+### 🔧 middleware_demo.py - Comprehensive Middleware Examples
+**Middleware Learning** | **Complexity: ⭐⭐⭐**
+
+**5 Complete Demo Scenarios**, demonstrating middleware configuration and usage:
+1. **Basic Middleware** - timing + logging introductory examples
+2. **Production Stack** - Enterprise-grade 4-layer middleware configuration
+3. **Custom Middleware** - Seamless integration with custom_middleware.py
+4. **Enterprise Stack** - Complete 5-layer middleware demonstration 🆕
+5. **Performance Comparison** - Performance analysis with/without middleware
+
+**Real Integration**: Now you can actually call custom middleware, no longer commented out
+
+```python
+# Core Features Preview - Enterprise Middleware Stack
+config = {
+    "middleware": [
+        {"type": "custom", "class": "examples.custom_middleware.AuthenticationMiddleware"},
+        {"type": "custom", "class": "examples.custom_middleware.AuditMiddleware"},
+        {"type": "custom", "class": "examples.custom_middleware.CacheMiddleware"},
+        {"type": "error_handling", "enabled": True},
+        {"type": "timing", "enabled": True}
+    ]
+}
+```
+
+### 🛠️ custom_middleware.py - Custom Middleware Development
+**Advanced Customization** | **Complexity: ⭐⭐⭐⭐** | **New Name** 🆕
+
+**3 Enterprise-Grade Middleware** complete implementations:
+- **AuthenticationMiddleware** - API key authentication with anonymous access control
+- **AuditMiddleware** - Security audit logging with sensitive data masking and JSON format recording
+- **CacheMiddleware** - Intelligent response caching with TTL management and automatic cleanup
+
+**Perfect Integration with middleware_demo.py**: Can be directly called and tested
+
+**See complete implementation**: `examples/custom_middleware.py`
+
 ### 🏗️ production_ready.py - Production Environment
 **Enterprise deployment** | **Complexity: ⭐⭐⭐⭐⭐**
 
@@ -194,52 +233,14 @@ server = create_production_server(
 
 ## ⚙️ Configuration Files Explained
 
-### basic.yaml - Basic Configuration
-```yaml
-server:
-  name: "basic-mcp-server"
-  instructions: "Basic MCP server example"
-runtime:
-  transport: "stdio"
-  log_level: "INFO"
-```
+### Configuration Files Overview
 
-### factory.yaml - Factory Pattern Configuration
-```yaml
-server:
-  name: "factory-complete-server"
-project:
-  enabled: true
-  auto_discovery: true
-hot_reload:
-  enabled: true
-  watch_directories: ["./workspace"]
-```
+- **`basic.yaml`** - Minimal configuration for simple servers
+- **`factory.yaml`** - Development environment with hot reload and debugging
+- **`mounting.yaml`** - Multi-server mounting with rate limiting
+- **`production.yaml`** - Enterprise-grade production configuration
 
-### mounting.yaml - Mounting Configuration
-```yaml
-mcpServers:
-  weather-service:
-    command: "python"
-    args: ["-c", "print('Weather service')"]
-    prefix: "weather"
-  remote-api:
-    url: "https://api.example.com"
-    transport: "sse"
-```
-
-### production.yaml - Production Configuration
-```yaml
-auth:
-  enabled: true
-  provider: "jwt"
-monitoring:
-  enabled: true
-  health_check_endpoint: "/health"
-security:
-  cors_enabled: true
-  csrf_protection: true
-```
+**See complete configurations**: `examples/configs/` directory
 
 ## 🧪 Environment Verification
 

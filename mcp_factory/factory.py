@@ -309,6 +309,7 @@ class MCPFactory:
         lifespan: Callable[[Any], Any] | None = None,
         tool_serializer: Callable[[Any], str] | None = None,
         tools: list[Any] | None = None,
+        middleware: list[Any] | None = None,
         expose_management_tools: bool = True,
         **server_kwargs: Any,
     ) -> str | None:
@@ -321,6 +322,7 @@ class MCPFactory:
             lifespan: Lifecycle function
             tool_serializer: Tool serializer
             tools: Tool list
+            middleware: Middleware list (FastMCP middleware instances)
             expose_management_tools: Whether to expose management tools
             **server_kwargs: Other server parameters
 
@@ -331,7 +333,7 @@ class MCPFactory:
             config = self._load_config_from_source(source)
             self._apply_all_params(config, name, expose_management_tools, server_kwargs)
             config = self._validate_config(config)  # Use normalized configuration
-            server = self._build_server(config, auth, lifespan, tool_serializer, tools)
+            server = self._build_server(config, auth, lifespan, tool_serializer, tools, middleware)
             self._add_components(server, source)
             server_id = self._register_server(server, name)
             self._state_manager.initialize_server_state(server_id)
@@ -716,6 +718,7 @@ class MCPFactory:
         lifespan: Callable[[Any], Any] | None,
         tool_serializer: Callable[[Any], str] | None,
         tools: list[Any] | None,
+        middleware: list[Any] | None = None,
     ) -> ManagedServer:
         """Build server instance"""
         try:
@@ -729,11 +732,22 @@ class MCPFactory:
             # Handle mounted server lifespan (if there are mounted servers in config and user didn't provide lifespan)
             final_lifespan = self._prepare_lifespan(config, lifespan)
 
+            # Prepare middleware from configuration
+            config_middleware = self._prepare_middleware(config)
+
+            # Combine configuration middleware with parameter middleware
+            final_middleware = []
+            if config_middleware:
+                final_middleware.extend(config_middleware)
+            if middleware:
+                final_middleware.extend(middleware)
+
             for param_name, param_value in [
                 ("auth", auth),
                 ("lifespan", final_lifespan),
                 ("tool_serializer", tool_serializer),
                 ("tools", tools),
+                ("middleware", final_middleware if final_middleware else None),
             ]:
                 if param_value is not None:
                     server_params[param_name] = param_value
@@ -868,6 +882,19 @@ class MCPFactory:
         # Such as mounting information, dynamically added tools, resources, etc. For now, implement basic functionality
 
         return base_config
+
+    def _prepare_middleware(self, config: dict[str, Any]) -> list[Any] | None:
+        """Prepare middleware instances from configuration
+
+        Args:
+            config: Server configuration
+
+        Returns:
+            List of middleware instances or None
+        """
+        from .middleware import load_middleware_from_config
+
+        return load_middleware_from_config(config)
 
     # =========================================================================
     # Internal Methods - State Persistence

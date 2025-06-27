@@ -191,7 +191,7 @@ class Builder:
         Args:
             project_path: Project path
             user_config: User configuration updates
-            rescan_components: Whether to rescan component directories (default False, auto-discover only when component config is missing)
+            rescan_components: Whether to rescan component directories (default False, auto-discover when missing)
         """
         logger.info(f"Updating config file for project: {project_path}")
         path = self._validate_project_path(project_path)
