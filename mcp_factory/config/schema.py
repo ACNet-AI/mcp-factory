@@ -164,6 +164,62 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                 },
             },
         },
+        # MCP protocol middleware configuration (works with all transports: stdio, HTTP, SSE)
+        "middleware": {
+            "type": "array",
+            "description": textwrap.dedent("""
+                MCP protocol layer middleware configuration.
+                These middleware operate at the MCP protocol level and work with all transport types
+                (stdio, streamable-http, sse). They can intercept and modify MCP requests/responses,
+                add logging, implement rate limiting, handle errors, and provide other cross-cutting concerns.
+
+                Available built-in middleware types:
+                - timing: Performance monitoring and request timing
+                - logging: Request/response logging with configurable detail levels
+                - rate_limiting: Request rate limiting and throttling
+                - error_handling: Centralized error handling and transformation
+                - custom: Custom middleware implementation (requires class path)
+            """).strip(),
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["timing", "logging", "rate_limiting", "error_handling", "custom"],
+                        "description": "Middleware type - built-in types or 'custom' for custom implementations",
+                    },
+                    "config": {
+                        "type": "object",
+                        "description": "Middleware-specific configuration parameters",
+                        "additionalProperties": True,
+                        "default": {},
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Whether this middleware is enabled",
+                        "default": True,
+                    },
+                    "class": {
+                        "type": "string",
+                        "description": "Custom middleware class path (required when type='custom')",
+                    },
+                    "args": {
+                        "type": "array",
+                        "description": "Custom middleware constructor arguments (for type='custom')",
+                        "default": [],
+                    },
+                    "kwargs": {
+                        "type": "object",
+                        "description": "Custom middleware constructor keyword arguments (for type='custom')",
+                        "default": {},
+                    },
+                },
+                "required": ["type"],
+                "additionalProperties": False,
+                "if": {"properties": {"type": {"const": "custom"}}},
+                "then": {"required": ["type", "class"]},
+            },
+        },
         # Transport and network configuration (set at startup, not runtime dynamic parameters)
         "transport": {
             "type": "object",
@@ -278,7 +334,7 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                             "tags": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Tags for categorizing and filtering this tool (e.g., ['admin', 'read-only', 'essential'])",
+                                "description": "Tags for categorizing and filtering this tool (e.g., ['admin'])",
                                 "default": [],
                             },
                             "description": {
@@ -319,7 +375,7 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                             "tags": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Tags for categorizing and filtering this resource (e.g., ['public', 'cached', 'essential'])",
+                                "description": "Tags for categorizing and filtering this resource (e.g., ['public'])",
                                 "default": [],
                             },
                             "description": {
@@ -362,7 +418,7 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                             "tags": {
                                 "type": "array",
                                 "items": {"type": "string"},
-                                "description": "Tags for categorizing and filtering this prompt (e.g., ['system', 'user-facing', 'template'])",
+                                "description": "Tags for categorizing and filtering this prompt (e.g., ['system'])",
                                 "default": [],
                             },
                             "description": {

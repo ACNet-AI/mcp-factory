@@ -57,6 +57,10 @@ class BasicTemplate:
             from pathlib import Path
             from mcp_factory.server import ManagedServer
 
+            class ConfigurationError(Exception):
+                \"\"\"Configuration error\"\"\"
+                pass
+
             def load_config():
                 """Load and validate configuration"""
                 config_path = Path(__file__).parent / "config.yaml"
@@ -91,6 +95,18 @@ class BasicTemplate:
                     'instructions': server_config.get('instructions', ''),
                     'expose_management_tools': server_config.get('expose_management_tools', True)
                 }}
+
+                # Load middleware from configuration
+                try:
+                    from mcp_factory.middleware import load_middleware_from_config
+                    middleware_instances = load_middleware_from_config(config)
+                    if middleware_instances:
+                        server_params['middleware'] = middleware_instances
+                        print(f"✅ Loaded {{len(middleware_instances)}} middleware(s)")
+                except ImportError:
+                    print("⚠️  Middleware support not available, skipping middleware loading")
+                except Exception as e:
+                    print(f"❌ Failed to load middleware: {{e}}")
 
                 server = ManagedServer(**server_params)
 

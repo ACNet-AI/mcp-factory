@@ -12,6 +12,15 @@ runtime:
   port: 8080
   log_level: "INFO"
 
+# Middleware configuration (optional)
+# middleware:
+#   - type: "logging"
+#     enabled: true
+#     config:
+#       include_payloads: false
+#       max_payload_length: 1000
+#       log_level: 20
+
 # Tool configuration
 tools:
   expose_management_tools: true  # Expose management tools for debugging convenience

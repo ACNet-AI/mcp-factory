@@ -13,6 +13,9 @@ Welcome to MCP Factory documentation! This contains all the information you need
 - [Configuration Reference](configuration.md) - Detailed configuration file documentation
 - [Examples and Tutorials](examples.md) - Practical example code and tutorials
 
+### 🛠️ Advanced Features
+- [Middleware Guide](middleware.md) - Complete middleware usage and development guide
+
 ### 🏗️ Architecture
 - [Architecture Overview](architecture/README.md) - System architecture documentation
 

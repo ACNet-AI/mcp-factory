@@ -54,7 +54,7 @@ async def main():
         greetings = {
             "chinese": f"你好，{name}！欢迎使用 MCP-Factory！",
             "english": f"Hello, {name}! Welcome to MCP-Factory!",
-            "español": f"¡Hola, {name}! ¡Bienvenido a MCP-Factory!",
+            "spanish": f"¡Hola, {name}! ¡Bienvenido a MCP-Factory!",
         }
         greeting = greetings.get(language.lower(), greetings["english"])
         logger.info(f"Greeting user: {name} ({language})")

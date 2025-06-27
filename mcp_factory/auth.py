@@ -95,9 +95,7 @@ def check_scopes(required_scopes: list[str]) -> PermissionCheckResult:
         allowed=allowed,
         required_scopes=required_scopes,
         missing_scopes=missing_scopes,
-        message=(
-            f"User {user_id} {'has permission' if allowed else 'insufficient permission, missing: ' + str(missing_scopes)}"
-        ),
+        message=f"User {user_id} " + ("has permission" if allowed else "insufficient permission"),
     )
 
 
@@ -147,7 +145,8 @@ def format_permission_error(result: PermissionCheckResult) -> str:
         return "❌ Permission check failed: No valid authentication token provided"
 
     if result.missing_scopes:
-        return f"❌ Permission check failed: User {result.user_id} has insufficient permission, missing permissions: {', '.join(result.missing_scopes)}"
+        missing_perms = ', '.join(result.missing_scopes)
+        return f"❌ Permission check failed: User {result.user_id} insufficient permission, missing: {missing_perms}"
 
     return f"❌ Permission check failed: {result.message}"
 

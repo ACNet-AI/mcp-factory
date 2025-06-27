@@ -58,10 +58,27 @@ async def demo_project_management(factory: MCPFactory, workspace: str):
     print("\n📦 Project Management Demo")
     print("-" * 30)
 
-    # Create project configuration
+    # Create project configuration with middleware
     project_config = {
         "server": {"name": "demo-project-server", "instructions": "Demo project server created by factory"},
         "tools": {"expose_management_tools": True},
+        # Middleware configuration example - development environment
+        "middleware": [
+            {
+                "type": "timing",
+                "enabled": True,
+                "config": {"log_level": 20}  # INFO level
+            },
+            {
+                "type": "logging",
+                "enabled": True,
+                "config": {
+                    "include_payloads": True,  # Include payloads in development environment
+                    "max_payload_length": 1000,
+                    "log_level": 20
+                }
+            }
+        ]
     }
 
     try:
@@ -70,6 +87,7 @@ async def demo_project_management(factory: MCPFactory, workspace: str):
 
         print(f"✅ Project created successfully: {project_path}")
         print(f"✅ Server created successfully: {server_id}")
+        print("🔧 Middleware loaded: timing + logging (development mode)")
 
         # Get server instance
         server = factory.get_server(server_id)

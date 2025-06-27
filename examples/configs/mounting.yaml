@@ -52,6 +52,30 @@ runtime:
   port: 8082
   log_level: "INFO"
 
+# Middleware configuration for mounting environment
+middleware:
+  # Rate limiting for external service protection
+  - type: "rate_limiting"
+    enabled: true
+    config:
+      max_requests_per_second: 5.0
+      burst_capacity: 10
+      global_limit: false  # Per-connection limits
+      
+  # Request timing for performance monitoring
+  - type: "timing"
+    enabled: true
+    config:
+      log_level: 20  # INFO level
+      
+  # Logging middleware for service monitoring
+  - type: "logging"
+    enabled: true
+    config:
+      include_payloads: false
+      max_payload_length: 500
+      log_level: 20  # INFO level
+
 # Tool configuration
 tools:
   expose_management_tools: true
