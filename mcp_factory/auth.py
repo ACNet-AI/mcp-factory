@@ -145,7 +145,7 @@ def format_permission_error(result: PermissionCheckResult) -> str:
         return "❌ Permission check failed: No valid authentication token provided"
 
     if result.missing_scopes:
-        missing_perms = ', '.join(result.missing_scopes)
+        missing_perms = ", ".join(result.missing_scopes)
         return f"❌ Permission check failed: User {result.user_id} insufficient permission, missing: {missing_perms}"
 
     return f"❌ Permission check failed: {result.message}"

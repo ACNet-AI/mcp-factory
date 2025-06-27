@@ -40,7 +40,7 @@ class AuthenticationMiddleware:
         api_keys: list[str] | None = None,
         header_name: str = "X-API-Key",
         allow_anonymous: bool = False,
-        **config: Any
+        **config: Any,
     ) -> None:
         self.api_keys = set(api_keys or [])
         self.header_name = header_name
@@ -82,7 +82,7 @@ class AuditMiddleware:
         log_file: str = "audit.log",
         include_payloads: bool = False,
         sensitive_fields: list[str] | None = None,
-        **config: Any
+        **config: Any,
     ) -> None:
         self.log_file = log_file
         self.include_payloads = include_payloads
@@ -265,7 +265,7 @@ def create_enterprise_config() -> dict[str, Any]:
     return {
         "server": {
             "name": "Enterprise MCP Server",
-            "instructions": "Enterprise-grade MCP server with authentication, audit, and caching capabilities"
+            "instructions": "Enterprise-grade MCP server with authentication, audit, and caching capabilities",
         },
         "middleware": [
             # 1. Authentication middleware (executed first)
