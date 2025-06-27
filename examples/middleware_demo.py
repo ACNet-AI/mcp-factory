@@ -20,7 +20,7 @@ from typing import Any
 from mcp_factory.factory import MCPFactory
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -57,35 +57,23 @@ async def demo_basic_middleware(factory: MCPFactory) -> None:
 
     # Basic middleware configuration
     config = {
-        "server": {
-            "name": "basic-middleware-server",
-            "instructions": "Basic middleware demonstration server"
-        },
-        "runtime": {
-            "transport": "stdio",
-            "log_level": "INFO"
-        },
+        "server": {"name": "basic-middleware-server", "instructions": "Basic middleware demonstration server"},
+        "runtime": {"transport": "stdio", "log_level": "INFO"},
         "middleware": [
             {
                 "type": "timing",
                 "enabled": True,
                 "config": {
                     "log_level": 20  # INFO level
-                }
+                },
             },
             {
                 "type": "logging",
                 "enabled": True,
-                "config": {
-                    "include_payloads": True,
-                    "max_payload_length": 500,
-                    "log_level": 20
-                }
-            }
+                "config": {"include_payloads": True, "max_payload_length": 500, "log_level": 20},
+            },
         ],
-        "tools": {
-            "expose_management_tools": True
-        }
+        "tools": {"expose_management_tools": True},
     }
 
     try:
@@ -107,7 +95,7 @@ async def demo_basic_middleware(factory: MCPFactory) -> None:
                 "operation": operation,
                 "operands": [a, b],
                 "result": result,
-                "middleware_info": "This request was processed through timing and logging middleware"
+                "middleware_info": "This request was processed through timing and logging middleware",
             }
 
         print(f"✅ Basic middleware server created successfully: {server.name}")
@@ -130,12 +118,9 @@ async def demo_production_middleware(factory: MCPFactory) -> None:
     config = {
         "server": {
             "name": "production-middleware-server",
-            "instructions": "Production-grade middleware stack demonstration"
+            "instructions": "Production-grade middleware stack demonstration",
         },
-        "runtime": {
-            "transport": "stdio",
-            "log_level": "WARNING"
-        },
+        "runtime": {"transport": "stdio", "log_level": "WARNING"},
         "middleware": [
             # 1. Error handling middleware (executed first)
             {
@@ -143,18 +128,14 @@ async def demo_production_middleware(factory: MCPFactory) -> None:
                 "enabled": True,
                 "config": {
                     "include_traceback": False,  # Don't expose stack traces in production
-                    "transform_errors": True
-                }
+                    "transform_errors": True,
+                },
             },
             # 2. Rate limiting middleware
             {
                 "type": "rate_limiting",
                 "enabled": True,
-                "config": {
-                    "max_requests_per_second": 10.0,
-                    "burst_capacity": 20,
-                    "global_limit": True
-                }
+                "config": {"max_requests_per_second": 10.0, "burst_capacity": 20, "global_limit": True},
             },
             # 3. Performance monitoring middleware
             {
@@ -162,7 +143,7 @@ async def demo_production_middleware(factory: MCPFactory) -> None:
                 "enabled": True,
                 "config": {
                     "log_level": 30  # WARNING level - only log slow requests
-                }
+                },
             },
             # 4. Request logging middleware (executed last)
             {
@@ -171,13 +152,13 @@ async def demo_production_middleware(factory: MCPFactory) -> None:
                 "config": {
                     "include_payloads": False,  # Don't log payloads in production
                     "max_payload_length": 100,
-                    "log_level": 30  # WARNING level
-                }
-            }
+                    "log_level": 30,  # WARNING level
+                },
+            },
         ],
         "tools": {
             "expose_management_tools": False  # Hide management tools in production
-        }
+        },
     }
 
     try:
@@ -199,7 +180,7 @@ async def demo_production_middleware(factory: MCPFactory) -> None:
                 "operation": operation,
                 "data_size": len(data),
                 "result": result,
-                "processed_with": "production middleware stack"
+                "processed_with": "production middleware stack",
             }
 
         print(f"✅ Production environment server created successfully: {server.name}")
@@ -227,35 +208,20 @@ async def demo_custom_middleware(factory: MCPFactory) -> None:
 
     # Custom middleware configuration
     config = {
-        "server": {
-            "name": "custom-middleware-server",
-            "instructions": "Custom middleware integration demonstration"
-        },
-        "runtime": {
-            "transport": "stdio",
-            "log_level": "INFO"
-        },
+        "server": {"name": "custom-middleware-server", "instructions": "Custom middleware integration demonstration"},
+        "runtime": {"transport": "stdio", "log_level": "INFO"},
         "middleware": [
             # Built-in middleware
-            {
-                "type": "timing",
-                "enabled": True,
-                "config": {"log_level": 20}
-            },
+            {"type": "timing", "enabled": True, "config": {"log_level": 20}},
             # Custom middleware example
             {
                 "type": "custom",
                 "enabled": True,
                 "class": "examples.custom_middleware.AuthenticationMiddleware",
-                "config": {
-                    "api_keys": ["demo-key-1", "demo-key-2"],
-                    "allow_anonymous": True
-                }
-            }
+                "config": {"api_keys": ["demo-key-1", "demo-key-2"], "allow_anonymous": True},
+            },
         ],
-        "tools": {
-            "expose_management_tools": True
-        }
+        "tools": {"expose_management_tools": True},
     }
 
     try:
@@ -269,7 +235,7 @@ async def demo_custom_middleware(factory: MCPFactory) -> None:
                 "operation_id": operation_id,
                 "status": "completed",
                 "message": "Operation completed successfully",
-                "security_note": "This operation was processed through custom authentication middleware"
+                "security_note": "This operation was processed through custom authentication middleware",
             }
 
         print(f"✅ Custom middleware server created successfully: {server.name}")
@@ -299,12 +265,9 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
     config = {
         "server": {
             "name": "enterprise-middleware-server",
-            "instructions": "Enterprise-grade middleware stack with custom middleware"
+            "instructions": "Enterprise-grade middleware stack with custom middleware",
         },
-        "runtime": {
-            "transport": "stdio",
-            "log_level": "INFO"
-        },
+        "runtime": {"transport": "stdio", "log_level": "INFO"},
         "middleware": [
             # 1. Authentication middleware (executed first)
             {
@@ -314,8 +277,8 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
                 "config": {
                     "api_keys": ["enterprise-key-1", "enterprise-key-2"],
                     "header_name": "X-API-Key",
-                    "allow_anonymous": False
-                }
+                    "allow_anonymous": False,
+                },
             },
             # 2. Audit middleware
             {
@@ -325,8 +288,8 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
                 "config": {
                     "log_file": "/tmp/enterprise_audit.log",
                     "include_payloads": True,
-                    "sensitive_fields": ["password", "token", "api_key"]
-                }
+                    "sensitive_fields": ["password", "token", "api_key"],
+                },
             },
             # 3. Cache middleware
             {
@@ -336,27 +299,18 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
                 "config": {
                     "cache_ttl": 300,  # 5 minutes
                     "max_cache_size": 100,
-                    "cacheable_methods": ["list_tools", "get_resource"]
-                }
+                    "cacheable_methods": ["list_tools", "get_resource"],
+                },
             },
             # 4. Built-in middleware
             {
                 "type": "error_handling",
                 "enabled": True,
-                "config": {
-                    "include_traceback": False,
-                    "transform_errors": True
-                }
+                "config": {"include_traceback": False, "transform_errors": True},
             },
-            {
-                "type": "timing",
-                "enabled": True,
-                "config": {"log_level": 20}
-            }
+            {"type": "timing", "enabled": True, "config": {"log_level": 20}},
         ],
-        "tools": {
-            "expose_management_tools": True
-        }
+        "tools": {"expose_management_tools": True},
     }
 
     try:
@@ -370,7 +324,7 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
             operations = {
                 "user_info": {"user_id": "12345", "role": "admin", "permissions": ["read", "write"]},
                 "system_status": {"status": "healthy", "uptime": "99.9%", "services": 12},
-                "audit_report": {"total_requests": 1000, "errors": 2, "avg_response_time": "120ms"}
+                "audit_report": {"total_requests": 1000, "errors": 2, "avg_response_time": "120ms"},
             }
 
             result = operations.get(operation_type, {"error": "Unknown operation"})
@@ -384,8 +338,8 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
                     "AuditMiddleware",
                     "CacheMiddleware",
                     "ErrorHandlingMiddleware",
-                    "TimingMiddleware"
-                ]
+                    "TimingMiddleware",
+                ],
             }
 
         print(f"✅ Enterprise-grade server created successfully: {server.name}")
@@ -416,26 +370,23 @@ async def demo_middleware_performance(factory: MCPFactory) -> None:
     no_middleware_config = {
         "server": {
             "name": "no-middleware-server",
-            "instructions": "Server without middleware for performance comparison"
+            "instructions": "Server without middleware for performance comparison",
         },
         "runtime": {"transport": "stdio"},
-        "tools": {"expose_management_tools": True}
+        "tools": {"expose_management_tools": True},
     }
 
     # Full middleware configuration
     full_middleware_config = {
-        "server": {
-            "name": "full-middleware-server",
-            "instructions": "Server with full middleware stack"
-        },
+        "server": {"name": "full-middleware-server", "instructions": "Server with full middleware stack"},
         "runtime": {"transport": "stdio"},
         "middleware": [
             {"type": "error_handling", "enabled": True},
             {"type": "rate_limiting", "enabled": True, "config": {"max_requests_per_second": 100.0}},
             {"type": "timing", "enabled": True},
-            {"type": "logging", "enabled": True, "config": {"include_payloads": False}}
+            {"type": "logging", "enabled": True, "config": {"include_payloads": False}},
         ],
-        "tools": {"expose_management_tools": True}
+        "tools": {"expose_management_tools": True},
     }
 
     try:
@@ -454,11 +405,7 @@ async def demo_middleware_performance(factory: MCPFactory) -> None:
                 total = 0
                 for i in range(iterations):
                     total += i
-                return {
-                    "iterations": iterations,
-                    "result": total,
-                    "server_type": server_type
-                }
+                return {"iterations": iterations, "result": total, "server_type": server_type}
 
         add_test_tool(no_middleware_server, "no_middleware")
         add_test_tool(full_middleware_server, "full_middleware")

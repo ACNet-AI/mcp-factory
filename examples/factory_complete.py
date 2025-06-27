@@ -67,7 +67,7 @@ async def demo_project_management(factory: MCPFactory, workspace: str):
             {
                 "type": "timing",
                 "enabled": True,
-                "config": {"log_level": 20}  # INFO level
+                "config": {"log_level": 20},  # INFO level
             },
             {
                 "type": "logging",
@@ -75,10 +75,10 @@ async def demo_project_management(factory: MCPFactory, workspace: str):
                 "config": {
                     "include_payloads": True,  # Include payloads in development environment
                     "max_payload_length": 1000,
-                    "log_level": 20
-                }
-            }
-        ]
+                    "log_level": 20,
+                },
+            },
+        ],
     }
 
     try:
