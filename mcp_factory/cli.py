@@ -23,7 +23,7 @@ from .factory import MCPFactory
 
 def is_verbose(ctx: click.Context) -> bool:
     """Check if verbose mode is enabled"""
-    return bool(ctx.obj.get("verbose", False))
+    return bool(ctx.obj.get("verbose", False) if ctx.obj else False)
 
 
 def success_message(message: str) -> None:
@@ -57,8 +57,19 @@ def get_factory(workspace: str | None = None) -> MCPFactory:
             except (OSError, FileNotFoundError):
                 # If switching fails, continue using current directory
                 pass
-    # Note: MCPFactory constructor only accepts workspace_root parameter, not config
-    return MCPFactory(workspace_root=workspace or "./workspace")
+
+    # Smart selection of workspace_root：
+    # 1. If workspace parameter is explicitly specified, use it
+    # 2. If current directory name is "workspace", use current directory
+    # 3. Otherwise use default "./workspace"
+    if workspace:
+        workspace_root = workspace
+    elif Path.cwd().name == "workspace":
+        workspace_root = "."
+    else:
+        workspace_root = "./workspace"
+
+    return MCPFactory(workspace_root=workspace_root)
 
 
 def format_table(data: builtins.list[dict[str, Any]], headers: builtins.list[str]) -> str:
@@ -190,17 +201,18 @@ def cli(ctx: click.Context, workspace: str | None, verbose: bool) -> None:
 @click.pass_context
 def server(ctx: click.Context) -> None:
     """🖥️ Server Management"""
+    ctx.ensure_object(dict)
 
 
-@server.command()
+@server.command("list")
 @click.option("--status-filter", type=click.Choice(["running", "stopped", "error"]), help="Filter by status")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.option("--show-mounts", "-m", is_flag=True, help="Show mounted external servers")
 @click.pass_context
-def list(ctx: click.Context, status_filter: str | None, output_format: str, show_mounts: bool) -> None:
+def list_servers(ctx: click.Context, status_filter: str | None, output_format: str, show_mounts: bool) -> None:
     """List all servers"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         servers = factory.list_servers()
 
         if status_filter:
@@ -252,7 +264,7 @@ def list(ctx: click.Context, status_filter: str | None, output_format: str, show
 def status(ctx: click.Context, server_id: str, show_mounts: bool) -> None:
     """View server status"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         server_info = factory.get_server_status(server_id)
 
         if not server_info:
@@ -309,7 +321,7 @@ def status(ctx: click.Context, server_id: str, show_mounts: bool) -> None:
 def delete(ctx: click.Context, server_id: str, force: bool) -> None:
     """Delete server"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
         if not force:
             warning_message(f"Are you sure you want to delete server '{server_id}'?")
@@ -337,7 +349,7 @@ def delete(ctx: click.Context, server_id: str, force: bool) -> None:
 def restart(ctx: click.Context, server_id: str) -> None:
     """Restart server"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
         if not factory.get_server(server_id):
             error_message(f"Server '{server_id}' does not exist")
@@ -366,7 +378,7 @@ def restart(ctx: click.Context, server_id: str) -> None:
 def run(ctx: click.Context, config_file: str, transport: str | None, host: str | None, port: int | None) -> None:
     """Run server using FastMCP"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         click.echo(f"🚀 Starting server from config: {config_file}")
 
         # Use Factory's run_server method for core logic
@@ -391,6 +403,7 @@ def run(ctx: click.Context, config_file: str, transport: str | None, host: str |
 @click.pass_context
 def project(ctx: click.Context) -> None:
     """📂 Project management"""
+    ctx.ensure_object(dict)
 
 
 @project.command()
@@ -418,7 +431,7 @@ def init(
 ) -> None:
     """📂 Interactive project initialization wizard"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
         click.echo("🚀 Welcome to MCP Factory project initialization wizard!")
         click.echo("-" * 50)
@@ -459,16 +472,12 @@ def init(
         if debug:
             config_data["server"]["debug"] = True
 
-        # Save configuration file
-        config_file = f"{factory.workspace_root}/{name}_config.yaml"
-        with open(config_file, "w") as f:
-            yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-
-        success_message(f"Project configuration generated: {config_file}")
-
-        # Build project structure
-        project_path = factory.build_project(config_file)
+        # Build project structure (this will create config.yaml inside the project)
+        project_path = factory.build_project(name, config_data)
         success_message(f"Project structure created: {project_path}")
+
+        # Use the config file inside the project directory
+        config_file = f"{project_path}/config.yaml"
 
         # Create server if requested
         if start_server:
@@ -496,7 +505,7 @@ def init(
 def build(ctx: click.Context, config_file: str) -> None:
     """Build project"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
         # Load configuration from file
         from .config.manager import load_config_file
@@ -527,7 +536,7 @@ def build(ctx: click.Context, config_file: str) -> None:
 def quick(ctx: click.Context) -> None:
     """Quick start temporary server"""
     try:
-        factory = get_factory(ctx.obj.get("workspace"))
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         info_message("Starting quick server...")
         # Create a basic quick server using default configuration
         basic_config = {
@@ -553,6 +562,69 @@ def quick(ctx: click.Context) -> None:
         sys.exit(1)
 
 
+@project.command()
+@click.argument("project_path", type=click.Path(exists=True), default=".")
+@click.option("--dry-run", is_flag=True, help="Validate project but don't actually publish")
+@click.pass_context
+def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
+    """📤 Publish project to GitHub and register to MCP Servers Hub"""
+    from .project import ProjectPublisher
+
+    try:
+        # Initialize publisher
+        publisher = ProjectPublisher()
+
+        if dry_run:
+            info_message("🧪 Running dry-run mode - validate project only")
+            project_path_obj = Path(project_path).resolve()
+
+            # Validate project
+            if publisher.validate_project(project_path_obj):
+                success_message("Project validation passed, ready to publish")
+
+                # Display project information
+                try:
+                    metadata = publisher.extract_project_metadata(project_path_obj)
+                    info_message(f"Project name: {metadata.get('name')}")
+                    info_message(f"Project description: {metadata.get('description')}")
+                    info_message(f"Author: {metadata.get('author')}")
+                    info_message(f"GitHub username: {metadata.get('github_username')}")
+
+                    # Detect Git information (if possible)
+                    try:
+                        git_info = publisher.detect_git_info(project_path_obj)
+                        info_message(f"GitHub repository: {git_info['full_name']}")
+                        if git_info["has_changes"]:
+                            warning_message("Detected uncommitted changes")
+                        if git_info["has_unpushed"]:
+                            warning_message("Detected unpushed commits")
+                    except Exception as git_e:
+                        warning_message(f"Unable to detect Git information: {git_e}")
+
+                except Exception as e:
+                    warning_message(f"Unable to extract project metadata: {e}")
+            else:
+                error_message("Project validation failed")
+                sys.exit(1)
+        else:
+            info_message("🚀 Starting to publish project to GitHub and register to MCP Servers Hub")
+
+            # Actual publish
+            if publisher.publish(project_path):
+                success_message("Project published successfully!")
+            else:
+                error_message("Project publish failed")
+                sys.exit(1)
+
+    except Exception as e:
+        error_message(f"Error occurred during publish: {e}")
+        if is_verbose(ctx):
+            import traceback
+
+            click.echo(traceback.format_exc(), err=True)
+        sys.exit(1)
+
+
 # =============================================================================
 # Configuration Management Commands
 # =============================================================================
@@ -562,6 +634,7 @@ def quick(ctx: click.Context) -> None:
 @click.pass_context
 def config(ctx: click.Context) -> None:
     """⚙️ Configuration management"""
+    ctx.ensure_object(dict)
 
 
 @config.command()
@@ -662,7 +735,7 @@ def validate(ctx: click.Context, config_file: str, check_mounts: bool) -> None:
 def list_configs(ctx: click.Context) -> None:
     """List configuration files"""
     try:
-        workspace = ctx.obj.get("workspace", ".")
+        workspace = (ctx.obj.get("workspace") if ctx.obj else None) or "."
         workspace_path = Path(workspace)
 
         # Find YAML configuration files
@@ -693,6 +766,7 @@ def list_configs(ctx: click.Context) -> None:
 @click.pass_context
 def auth(ctx: click.Context) -> None:
     """🔐 Authentication management"""
+    ctx.ensure_object(dict)
 
 
 @auth.command()
@@ -766,7 +840,7 @@ def health(ctx: click.Context, check_config: bool, check_env: bool) -> None:
         click.echo("=" * 40)
 
         # Basic system information
-        workspace = ctx.obj.get("workspace", ".")
+        workspace = (ctx.obj.get("workspace") if ctx.obj else None) or "."
         workspace_path = Path(workspace).resolve()
         click.echo(f"📁 Working directory: {workspace_path}")
         success_message(f"Directory exists: {'Yes' if workspace_path.exists() else 'No'}")
