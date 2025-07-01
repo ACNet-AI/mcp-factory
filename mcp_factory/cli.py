@@ -607,9 +607,9 @@ def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
                 error_message("Project validation failed")
                 sys.exit(1)
         else:
-            info_message("🚀 Starting to publish project to GitHub and register to MCP Servers Hub")
+            info_message("🚀 Publishing project to GitHub and MCP Servers Hub")
 
-            # Actual publish
+            # Simplified publish call - users don't need to understand technical details
             if publisher.publish(project_path):
                 success_message("Project published successfully!")
             else:

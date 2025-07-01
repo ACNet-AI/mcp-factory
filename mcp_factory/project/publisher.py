@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import requests
 import toml
 
 from .validator import ProjectValidator, ValidationError
@@ -30,11 +31,12 @@ class GitError(Exception):
 class ProjectPublisher:
     """MCP Project Publisher - Based on GitHub App and Registry Pattern"""
 
-    def __init__(self):
+    def __init__(self, github_app_url: str = "https://mcp-project-manager.vercel.app"):
         """Initialize publisher"""
         self.validator = ProjectValidator()
-        self.github_app_name = "mcp-servers-hub"
+        self.github_app_name = "mcp-project-manager"
         self.hub_repo = "ACNet-AI/mcp-servers-hub"
+        self.github_app_url = github_app_url.rstrip("/")
 
     # ============================================================================
     # Main Publishing Workflow
@@ -42,13 +44,16 @@ class ProjectPublisher:
 
     def publish(self, project_path: str) -> bool:
         """
-        Publish project to GitHub and register to MCP Servers Hub
+        🚀 One-click publish project to GitHub and register to MCP Servers Hub
+
+        The system will automatically select the best publishing method,
+        users don't need to understand technical details.
 
         Args:
             project_path: Project path
 
         Returns:
-            Whether publish succeeded
+            Whether publishing was successful
         """
         project_path = Path(project_path).resolve()
         print(f"🔍 Validating project: {project_path}")
@@ -59,43 +64,12 @@ class ProjectPublisher:
                 return False
             print("✅ Project validation passed")
 
-            # 2. Extract metadata
+            # 2. Extract project metadata
             metadata = self.extract_project_metadata(project_path)
             print(f"📋 Project name: {metadata['name']}")
 
-            # 3. Detect Git repository information
-            print("🔍 Detecting Git repository information...")
-            git_info = self.detect_git_info(project_path)
-            print(f"📍 GitHub repository: {git_info['full_name']}")
-
-            # 4. Ensure Git status is ready
-            if not self.ensure_git_ready(project_path, git_info):
-                return False
-
-            # 5. Guide GitHub App installation
-            if not self.guide_github_app_installation(git_info["full_name"], metadata):
-                return False
-
-            # 6. Trigger initial registration
-            if not self.trigger_initial_registration(git_info["full_name"], metadata):
-                return False
-
-            print(
-                textwrap.dedent(f"""
-                🎉 Publishing workflow completed!
-
-                ✅ Your project has been successfully registered to MCP Servers Hub
-                📋 Project page: https://github.com/{self.hub_repo}
-                🔄 Future updates: Automatically synced when you push code to GitHub
-
-                💡 Next steps:
-                - Check your project status in the Hub
-                - Share your MCP server with the community
-                - Continuously improve and update your project
-            """).strip()
-            )
-
-            return True
+            # 3. Smart publishing (internal logic invisible to users)
+            return self._smart_publish(project_path, metadata)
 
         except (PublishError, GitError) as e:
             print(f"❌ Publishing failed: {e}")
@@ -103,6 +77,199 @@ class ProjectPublisher:
         except Exception as e:
             print(f"❌ Unknown error occurred during publishing: {e}")
             return False
+
+    def _smart_publish(self, project_path: Path, metadata: dict[str, Any]) -> bool:
+        """
+        🧠 Smart publishing logic - internal implementation invisible to users
+
+        Try the best experience API publishing, automatically fallback to traditional mode on failure
+        """
+        # 1. Try API publishing (silent attempt)
+        if self._try_api_publish(project_path, metadata):
+            return True
+
+        # 2. API publishing failed, automatically switch to traditional mode
+        print("🔄 Trying alternative publishing method...")
+        return self._fallback_manual_publish(project_path, metadata)
+
+    # ============================================================================
+    # 🆕 GitHub App API Methods
+    # ============================================================================
+
+    def _check_github_app_status(self) -> bool:
+        """Check GitHub App service status"""
+        try:
+            response = requests.get(f"{self.github_app_url}/api/status", timeout=10)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _prepare_api_payload(self, project_path: Path, metadata: dict[str, Any]) -> dict[str, Any]:
+        """Prepare API payload for GitHub App"""
+
+        # Collect project files
+        files = self._collect_project_files(project_path)
+
+        # Detect language
+        language = self._detect_language(project_path)
+
+        # Detect GitHub username
+        owner = self._detect_github_username()
+
+        return {
+            "projectName": metadata["name"],
+            "description": metadata["description"],
+            "version": metadata.get("version", "1.0.0"),
+            "language": language,
+            "category": metadata.get("category", "utilities"),
+            "tags": metadata.get("tags", ["mcp", "server"]),
+            "owner": owner,
+            "repoName": metadata["name"],
+            "files": files,
+            "packageJson": self._get_package_json(project_path),
+        }
+
+    def _collect_project_files(self, project_path: Path) -> list[dict[str, str]]:
+        """Collect project files for API upload"""
+        files = []
+
+        # File patterns to include
+        include_patterns = [
+            "*.py",
+            "*.js",
+            "*.ts",
+            "*.json",
+            "*.toml",
+            "*.yaml",
+            "*.yml",
+            "README*",
+            "LICENSE*",
+            "requirements.txt",
+            "pyproject.toml",
+            "package.json",
+            "Dockerfile",
+            ".gitignore",
+        ]
+
+        # Directories to exclude
+        exclude_dirs = {
+            "__pycache__",
+            ".git",
+            "node_modules",
+            ".venv",
+            "venv",
+            ".env",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".mypy_cache",
+        }
+
+        def should_include_file(file_path: Path) -> bool:
+            # Check if in excluded directory
+            for part in file_path.parts:
+                if part in exclude_dirs:
+                    return False
+
+            # Check file size (limit 100KB)
+            try:
+                if file_path.stat().st_size > 100 * 1024:
+                    return False
+            except OSError:
+                return False
+
+            # Check if matches include patterns
+            for pattern in include_patterns:
+                if file_path.match(pattern):
+                    return True
+
+            return False
+
+        # Collect files recursively
+        for file_path in project_path.rglob("*"):
+            if file_path.is_file() and should_include_file(file_path):
+                try:
+                    relative_path = file_path.relative_to(project_path)
+                    with open(file_path, encoding="utf-8") as f:
+                        content = f.read()
+
+                    files.append({"path": str(relative_path), "content": content})
+                except (UnicodeDecodeError, OSError):
+                    # Skip binary files
+                    continue
+
+        return files
+
+    def _detect_language(self, project_path: Path) -> str:
+        """Detect project language"""
+        if (project_path / "package.json").exists():
+            return "javascript"
+        elif (project_path / "pyproject.toml").exists() or (project_path / "requirements.txt").exists():
+            return "python"
+        elif any(project_path.glob("*.py")):
+            return "python"
+        elif any(project_path.glob("*.js")) or any(project_path.glob("*.ts")):
+            return "javascript"
+        else:
+            return "python"  # default
+
+    def _detect_github_username(self) -> str:
+        """Detect GitHub username"""
+        try:
+            # Try GitHub CLI
+            result = subprocess.run(["gh", "auth", "status"], capture_output=True, text=True, check=True)
+            for line in result.stderr.split("\n"):
+                if "Logged in to github.com as" in line:
+                    username = line.split("as")[-1].strip().split()[0]
+                    return username
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+        try:
+            # Try git config
+            result = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True, check=True)
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            pass
+
+        # Ask user input
+        username = input("Please enter your GitHub username: ").strip()
+        if not username:
+            raise ValueError("GitHub username cannot be empty")
+        return username
+
+    def _get_package_json(self, project_path: Path) -> dict | None:
+        """Get package.json content if exists"""
+        package_json_path = project_path / "package.json"
+        if package_json_path.exists():
+            try:
+                with open(package_json_path, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return None
+
+    def _send_publish_request(self, project_info: dict[str, Any]) -> dict[str, Any]:
+        """Send publish request to GitHub App API"""
+        api_url = f"{self.github_app_url}/api/publish"
+
+        response = requests.post(
+            api_url,
+            json=project_info,
+            headers={"Content-Type": "application/json", "User-Agent": "mcp-factory/1.0.0"},
+            timeout=120,  # Extended timeout for file upload
+        )
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("error", f"HTTP {response.status_code}")
+            except ValueError:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+
+            return {"success": False, "error": error_msg}
 
     # ============================================================================
     # Project Validation and Metadata Processing
@@ -206,9 +373,9 @@ class ProjectPublisher:
             print("📝 Please provide the following information:")
 
             name = input(f"Project name [{existing_info.get('name', '')}]: ").strip() or existing_info.get("name", "")
-            description = input(f"Project description [{existing_info.get('description', '')}]: ").strip() or existing_info.get(
-                "description", ""
-            )
+            description = input(
+                f"Project description [{existing_info.get('description', '')}]: "
+            ).strip() or existing_info.get("description", "")
             author = input("Author name: ").strip()
             github_username = input("GitHub username: ").strip()
 
@@ -377,7 +544,7 @@ class ProjectPublisher:
 
     def ensure_git_ready(self, project_path: Path, git_info: dict[str, str]) -> bool:
         """
-        Ensure Git repository status is ready
+        Ensure Git repository is ready for publishing
 
         Args:
             project_path: Project path
@@ -537,4 +704,71 @@ class ProjectPublisher:
 
         except subprocess.CalledProcessError as e:
             print(f"❌ Failed to trigger registration: {e}")
+            return False
+
+    def _try_api_publish(self, project_path: Path, metadata: dict[str, Any]) -> bool:
+        """
+        🤫 Silent API publishing attempt - no technical details shown, no user interaction required
+
+        Returns:
+            True if successful, False if should fallback to manual
+        """
+        try:
+            # Silent check GitHub App service status
+            if not self._check_github_app_status():
+                return False
+
+            # Collect project information
+            project_info = self._prepare_api_payload(project_path, metadata)
+
+            # Silent send publish request
+            result = self._send_publish_request(project_info)
+
+            if result["success"]:
+                print("\n🎉 Project published successfully!")
+                print(f"🔗 Repository URL: {result['repoUrl']}")
+                if result.get("registrationUrl"):
+                    print(f"📋 Registration URL: {result['registrationUrl']}")
+                print("\n✅ Your MCP project has been successfully published and registered to the server hub!")
+                return True
+            else:
+                # Silent failure, let system automatically fallback
+                return False
+
+        except Exception:
+            # All exceptions are handled silently, let system automatically fallback
+            return False
+
+    def _fallback_manual_publish(self, project_path: Path, metadata: dict[str, Any]) -> bool:
+        """
+        🔧 Fallback to traditional publishing mode - simplified manual process
+
+        Used when API publishing fails, but tries to simplify user operations
+        """
+        try:
+            print("📝 Using traditional publishing process...")
+
+            # Detect Git repository information
+            print("🔍 Detecting Git repository information...")
+            git_info = self.detect_git_info(project_path)
+            print(f"📍 GitHub repository: {git_info['full_name']}")
+
+            # Ensure Git status is ready
+            if not self.ensure_git_ready(project_path, git_info):
+                return False
+
+            # Guide GitHub App installation
+            if not self.guide_github_app_installation(git_info["full_name"], metadata):
+                return False
+
+            # Trigger initial registration
+            if not self.trigger_initial_registration(git_info["full_name"], metadata):
+                return False
+
+            print("\n🎉 Publishing process completed!")
+            print("✅ Your project has been successfully registered to the MCP Servers Hub")
+            return True
+
+        except (PublishError, GitError) as e:
+            print(f"❌ Publishing failed: {e}")
             return False
