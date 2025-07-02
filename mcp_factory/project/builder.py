@@ -84,7 +84,7 @@ class Builder:
         self.workspace_root.mkdir(parents=True, exist_ok=True)
         self.template = BasicTemplate()
         self.validator = ProjectValidator()
-        logger.info(f"Builder initialized with workspace: {workspace_root}")
+        logger.info("Builder initialized with workspace: %s", workspace_root)
 
     # ========================================================================
     # Public Interface - Core Build Functionality
@@ -109,7 +109,7 @@ class Builder:
         Raises:
             ProjectBuildError: Raised when build fails
         """
-        logger.info(f"Starting to build project: {name}")
+        logger.info("Starting to build project: %s", name)
         project_path = self.workspace_root / name
 
         try:
@@ -118,7 +118,7 @@ class Builder:
 
             # Handle existing project
             if project_path.exists() and force:
-                logger.warning(f"Force rebuilding project: {name}")
+                logger.warning("Force rebuilding project: %s", name)
                 shutil.rmtree(project_path)
 
             # Create project directory
@@ -139,7 +139,7 @@ class Builder:
             # Output success messages
             self._print_build_success_messages(name, project_path)
 
-            logger.info(f"Project '{name}' built successfully at {project_path}")
+            logger.info("Project '%s' built successfully at %s", name, project_path)
             return str(project_path)
 
         except ValidationError as e:
@@ -193,7 +193,7 @@ class Builder:
             user_config: User configuration updates
             rescan_components: Whether to rescan component directories (default False, auto-discover when missing)
         """
-        logger.info(f"Updating config file for project: {project_path}")
+        logger.info("Updating config file for project: %s", project_path)
         path = self._validate_project_path(project_path)
         config_path = path / "config.yaml"
 
@@ -225,7 +225,7 @@ class Builder:
         Args:
             project_path: Project path
         """
-        logger.info(f"Updating server.py for project: {project_path}")
+        logger.info("Updating server.py for project: %s", project_path)
         path = self._validate_project_path(project_path)
         server_path = path / "server.py"
 
@@ -241,7 +241,7 @@ class Builder:
                         server_config.get("instructions", "") or f"MCP server: {server_config.get('name', 'unnamed')}"
                     )
             except Exception as e:
-                logger.warning(f"Failed to read config for description: {e}")
+                logger.warning("Failed to read config for description: %s", e)
 
         server_content = self.template.get_server_template().format(description=description)
         server_path.write_text(server_content, encoding="utf-8")
@@ -285,7 +285,7 @@ class Builder:
             env_vars: Environment variables dictionary to update (optional, regenerate template if not provided)
             jwt_auth: JWT authentication configuration (optional), containing issuer, audience, public_key or jwks_uri
         """
-        logger.info(f"Updating .env file for project: {project_path}")
+        logger.info("Updating .env file for project: %s", project_path)
         path = self._validate_project_path(project_path)
         env_path = path / ".env"
 
@@ -312,7 +312,7 @@ class Builder:
         Args:
             project_path: Project path
         """
-        logger.info(f"Updating CHANGELOG.md for project: {project_path}")
+        logger.info("Updating CHANGELOG.md for project: %s", project_path)
         path = self._validate_project_path(project_path)
 
         from datetime import datetime
@@ -330,7 +330,7 @@ class Builder:
         Args:
             project_path: Project path
         """
-        logger.info(f"Updating .gitignore for project: {project_path}")
+        logger.info("Updating .gitignore for project: %s", project_path)
         path = self._validate_project_path(project_path)
 
         gitignore_content = self.template.get_gitignore_template()
@@ -411,7 +411,7 @@ class Builder:
             project_path: Project path
             functions: List of function definitions
         """
-        logger.info(f"Adding {len(functions)} functions in batch")
+        logger.info("Adding %s functions in batch", len(functions))
 
         for i, func_def in enumerate(functions):
             try:
@@ -437,7 +437,7 @@ class Builder:
                     raise ProjectError(f"Unknown module type: {module_type}", project_path=project_path)
 
             except Exception as e:
-                logger.error(f"Failed to add function {i + 1}: {e}")
+                logger.error("Failed to add function %s: %s", i + 1, e)
                 raise
 
         logger.info("Batch function addition completed successfully")
@@ -455,7 +455,7 @@ class Builder:
             module_type: Module type (tools, resources, prompts)
             function_name: Function name
         """
-        logger.info(f"Removing function '{function_name}' from {module_type} module")
+        logger.info("Removing function '%s' from %s module", function_name, module_type)
         path = self._validate_project_path(project_path)
 
         if module_type not in ALLOWED_MODULE_TYPES:
@@ -500,7 +500,7 @@ class Builder:
             i += 1
 
         if not found_function:
-            logger.warning(f"Function '{function_name}' not found in {module_type} module")
+            logger.warning("Function '%s' not found in %s module", function_name, module_type)
             return
 
         # Rebuild content and clean up excessive empty lines
@@ -511,7 +511,7 @@ class Builder:
         with open(module_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-        logger.info(f"Function '{function_name}' removed successfully")
+        logger.info("Function '%s' removed successfully", function_name)
 
     # ========================================================================
     # Public Interface - Information Query
@@ -527,7 +527,7 @@ class Builder:
         Returns:
             List of function names
         """
-        logger.debug(f"Listing functions in {module_type} module")
+        logger.debug("Listing functions in %s module", module_type)
         path = self._validate_project_path(project_path)
 
         if module_type not in ALLOWED_MODULE_TYPES:
@@ -545,7 +545,7 @@ class Builder:
         function_pattern = r"^def (\w+)\("
         matches = re.findall(function_pattern, content, re.MULTILINE)
 
-        logger.debug(f"Found {len(matches)} functions in {module_type} module")
+        logger.debug("Found %s functions in %s module", len(matches), module_type)
         return matches
 
     def get_project_stats(self, project_path: str) -> dict[str, Any]:
@@ -635,7 +635,7 @@ class Builder:
             components_config = self._discover_project_components(project_path)
             if components_config:
                 merged_config["components"] = components_config
-                logger.info(f"Auto-discovered components: {components_config}")
+                logger.info("Auto-discovered components: %s", components_config)
 
         # Normalize and validate configuration
         merged_config = normalize_config(merged_config)
@@ -648,7 +648,7 @@ class Builder:
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(merged_config, f, default_flow_style=False, allow_unicode=True)
 
-        logger.debug(f"Config file written to: {config_path}")
+        logger.debug("Config file written to: %s", config_path)
 
     def _build_template_files(self, project_path: Path, name: str, user_config: dict[str, Any] | None) -> None:
         """Build template files
@@ -716,10 +716,10 @@ class Builder:
                 if discovered_modules:
                     components_config[component_type] = discovered_modules
                     total_components += len(discovered_modules)
-                logger.debug(f"Discovered {len(discovered_modules)} {component_type} modules")
+                logger.debug("Discovered %s %s modules", len(discovered_modules), component_type)
 
         if total_components > 0:
-            logger.info(f"Auto-discovered {total_components} components total")
+            logger.info("Auto-discovered %s components total", total_components)
             return components_config
         logger.debug("No components discovered, returning empty config")
         return {}
@@ -756,7 +756,7 @@ class Builder:
                 "file": str(py_file.relative_to(component_dir.parent)),
             }
             modules.append(module_config)
-            logger.debug(f"Found {component_type} module: {module_name}")
+            logger.debug("Found %s module: %s", component_type, module_name)
 
         return modules
 
@@ -786,7 +786,7 @@ class Builder:
             return None
 
         except Exception as e:
-            logger.debug(f"Failed to extract description from {module_file}: {e}")
+            logger.debug("Failed to extract description from %s: %s", module_file, e)
         return None
 
     # ========================================================================
@@ -821,10 +821,10 @@ class Builder:
                     "file": str(init_file.relative_to(init_file.parent.parent)),
                 }
                 functions.append(function_config)
-                logger.debug(f"Found {component_type} function in __init__.py: {function_name}")
+                logger.debug("Found %s function in __init__.py: %s", component_type, function_name)
 
         except Exception as e:
-            logger.debug(f"Failed to scan __init__.py functions: {e}")
+            logger.debug("Failed to scan __init__.py functions: %s", e)
 
         return functions
 
@@ -848,7 +848,7 @@ class Builder:
             return None
 
         except Exception as e:
-            logger.debug(f"Failed to extract description for function {function_name}: {e}")
+            logger.debug("Failed to extract description for function %s: %s", function_name, e)
         return None
 
     # ========================================================================
@@ -936,7 +936,7 @@ class Builder:
             description: Function description
             template_data: Template data
         """
-        logger.info(f"Injecting function '{function_name}' to {module_type} module")
+        logger.info("Injecting function '%s' to %s module", function_name, module_type)
         path = self._validate_project_path(project_path)
 
         if module_type not in ALLOWED_MODULE_TYPES:
@@ -952,7 +952,7 @@ class Builder:
 
         # Check if function already exists
         if f"def {function_name}(" in content:
-            logger.warning(f"Function '{function_name}' already exists in {module_type} module")
+            logger.warning("Function '%s' already exists in %s module", function_name, module_type)
             return
 
         # Generate function code
@@ -967,7 +967,7 @@ class Builder:
         with open(module_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-        logger.info(f"Function '{function_name}' injected successfully")
+        logger.info("Function '%s' injected successfully", function_name)
 
     def _generate_function_code(
         self,

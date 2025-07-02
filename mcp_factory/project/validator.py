@@ -115,7 +115,7 @@ class ProjectValidator:
         Raises:
             ValidationError: Raised when project path does not exist
         """
-        logger.info(f"Validating project: {project_path}")
+        logger.info("Validating project: %s", project_path)
 
         path = Path(project_path)
         if not path.exists():
@@ -163,7 +163,7 @@ class ProjectValidator:
             result["errors"].append(f"Invalid config file format: {e}")
             result["valid"] = False
 
-        logger.info(f"Project validation completed. Valid: {result['valid']}")
+        logger.info("Project validation completed. Valid: %s", result['valid'])
         return result
 
     def validate_project_structure_only(self, project_path: str) -> bool:

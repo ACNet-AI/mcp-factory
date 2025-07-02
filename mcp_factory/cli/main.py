@@ -14,7 +14,7 @@ import click
 import yaml
 from tabulate import tabulate
 
-from .factory import MCPFactory
+from ..factory import MCPFactory
 
 # =============================================================================
 # Utility Functions
@@ -38,7 +38,7 @@ def error_message(message: str) -> None:
 
 def info_message(message: str) -> None:
     """Display info message with blue color"""
-    click.echo(click.style(f"ℹ️ {message}", fg="blue"))
+    click.echo(click.style(f"💬 {message}", fg="blue"))
 
 
 def warning_message(message: str) -> None:
@@ -61,13 +61,23 @@ def get_factory(workspace: str | None = None) -> MCPFactory:
     # Smart selection of workspace_root：
     # 1. If workspace parameter is explicitly specified, use it
     # 2. If current directory name is "workspace", use current directory
-    # 3. Otherwise use default "./workspace"
+    # 3. If we're already in a project directory that has a workspace subdirectory, use it
+    # 4. Otherwise use default "./workspace"
     if workspace:
         workspace_root = workspace
-    elif Path.cwd().name == "workspace":
-        workspace_root = "."
     else:
-        workspace_root = "./workspace"
+        try:
+            current_dir = Path.cwd()
+            if current_dir.name == "workspace":
+                workspace_root = "."
+            elif (current_dir / "workspace").exists() and (current_dir / "workspace").is_dir():
+                # If there's already a workspace directory, use it to avoid nesting
+                workspace_root = "workspace"
+            else:
+                workspace_root = "./workspace"
+        except (OSError, FileNotFoundError):
+            # If we can't get current directory (e.g., it was deleted), use safe default
+            workspace_root = "./workspace"
 
     return MCPFactory(workspace_root=workspace_root)
 
@@ -142,7 +152,7 @@ def _get_mounted_servers_count(config_file: str | None) -> int:
         return 0
 
     try:
-        from .config.manager import load_config_file
+        from ..config.manager import load_config_file
 
         config = load_config_file(config_file)
         return len(config.get("mcpServers", {}))
@@ -156,7 +166,7 @@ def _get_mounted_servers_info(config_file: str | None) -> dict:
         return {}
 
     try:
-        from .config.manager import load_config_file
+        from ..config.manager import load_config_file
 
         config = load_config_file(config_file)
         mcp_servers = config.get("mcpServers", {})
@@ -204,6 +214,102 @@ def server(ctx: click.Context) -> None:
     ctx.ensure_object(dict)
 
 
+def _filter_servers_by_status(servers: list[dict[str, Any]], status_filter: str | None) -> list[dict[str, Any]]:
+    """Filter servers by status"""
+    if not status_filter:
+        return servers
+    return [s for s in servers if s.get("status") == status_filter]
+
+
+def _add_mount_info_to_servers(servers: list[dict[str, Any]]) -> None:
+    """Add mount information to servers list"""
+    for server in servers:
+        mount_count = _get_mounted_servers_count(server.get("config_file"))
+        server["Mounts"] = f"🔗{mount_count}" if mount_count > 0 else "➖"
+
+
+def _output_servers_as_json(servers: list[dict[str, Any]], show_mounts: bool) -> None:
+    """Output servers in JSON format"""
+    if show_mounts:
+        for server in servers:
+            server["mounted_servers"] = _get_mounted_servers_info(server.get("config_file"))
+    click.echo(json.dumps(servers, indent=2))
+
+
+def _output_servers_as_table(servers: list[dict[str, Any]], show_mounts: bool) -> None:
+    """Output servers in table format"""
+    if not servers:
+        click.echo("📭 No servers found")
+        return
+
+    headers = ["ID", "Name", "Status", "Host", "Port"]
+    if show_mounts:
+        headers.append("Mounts")
+        _add_mount_info_to_servers(servers)
+
+    table = format_table(servers, headers)
+    click.echo(table)
+
+
+def _display_mount_details(servers: list[dict[str, Any]]) -> None:
+    """Display detailed mount information for servers"""
+    for server in servers:
+        mounted_info = _get_mounted_servers_info(server.get("config_file"))
+        if mounted_info:
+            click.echo(f"\n🔗 Mounted servers for {server.get('Name', server.get('ID'))}:")
+            for mount_name, mount_info in mounted_info.items():
+                status_icon = "🟢" if mount_info.get("status") == "running" else "🔴"
+                click.echo(f"  {status_icon} {mount_name} ({mount_info.get('type', 'unknown')})")
+
+
+def _display_server_status(server_id: str, status: str) -> None:
+    """Display server status with appropriate icon"""
+    click.echo(f"📊 Server status: {server_id}")
+    click.echo("-" * 40)
+
+    if status == "running":
+        click.echo(f"Status: 🟢 {status}")
+    elif status == "stopped":
+        click.echo(f"Status: 🔴 {status}")
+    else:
+        click.echo(f"Status: 🟡 {status}")
+
+
+def _display_server_details(server_info: dict[str, Any]) -> None:
+    """Display server details excluding status"""
+    for key, value in server_info.items():
+        if key != "status":
+            click.echo(f"{key}: {value}")
+
+
+def _display_mount_info_details(mounted_info: dict[str, Any]) -> None:
+    """Display detailed mounted server information"""
+    click.echo("\n🔗 Mounted external servers:")
+    click.echo("-" * 30)
+
+    for mount_name, mount_info in mounted_info.items():
+        status_icon = "🟢" if mount_info.get("status") == "running" else "🔴"
+        click.echo(f"{status_icon} {mount_name}")
+        click.echo(f"   Type: {mount_info.get('type', 'unknown')}")
+
+        if mount_info.get("command"):
+            click.echo(f"   Command: {mount_info.get('command')}")
+        if mount_info.get("url"):
+            click.echo(f"   URL: {mount_info.get('url')}")
+        click.echo()
+
+
+def _show_mount_information(server_info: dict[str, Any]) -> None:
+    """Show mount information for a server"""
+    config_file = server_info.get("config_file")
+    mounted_info = _get_mounted_servers_info(config_file)
+
+    if mounted_info:
+        _display_mount_info_details(mounted_info)
+    else:
+        click.echo("\n📭 No mounted external servers")
+
+
 @server.command("list")
 @click.option("--status-filter", type=click.Choice(["running", "stopped", "error"]), help="Filter by status")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
@@ -215,39 +321,17 @@ def list_servers(ctx: click.Context, status_filter: str | None, output_format: s
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         servers = factory.list_servers()
 
-        if status_filter:
-            servers = [s for s in servers if s.get("status") == status_filter]
+        # Filter servers by status
+        servers = _filter_servers_by_status(servers, status_filter)
 
+        # Output in requested format
         if output_format == "json":
-            # If showing mount info, add mounted server data
-            if show_mounts:
-                for server in servers:
-                    server["mounted_servers"] = _get_mounted_servers_info(server.get("config_file"))
-            click.echo(json.dumps(servers, indent=2))
+            _output_servers_as_json(servers, show_mounts)
         else:
-            if not servers:
-                click.echo("📭 No servers found")
-                return
-
-            headers = ["ID", "Name", "Status", "Host", "Port"]
+            _output_servers_as_table(servers, show_mounts)
+            # Show detailed mount information if requested
             if show_mounts:
-                headers.append("Mounts")
-                for server in servers:
-                    mount_count = _get_mounted_servers_count(server.get("config_file"))
-                    server["Mounts"] = f"🔗{mount_count}" if mount_count > 0 else "➖"
-
-            table = format_table(servers, headers)
-            click.echo(table)
-
-            # If showing mount info and there are mounted servers, display detailed information
-            if show_mounts:
-                for server in servers:
-                    mounted_info = _get_mounted_servers_info(server.get("config_file"))
-                    if mounted_info:
-                        click.echo(f"\n🔗 Mounted servers for {server.get('Name', server.get('ID'))}:")
-                        for mount_name, mount_info in mounted_info.items():
-                            status_icon = "🟢" if mount_info.get("status") == "running" else "🔴"
-                            click.echo(f"  {status_icon} {mount_name} ({mount_info.get('type', 'unknown')})")
+                _display_mount_details(servers)
 
     except Exception as e:
         if is_verbose(ctx):
@@ -271,40 +355,14 @@ def status(ctx: click.Context, server_id: str, show_mounts: bool) -> None:
             error_message(f"Server '{server_id}' does not exist")
             sys.exit(1)
 
-        click.echo(f"📊 Server status: {server_id}")
-        click.echo("-" * 40)
+        # Display basic status and details
+        status_value = server_info.get("status", "unknown")
+        _display_server_status(server_id, status_value)
+        _display_server_details(server_info)
 
-        status = server_info.get("status", "unknown")
-        if status == "running":
-            click.echo(f"Status: 🟢 {status}")
-        elif status == "stopped":
-            click.echo(f"Status: 🔴 {status}")
-        else:
-            click.echo(f"Status: 🟡 {status}")
-
-        for key, value in server_info.items():
-            if key != "status":
-                click.echo(f"{key}: {value}")
-
-        # Display mounted server information
+        # Display mounted server information if requested
         if show_mounts:
-            config_file = server_info.get("config_file")
-            mounted_info = _get_mounted_servers_info(config_file)
-
-            if mounted_info:
-                click.echo("\n🔗 Mounted external servers:")
-                click.echo("-" * 30)
-                for mount_name, mount_info in mounted_info.items():
-                    status_icon = "🟢" if mount_info.get("status") == "running" else "🔴"
-                    click.echo(f"{status_icon} {mount_name}")
-                    click.echo(f"   Type: {mount_info.get('type', 'unknown')}")
-                    if mount_info.get("command"):
-                        click.echo(f"   Command: {mount_info.get('command')}")
-                    if mount_info.get("url"):
-                        click.echo(f"   URL: {mount_info.get('url')}")
-                    click.echo()
-            else:
-                click.echo("\n📭 No mounted external servers")
+            _show_mount_information(server_info)
 
     except Exception as e:
         if is_verbose(ctx):
@@ -508,7 +566,7 @@ def build(ctx: click.Context, config_file: str) -> None:
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
         # Load configuration from file
-        from .config.manager import load_config_file
+        from ..config.manager import load_config_file
 
         config_dict = load_config_file(config_file)
 
@@ -562,65 +620,171 @@ def quick(ctx: click.Context) -> None:
         sys.exit(1)
 
 
+def _handle_dry_run_validation(publisher: Any, cli_helper: Any, project_path_obj: Path) -> None:
+    """Handle dry-run validation workflow"""
+    validation_result = publisher.validate_project(project_path_obj)
+
+    if validation_result.success:
+        success_message("Project validation passed, ready to publish")
+        _display_project_info(publisher, project_path_obj)
+    else:
+        error_message("Project validation failed")
+        for error in validation_result.data.get("errors", []):
+            error_message(f"  - {error}")
+        sys.exit(1)
+
+
+def _display_project_info(publisher: Any, project_path_obj: Path) -> None:
+    """Display project information during validation"""
+    try:
+        metadata = publisher.extract_project_metadata(project_path_obj)
+        info_message(f"Project name: {metadata.get('name')}")
+        info_message(f"Project description: {metadata.get('description')}")
+        info_message(f"Author: {metadata.get('author')}")
+
+        git_status = publisher.check_git_status(project_path_obj)
+        if git_status["valid"]:
+            git_info = git_status["git_info"]
+            info_message(f"GitHub repository: {git_info['full_name']}")
+            if git_status["needs_commit"]:
+                warning_message("Detected uncommitted changes")
+            if git_status["needs_push"]:
+                warning_message("Detected unpushed commits")
+        else:
+            warning_message(f"Unable to detect Git information: {git_status.get('error', 'Unknown error')}")
+    except Exception as e:
+        warning_message(f"Unable to extract project metadata: {e}")
+
+
+def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Path) -> dict[str, Any]:
+    """Collect project configuration"""
+    has_config, existing_config = publisher.check_hub_configuration(project_path_obj)
+
+    if not has_config:
+        try:
+            existing_info = publisher.extract_project_metadata(project_path_obj)
+            git_info = publisher.detect_git_info(project_path_obj)
+            existing_info["github_username"] = git_info.get("owner", "")
+        except Exception:
+            existing_info = {}
+
+        config = cli_helper.collect_project_configuration(existing_info)
+
+        if not publisher.add_hub_configuration(project_path_obj, config):
+            cli_helper.show_error_message("Failed to save configuration")
+            sys.exit(1)
+        return config
+    else:
+        return existing_config
+
+
+def _handle_git_operations(publisher: Any, cli_helper: Any, project_path_obj: Path) -> None:
+    """Handle Git status checking and operations"""
+    git_status = publisher.check_git_status(project_path_obj)
+
+    if not git_status["valid"]:
+        cli_helper.show_error_message(f"Git check failed: {git_status.get('error', 'Unknown')}")
+        sys.exit(1)
+
+    # Handle uncommitted changes
+    if git_status["needs_commit"]:
+        cli_helper.show_warning_message("Detected uncommitted changes")
+        if cli_helper.confirm_git_operations("commit"):
+            if not publisher.commit_changes(project_path_obj):
+                cli_helper.show_error_message("Commit failed, please commit changes manually")
+                sys.exit(1)
+        else:
+            cli_helper.show_error_message("Please commit or stage your changes first")
+            sys.exit(1)
+
+    # Handle unpushed commits
+    if git_status["needs_push"]:
+        cli_helper.show_warning_message("Detected unpushed commits")
+        if cli_helper.confirm_git_operations("push"):
+            if not publisher.push_changes(project_path_obj):
+                cli_helper.show_error_message("Push failed, please push to GitHub manually")
+                sys.exit(1)
+        else:
+            cli_helper.show_error_message("Please push your changes to GitHub first")
+            sys.exit(1)
+
+
+def _handle_publish_result(
+    result: Any, publisher: Any, cli_helper: Any, project_path_obj: Path, config: dict[str, Any]
+) -> None:
+    """Handle publishing result"""
+    if not result.success:
+        cli_helper.show_error_message(result.message)
+        sys.exit(1)
+
+    if result.data.get("method") == "api":
+        cli_helper.show_publish_success(
+            result.data.get("repo_url", ""),
+            result.data.get("registration_url", "")
+        )
+    elif result.data.get("method") == "manual":
+        _handle_manual_installation(result.data, publisher, cli_helper, project_path_obj, config)
+    else:
+        success_message("Project published successfully!")
+
+
+def _handle_manual_installation(
+    data: dict[str, Any], publisher: Any, cli_helper: Any, project_path_obj: Path, config: dict[str, Any]
+) -> None:
+    """Handle manual GitHub App installation workflow"""
+    cli_helper.show_installation_guide(data["install_url"], data["repo_name"], data["project_name"])
+
+    import webbrowser
+    webbrowser.open(data["install_url"])
+
+    cli_helper.wait_for_installation_completion()
+
+    cli_helper.show_info_message("Triggering initial registration...")
+    if publisher.trigger_initial_registration(project_path_obj, config):
+        cli_helper.show_publish_success()
+        cli_helper.show_info_message(
+            f"Your project will appear at https://github.com/{publisher.hub_repo} within minutes"
+        )
+    else:
+        cli_helper.show_error_message("Failed to trigger registration")
+        sys.exit(1)
+
+
 @project.command()
 @click.argument("project_path", type=click.Path(exists=True), default=".")
 @click.option("--dry-run", is_flag=True, help="Validate project but don't actually publish")
 @click.pass_context
 def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
     """📤 Publish project to GitHub and register to MCP Servers Hub"""
-    from .project import ProjectPublisher
-
     try:
-        # Initialize publisher
+        from ..cli.helpers import PublishCLIHelper
+        from ..project import ProjectPublisher
+
+        cli_helper = PublishCLIHelper()
         publisher = ProjectPublisher()
+        project_path_obj = Path(project_path).resolve()
 
         if dry_run:
-            info_message("🧪 Running dry-run mode - validate project only")
-            project_path_obj = Path(project_path).resolve()
-
-            # Validate project
-            if publisher.validate_project(project_path_obj):
-                success_message("Project validation passed, ready to publish")
-
-                # Display project information
-                try:
-                    metadata = publisher.extract_project_metadata(project_path_obj)
-                    info_message(f"Project name: {metadata.get('name')}")
-                    info_message(f"Project description: {metadata.get('description')}")
-                    info_message(f"Author: {metadata.get('author')}")
-                    info_message(f"GitHub username: {metadata.get('github_username')}")
-
-                    # Detect Git information (if possible)
-                    try:
-                        git_info = publisher.detect_git_info(project_path_obj)
-                        info_message(f"GitHub repository: {git_info['full_name']}")
-                        if git_info["has_changes"]:
-                            warning_message("Detected uncommitted changes")
-                        if git_info["has_unpushed"]:
-                            warning_message("Detected unpushed commits")
-                    except Exception as git_e:
-                        warning_message(f"Unable to detect Git information: {git_e}")
-
-                except Exception as e:
-                    warning_message(f"Unable to extract project metadata: {e}")
-            else:
-                error_message("Project validation failed")
-                sys.exit(1)
+            _handle_dry_run_validation(publisher, cli_helper, project_path_obj)
         else:
             info_message("🚀 Publishing project to GitHub and MCP Servers Hub")
 
-            # Simplified publish call - users don't need to understand technical details
-            if publisher.publish(project_path):
-                success_message("Project published successfully!")
-            else:
-                error_message("Project publish failed")
-                sys.exit(1)
+            # Collect configuration
+            config = _collect_configuration(publisher, cli_helper, project_path_obj)
+
+            # Handle Git operations
+            _handle_git_operations(publisher, cli_helper, project_path_obj)
+
+            # Execute publishing
+            result = publisher.publish_project(project_path, config)
+
+            # Handle result
+            _handle_publish_result(result, publisher, cli_helper, project_path_obj, config)
 
     except Exception as e:
         error_message(f"Error occurred during publish: {e}")
         if is_verbose(ctx):
             import traceback
-
             click.echo(traceback.format_exc(), err=True)
         sys.exit(1)
 
@@ -671,9 +835,12 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
             }
             mount_info = " (with mount examples)"
 
-        # Write configuration file
-        with open(output, "w") as f:
-            yaml.dump(config_template, f, default_flow_style=False, sort_keys=False)
+        # Write configuration file with proper resource management
+        try:
+            with open(output, "w") as f:
+                yaml.dump(config_template, f, default_flow_style=False, sort_keys=False)
+        except OSError as e:
+            raise click.ClickException(f"Failed to write configuration file: {e}") from e
 
         success_message(f"Configuration template generated: {output}{mount_info}")
 
@@ -696,7 +863,7 @@ def validate(ctx: click.Context, config_file: str, check_mounts: bool) -> None:
 
         # Basic configuration validation
         try:
-            from .config.manager import load_config_file, validate_config
+            from ..config.manager import load_config_file, validate_config
 
             config = load_config_file(config_file)
             validate_config(config)
@@ -829,6 +996,80 @@ def check(ctx: click.Context, fastmcp: bool) -> None:
 # =============================================================================
 
 
+def _check_system_dependencies() -> None:
+    """Check system dependencies health"""
+    click.echo("🔍 Checking system dependencies:")
+    deps = check_dependencies()
+
+    for name, status in deps.items():
+        status_icon = "✅" if status else "❌"
+        click.echo(f"  {status_icon} {name}")
+
+
+def _check_jwt_environment() -> None:
+    """Check JWT environment variables"""
+    click.echo("\n🔐 Checking JWT environment:")
+    jwt_info = check_jwt_env()
+
+    for var, info in jwt_info.items():
+        if info["present"]:
+            click.echo(f"  ✅ {var}: {info['status']}")
+        else:
+            click.echo(f"  ❌ {var}: Not set")
+
+
+def _check_configuration_files(factory: Any) -> int:
+    """Check configuration files health"""
+    click.echo("\n📄 Checking configuration files:")
+    config_issues = 0
+
+    try:
+        servers = factory.list_servers()
+        click.echo(f"  ✅ Found {len(servers)} server configurations")
+
+        for server in servers:
+            config_file = server.get("config_file")
+            if config_file:
+                try:
+                    with open(config_file) as f:
+                        yaml.safe_load(f)
+                    click.echo(f"    ✅ {config_file}")
+                except Exception as e:
+                    click.echo(f"    ❌ {config_file}: {e}")
+                    config_issues += 1
+            else:
+                click.echo(f"    ⚠️  {server.get('Name', 'Unknown')}: No config file")
+                config_issues += 1
+
+    except Exception as e:
+        click.echo(f"  ❌ Configuration check failed: {e}")
+        config_issues += 1
+
+    return config_issues
+
+
+def _display_health_summary(config_issues: int, deps: dict[str, bool], jwt_info: dict[str, Any]) -> None:
+    """Display overall health summary"""
+    click.echo("\n📊 Health Summary:")
+
+    total_issues = config_issues
+    dep_issues = len([d for d in deps.values() if not d])
+    jwt_issues = len([j for j in jwt_info.values() if not j["present"]])
+
+    total_issues += dep_issues + jwt_issues
+
+    if total_issues == 0:
+        click.echo("  🎉 All systems healthy!")
+    else:
+        click.echo(f"  ⚠️  Found {total_issues} issues")
+        if dep_issues > 0:
+            click.echo(f"    - {dep_issues} dependency issues")
+        if jwt_issues > 0:
+            click.echo(f"    - {jwt_issues} JWT environment issues")
+        if config_issues > 0:
+            click.echo(f"    - {config_issues} configuration issues")
+
+
 @cli.command()
 @click.option("--check-config", is_flag=True, help="Check configuration files")
 @click.option("--check-env", is_flag=True, help="Check JWT environment variables")
@@ -836,69 +1077,33 @@ def check(ctx: click.Context, fastmcp: bool) -> None:
 def health(ctx: click.Context, check_config: bool, check_env: bool) -> None:
     """🏥 System health check"""
     try:
-        click.echo("🏥 MCP Factory System Health Check")
+        click.echo("🏥 MCP Factory Health Check")
         click.echo("=" * 40)
 
-        # Basic system information
-        workspace = (ctx.obj.get("workspace") if ctx.obj else None) or "."
-        workspace_path = Path(workspace).resolve()
-        click.echo(f"📁 Working directory: {workspace_path}")
-        success_message(f"Directory exists: {'Yes' if workspace_path.exists() else 'No'}")
+        # Always check system dependencies
+        _check_system_dependencies()
+        deps = check_dependencies()
 
-        # MCP Factory status
-        try:
-            factory = get_factory(str(workspace_path) if workspace_path.exists() else None)
-            servers = factory.list_servers()
-            success_message("MCP Factory: Initialized")
-            info_message(f"Server count: {len(servers)}")
-        except Exception as e:
-            error_message("MCP Factory: Initialization failed")
-            if is_verbose(ctx):
-                error_message(f"Detailed error: {e!s}")
-
-        # Dependencies check
-        dependencies = check_dependencies()
-        click.echo("📦 Dependency check:")
-        for dep_name, dep_status in dependencies.items():
-            status_icon = "✅" if dep_status else "❌"
-            click.echo(f"   {dep_name}: {status_icon}")
-
-        # Configuration files check
-        if check_config:
-            config_files = list(workspace_path.glob("*.yaml")) + list(workspace_path.glob("*.yml"))
-            click.echo("📋 Configuration files check:")
-            if config_files:
-                for config_file in config_files:
-                    try:
-                        from .config.manager import load_config_file
-
-                        load_config_file(str(config_file))
-                        success_message(f"{config_file.name}: Valid")
-                    except Exception as e:
-                        error_message(f"{config_file.name}: Invalid ({e!s})")
-            else:
-                click.echo("   No configuration files found")
-
-        # JWT environment check
-        if check_env:
+        # Check JWT environment if requested or by default
+        jwt_info = {}
+        if check_env or not (check_config or check_env):
+            _check_jwt_environment()
             jwt_info = check_jwt_env()
-            click.echo("🔐 JWT environment check:")
-            for var_name, var_value in jwt_info["variables"].items():
-                status_icon = "✅" if var_value else "❌"
-                click.echo(f"   {var_name}: {status_icon}")
 
-            if not jwt_info["secret_configured"]:
-                warning_message("JWT secret key not configured")
+        # Check configuration files if requested or by default
+        config_issues = 0
+        if check_config or not (check_config or check_env):
+            factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+            config_issues = _check_configuration_files(factory)
 
-            if not jwt_info["all_configured"]:
-                warning_message("Some JWT variables not configured")
-
-        click.echo("🎉 Health check completed!")
+        # Display summary
+        _display_health_summary(config_issues, deps, jwt_info)
 
     except Exception as e:
-        error_message(f"Health check failed: {e!s}")
+        error_message(f"Health check failed: {e}")
         if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
         sys.exit(1)
 
 

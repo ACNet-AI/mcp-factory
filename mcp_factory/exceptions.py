@@ -204,12 +204,12 @@ class ErrorHandler:
         error_msg = f"Error in {self.module_name}.{operation}: {error}"
 
         if self.log_traceback:
-            self.logger.error(f"{error_msg}\nContext: {context}\n{traceback.format_exc()}")
+            self.logger.error("%s\nContext: %s\n%s", error_msg, context, traceback.format_exc())
         else:
-            self.logger.error(f"{error_msg}\nContext: {context}")
+            self.logger.error("%s\nContext: %s", error_msg, context)
 
         # Also log structured data for monitoring systems
-        self.logger.debug(f"Structured error data: {error_data}")
+        self.logger.debug("Structured error data: %s", error_data)
 
     def _reraise_as_factory_error(self, operation: str, error: Exception, context: dict[str, Any]) -> None:
         """Re-raise error as MCPFactoryError if needed"""

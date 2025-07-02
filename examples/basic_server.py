@@ -38,7 +38,7 @@ async def main():
     def add_numbers(a: float, b: float) -> float:
         """Calculate the sum of two numbers"""
         result = a + b
-        logger.info(f"Calculation: {a} + {b} = {result}")
+        logger.info("Calculation: %s + %s = %s", a, b, result)
         return result
 
     @server.tool(name="multiply", description="Calculate the product of two numbers")

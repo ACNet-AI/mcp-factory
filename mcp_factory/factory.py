@@ -34,116 +34,230 @@ logger = logging.getLogger(__name__)
 
 
 class ServerStateManager:
-    """Server state manager - Simplified enhanced version"""
+    """Server State Manager - Enhanced Architecture
+
+    Uses two-tier storage:
+    - Lightweight summary file for quick overview
+    - Individual detailed files per server for complete history
+    """
 
     VALID_STATUSES = {"created", "starting", "running", "stopping", "stopped", "error"}
 
-    def __init__(self, state_dir: Path) -> None:
-        """Initialize state manager"""
-        self.state_dir = Path(state_dir)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        self._states: dict[str, dict[str, Any]] = {}
-        self._state_file = self.state_dir / "server_states.json"
-        self.load_from_file(self._state_file)
+    def __init__(self, workspace_root: Path) -> None:
+        """Initialize enhanced state manager"""
+        self.workspace_root = Path(workspace_root)
+        self.summary_file = self.workspace_root / ".servers_state.json"
+        self.details_dir = self.workspace_root / ".states"
 
-    def initialize_server_state(self, server_id: str) -> None:
-        """Initialize server state with proper timestamps"""
+        # Create directories
+        self.details_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize summary data
+        self._summary: dict[str, dict[str, Any]] = {}
+        self._load_summary()
+
+    def initialize_server_state(self, server_id: str, server_name: str, config: dict[str, Any]) -> None:
+        """Initialize server state with complete data"""
         import time
 
         current_time = time.time()
-        self._states[server_id] = {
-            "server_id": server_id,
+
+        # Create lightweight summary entry
+        self._summary[server_id] = {
+            "name": server_name,
             "status": "created",
             "created_at": current_time,
             "last_updated": current_time,
-            "error_count": 0,
-            "last_error": None,
+            "project_path": config.get("project_path"),
         }
 
-    def update_server_state(self, server_id: str, key: str, value: Any) -> None:
-        """Update server state with validation"""
+        # Create detailed state file
+        detailed_state = {
+            "server_id": server_id,
+            "name": server_name,
+            "config": config,
+            "current_status": "created",
+            "created_at": current_time,
+            "last_updated": current_time,
+            "state_history": [
+                {
+                    "timestamp": current_time,
+                    "status": "created",
+                    "event": "server_initialized",
+                    "details": {"name": server_name},
+                }
+            ],
+            "performance_metrics": {"requests_handled": 0, "error_count": 0, "last_error": None},
+            "configuration_changes": [],
+        }
+
+        self._save_server_details(server_id, detailed_state)
+        self._save_summary()
+
+    def update_server_state(self, server_id: str, status: str = None, event: str = None, details: dict = None) -> None:
+        """Update server state with event tracking"""
         import time
 
-        if server_id not in self._states:
-            self.initialize_server_state(server_id)
+        if server_id not in self._summary:
+            logger.warning("Server %s not found in summary, skipping update", server_id)
+            return
 
-        # Validate status changes
-        if key == "status" and value not in self.VALID_STATUSES:
-            logger.warning(f"Invalid status '{value}' for server {server_id}, using 'error'")
-            value = "error"
+        current_time = time.time()
 
-        self._states[server_id][key] = value
-        self._states[server_id]["last_updated"] = time.time()
+        # Validate status
+        if status and status not in self.VALID_STATUSES:
+            logger.warning("Invalid status '%s' for server %s, using 'error'", status, server_id)
+            status = "error"
 
-    def get_server_state(self, server_id: str) -> dict[str, Any]:
-        """Get server state"""
-        return self._states.get(server_id, {})
+        # Update summary
+        if status:
+            self._summary[server_id]["status"] = status
+        self._summary[server_id]["last_updated"] = current_time
+
+        # Update detailed state
+        detailed_state = self._load_server_details(server_id)
+        if detailed_state:
+            if status:
+                detailed_state["current_status"] = status
+            detailed_state["last_updated"] = current_time
+
+            # Add to history
+            history_entry = {
+                "timestamp": current_time,
+                "status": status or detailed_state["current_status"],
+                "event": event or "status_update",
+                "details": details or {},
+            }
+            detailed_state["state_history"].append(history_entry)
+
+            # Keep only last 100 history entries
+            if len(detailed_state["state_history"]) > 100:
+                detailed_state["state_history"] = detailed_state["state_history"][-100:]
+
+            self._save_server_details(server_id, detailed_state)
+
+        self._save_summary()
+
+    def add_performance_metric(self, server_id: str, metric_name: str, value: Any) -> None:
+        """Add performance metric to server"""
+        detailed_state = self._load_server_details(server_id)
+        if detailed_state:
+            detailed_state["performance_metrics"][metric_name] = value
+            detailed_state["last_updated"] = __import__("time").time()
+            self._save_server_details(server_id, detailed_state)
+
+    def log_configuration_change(self, server_id: str, change_type: str, old_value: Any, new_value: Any) -> None:
+        """Log configuration change"""
+        detailed_state = self._load_server_details(server_id)
+        if detailed_state:
+            change_entry = {
+                "timestamp": __import__("time").time(),
+                "change_type": change_type,
+                "old_value": old_value,
+                "new_value": new_value,
+            }
+            detailed_state["configuration_changes"].append(change_entry)
+
+            # Keep only last 50 changes
+            if len(detailed_state["configuration_changes"]) > 50:
+                detailed_state["configuration_changes"] = detailed_state["configuration_changes"][-50:]
+
+            self._save_server_details(server_id, detailed_state)
+
+    def get_servers_summary(self) -> dict[str, dict[str, Any]]:
+        """Get lightweight summary of all servers"""
+        return self._summary.copy()
+
+    def get_server_details(self, server_id: str) -> dict[str, Any]:
+        """Get complete details for a specific server"""
+        return self._load_server_details(server_id) or {}
+
+    def get_server_history(self, server_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Get server state change history"""
+        detailed_state = self._load_server_details(server_id)
+        if detailed_state and "state_history" in detailed_state:
+            return detailed_state["state_history"][-limit:]
+        return []
 
     def remove_server_state(self, server_id: str) -> None:
-        """Remove server state"""
-        if server_id in self._states:
-            del self._states[server_id]
+        """Remove server state completely"""
+        # Remove from summary
+        if server_id in self._summary:
+            del self._summary[server_id]
+            self._save_summary()
 
-    def load_states(self, states_data: dict[str, Any]) -> None:
-        """Batch load state data with validation"""
-        for server_id, state_data in states_data.items():
-            # Validate loaded state data
-            if not isinstance(state_data, dict):
-                logger.warning(f"Invalid state data for server {server_id}, skipping")
-                continue
+        # Remove detailed file
+        detail_file = self.details_dir / f"{server_id}.json"
+        if detail_file.exists():
+            detail_file.unlink()
 
-            if server_id in self._states:
-                self._states[server_id].update(state_data)
-            else:
-                self._states[server_id] = state_data
-
-    def get_all_states(self) -> dict[str, dict[str, Any]]:
-        """Get all states"""
-        return self._states.copy()
-
-    def save_to_file(self, file_path: Path) -> None:
-        """Save state to file with improved error handling"""
-        try:
-            # Write to temporary file first, then rename (atomic operation)
-            temp_path = file_path.with_suffix(f"{file_path.suffix}.tmp")
-            with open(temp_path, "w", encoding="utf-8") as f:
-                json.dump(self._states, f, indent=2, ensure_ascii=False, default=str)
-
-            # Atomic rename
-            temp_path.rename(file_path)
-            logger.debug(f"State saved successfully to {file_path}")
-
-        except Exception as e:
-            logger.error(f"Failed to save state file {file_path}: {e}")
-            # Clean up temp file if it exists
-            temp_path = file_path.with_suffix(f"{file_path.suffix}.tmp")
-            if temp_path.exists():
-                try:
-                    temp_path.unlink()
-                except Exception:
-                    pass
-
-    def load_from_file(self, file_path: Path) -> None:
-        """Load state from file with error handling"""
-        if not file_path.exists():
-            logger.debug(f"State file does not exist: {file_path}")
+    def _load_summary(self) -> None:
+        """Load servers summary from file"""
+        if not self.summary_file.exists():
             return
 
         try:
-            with open(file_path, encoding="utf-8") as f:
-                loaded_states = json.load(f)
-
-            if not isinstance(loaded_states, dict):
-                logger.error(f"Invalid state file format: {file_path}")
-                return
-
-            self._states = loaded_states
-            logger.debug(f"State loaded successfully from {file_path}")
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in state file {file_path}: {e}")
+            with open(self.summary_file, encoding="utf-8") as f:
+                self._summary = json.load(f)
+            logger.debug("Summary loaded: %s servers", len(self._summary))
         except Exception as e:
-            logger.error(f"Failed to load state file {file_path}: {e}")
+            logger.error("Failed to load summary: %s", e)
+            self._summary = {}
+
+    def _save_summary(self) -> None:
+        """Save servers summary to file"""
+        try:
+            temp_path = self.summary_file.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(self._summary, f, indent=2, ensure_ascii=False, default=str)
+            temp_path.rename(self.summary_file)
+            logger.debug("Summary saved: %s servers", len(self._summary))
+        except Exception as e:
+            logger.error("Failed to save summary: %s", e)
+
+    def _load_server_details(self, server_id: str) -> dict[str, Any] | None:
+        """Load detailed state for a specific server"""
+        detail_file = self.details_dir / f"{server_id}.json"
+        if not detail_file.exists():
+            return None
+
+        try:
+            with open(detail_file, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error("Failed to load details for %s: %s", server_id, e)
+            return None
+
+    def _save_server_details(self, server_id: str, details: dict[str, Any]) -> None:
+        """Save detailed state for a specific server"""
+        detail_file = self.details_dir / f"{server_id}.json"
+        try:
+            temp_path = detail_file.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(details, f, indent=2, ensure_ascii=False, default=str)
+            temp_path.rename(detail_file)
+            logger.debug("Details saved for server %s", server_id)
+        except Exception as e:
+            logger.error("Failed to save details for %s: %s", server_id, e)
+
+    # Legacy compatibility methods for gradual transition
+    def get_server_state(self, server_id: str) -> dict[str, Any]:
+        """Legacy compatibility: get basic server state"""
+        if server_id in self._summary:
+            summary = self._summary[server_id]
+            return {
+                "server_id": server_id,
+                "status": summary["status"],
+                "created_at": summary["created_at"],
+                "last_updated": summary["last_updated"],
+                "error_count": 0,  # Will be moved to performance metrics
+                "last_error": None,
+            }
+        return {}
+
+    def get_all_states(self) -> dict[str, dict[str, Any]]:
+        """Legacy compatibility: get all basic states"""
+        return {server_id: self.get_server_state(server_id) for server_id in self._summary.keys()}
 
 
 class ComponentRegistry:
@@ -162,7 +276,7 @@ class ComponentRegistry:
             components_config = config.get("components", {})
 
             if not components_config:
-                logger.warning(f"Project has no component configuration: {project_path}")
+                logger.warning("Project has no component configuration: %s", project_path)
                 return
 
             total_registered = 0
@@ -182,9 +296,9 @@ class ComponentRegistry:
                 registered_count = ComponentRegistry._register_functions_to_server(server, component_type, functions)
                 total_registered += registered_count
 
-            logger.info(f"Component registration completed: {total_registered} functions")
+            logger.info("Component registration completed: %s functions", total_registered)
         except Exception as e:
-            logger.error(f"Failed to register components: {e}")
+            logger.error("Failed to register components: %s", e)
             # Don't throw exception, allow server to continue creation
 
     @staticmethod
@@ -206,13 +320,13 @@ class ComponentRegistry:
 
         module_file = project_path / component_type / f"{module_name}.py"
         if not module_file.exists():
-            logger.error(f"Module file does not exist: {module_file}")
+            logger.error("Module file does not exist: %s", module_file)
             return []
 
         try:
             spec = importlib.util.spec_from_file_location(module_name, module_file)
             if spec is None or spec.loader is None:
-                logger.error(f"Cannot create module spec: {module_file}")
+                logger.error("Cannot create module spec: %s", module_file)
                 return []
 
             module = importlib.util.module_from_spec(spec)
@@ -229,7 +343,7 @@ class ComponentRegistry:
 
             return functions
         except Exception as e:
-            logger.error(f"Failed to load module {module_name}: {e}")
+            logger.error("Failed to load module %s: %s", module_name, e)
             return []
 
     @staticmethod
@@ -259,7 +373,7 @@ class ComponentRegistry:
                     continue
                 registered_count += 1
             except Exception as e:
-                logger.error(f"Failed to register {component_type} {name}: {e}")
+                logger.error("Failed to register %s %s: %s", component_type, name, e)
         return registered_count
 
 
@@ -279,22 +393,30 @@ class MCPFactory:
         """
         try:
             self.workspace_root = Path(workspace_root)
+
+            # Prevent .states directory creation in project root
+            if workspace_root == "." and not Path.cwd().name.endswith("workspace"):
+                logger.warning(
+                    f"Correcting workspace_root from '{workspace_root}' to './workspace' "
+                    f"to prevent .states directory creation in project root"
+                )
+                self.workspace_root = Path("./workspace")
+
             self.workspace_root.mkdir(parents=True, exist_ok=True)
             self.builder = Builder(str(self.workspace_root))
             self._servers: dict[str, ManagedServer] = {}
 
             # Initialize components
             self._error_handler = ErrorHandler("mcp_factory")
-            self._state_manager = ServerStateManager(self.workspace_root / ".states")
-            self._servers_state_file = self.workspace_root / ".servers_state.json"
+            self._state_manager = ServerStateManager(self.workspace_root)
 
             # Restore previous server state
             self._load_servers_state()
 
-            logger.info(f"MCP Factory initialization completed: {self.workspace_root}")
+            logger.info("MCP Factory initialization completed: %s", self.workspace_root)
 
         except Exception as e:
-            logger.error(f"Factory initialization failed: {e}")
+            logger.error("Factory initialization failed: %s", e)
             raise
 
     # =========================================================================
@@ -336,8 +458,9 @@ class MCPFactory:
             server = self._build_server(config, auth, lifespan, tool_serializer, tools, middleware)
             self._add_components(server, source)
             server_id = self._register_server(server, name)
-            self._state_manager.initialize_server_state(server_id)
-            self._save_servers_state()
+            # Extract config for state initialization
+            server_config = self._extract_current_server_config(server)
+            self._state_manager.initialize_server_state(server_id, name, server_config)
 
             return server_id
         except Exception as e:
@@ -390,8 +513,7 @@ class MCPFactory:
                 server_name = self._servers[server_id].name
                 del self._servers[server_id]
                 self._state_manager.remove_server_state(server_id)
-                self._save_servers_state()
-                logger.info(f"Server deleted successfully: {server_name}")
+                logger.info("Server deleted successfully: %s", server_name)
                 return True
             return False
         except Exception as e:
@@ -412,7 +534,7 @@ class MCPFactory:
                 if hasattr(server, key):
                     setattr(server, key, value)
                     updated_count += 1
-                    logger.debug(f"Updated {key} for server {server_id}")
+                    logger.debug("Updated %s for server %s", key, server_id)
 
             self._complete_operation(
                 server_id,
@@ -464,8 +586,10 @@ class MCPFactory:
         try:
             server = self.get_server(server_id)
 
-            # Reinitialize state
-            self._state_manager.initialize_server_state(server_id)
+            # Update state to indicate restart
+            self._state_manager.update_server_state(
+                server_id, status="restarting", event="restart_initiated", details={"restart_reason": "manual"}
+            )
 
             # If there's a project path, re-register components
             project_path = getattr(server, "_project_path", None)
@@ -600,12 +724,12 @@ class MCPFactory:
             # Determine target path
             target_path = target_path or getattr(server, "_project_path", None)
             if not target_path:
-                logger.warning(f"Server {server_id} has no associated project path, cannot synchronize")
+                logger.warning("Server %s has no associated project path, cannot synchronize", server_id)
                 return False
 
             project_path = Path(target_path)
             if not project_path.exists():
-                logger.error(f"Target project path does not exist: {target_path}")
+                logger.error("Target project path does not exist: %s", target_path)
                 return False
 
             # 1. Extract current server configuration state
@@ -626,7 +750,7 @@ class MCPFactory:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to synchronize server to project {server_id}: {e}")
+            logger.error("Failed to synchronize server to project %s: %s", server_id, e)
             return False
 
     # =========================================================================
@@ -708,7 +832,7 @@ class MCPFactory:
         except ValidationError:
             raise
         except Exception as e:
-            logger.error(f"Configuration validation error: {e}")
+            logger.error("Configuration validation error: %s", e)
             raise ValidationError(f"Configuration validation error: {e}") from e
 
     def _build_server(
@@ -769,7 +893,7 @@ class MCPFactory:
         server._server_id = server_id
         server._created_at = datetime.now().isoformat()
         self._servers[server_id] = server
-        logger.info(f"Server registered successfully: {name}")
+        logger.info("Server registered successfully: %s", name)
         return server_id
 
     def _prepare_lifespan(
@@ -847,10 +971,9 @@ class MCPFactory:
                 server._project_path = str(source_path)
                 ComponentRegistry.register_components(server, source_path)
 
-    def _complete_operation(self, server_id: str, state_key: str, log_message: str) -> None:
+    def _complete_operation(self, server_id: str, event: str, log_message: str) -> None:
         """Common logic for completing operations"""
-        self._state_manager.update_server_state(server_id, state_key, state_key)
-        self._save_servers_state()
+        self._state_manager.update_server_state(server_id, event=event, details={"operation": event})
         logger.info(log_message)
 
     def _extract_current_server_config(self, server: ManagedServer) -> dict[str, Any]:
@@ -878,6 +1001,11 @@ class MCPFactory:
         if "expose_management_tools" not in base_config["server"]:
             base_config["server"]["expose_management_tools"] = getattr(server, "expose_management_tools", True)
 
+        # Add project path information if available
+        project_path = getattr(server, "_project_path", None)
+        if project_path:
+            base_config["project_path"] = project_path
+
         # TODO: This can be extended to extract more runtime state
         # Such as mounting information, dynamically added tools, resources, etc. For now, implement basic functionality
 
@@ -901,68 +1029,45 @@ class MCPFactory:
     # =========================================================================
 
     def _save_servers_state(self) -> None:
-        """Save server state to file"""
-        try:
-            servers_data = {
-                server_id: {
-                    "name": server.name,
-                    "instructions": server.instructions,
-                    "expose_management_tools": getattr(server, "expose_management_tools", True),
-                    "project_path": getattr(server, "_project_path", None),
-                    "config": getattr(server, "_config", {}),
-                    "created_at": getattr(server, "_created_at", None),
-                    "state": self._state_manager.get_server_state(server_id),
-                }
-                for server_id, server in self._servers.items()
-            }
-
-            with open(self._servers_state_file, "w", encoding="utf-8") as f:
-                json.dump(servers_data, f, indent=2, ensure_ascii=False)
-
-        except Exception as e:
-            logger.error(f"Failed to save server state: {e}")
+        """State is now automatically managed by ServerStateManager"""
+        # Note: This method is kept for backward compatibility but is no longer needed
+        # The enhanced ServerStateManager automatically saves state when updates occur
+        pass
 
     def _load_servers_state(self) -> None:
-        """Load server state from file"""
-        if not self._servers_state_file.exists():
-            return
-
+        """Load server instances from state manager"""
         try:
-            with open(self._servers_state_file, encoding="utf-8") as f:
-                servers_data = json.load(f)
+            # Get servers summary from state manager
+            servers_summary = self._state_manager.get_servers_summary()
 
             loaded_count = 0
-            states_to_load = {}
-
-            for server_id, server_data in servers_data.items():
+            for server_id, _summary in servers_summary.items():
                 try:
-                    server = self._create_server_from_data(server_id, server_data)
-                    self._servers[server_id] = server
-
-                    # Collect state data
-                    if "state" in server_data:
-                        states_to_load[server_id] = server_data["state"]
-
-                    loaded_count += 1
+                    # Get detailed state for this server
+                    detailed_state = self._state_manager.get_server_details(server_id)
+                    if detailed_state:
+                        server = self._create_server_from_state_data(server_id, detailed_state)
+                        self._servers[server_id] = server
+                        loaded_count += 1
                 except Exception as e:
-                    logger.error(f"Failed to restore server {server_id}: {e}")
+                    logger.error("Failed to restore server %s: %s", server_id, e)
 
-            # Batch load states
-            self._state_manager.load_states(states_to_load)
+            if loaded_count > 0:
+                logger.info("Server restoration completed: %s servers loaded", loaded_count)
 
-            logger.info(f"Server state restoration completed: {loaded_count}/{len(servers_data)} servers")
         except Exception as e:
-            logger.error(f"Failed to load server state: {e}")
+            logger.error("Failed to load servers from state manager: %s", e)
 
-    def _create_server_from_data(self, server_id: str, server_data: dict[str, Any]) -> ManagedServer:
-        """Rebuild server instance from data"""
+    def _create_server_from_state_data(self, server_id: str, detailed_state: dict[str, Any]) -> ManagedServer:
+        """Rebuild server instance from state data"""
         try:
-            config = server_data.get("config", {})
+            config = detailed_state.get("config", {})
 
+            # Extract server configuration from detailed state
             server_params = {
-                "name": server_data["name"],
-                "instructions": server_data.get("instructions", ""),
-                "expose_management_tools": server_data.get("expose_management_tools", True),
+                "name": detailed_state["name"],
+                "instructions": config.get("server", {}).get("instructions", ""),
+                "expose_management_tools": config.get("server", {}).get("expose_management_tools", True),
             }
 
             # If there are external servers in configuration, prepare lifespan
@@ -973,15 +1078,23 @@ class MCPFactory:
             server = ManagedServer(**server_params)
             server._server_id = server_id
             server._config = config
-            server._created_at = server_data.get("created_at") or ""
+            server._created_at = detailed_state.get("created_at", "")
 
-            if server_data.get("project_path"):
-                server._project_path = server_data["project_path"]
-                project_path = Path(server_data["project_path"])
+            # Restore project path if available
+            project_path_str = config.get("project_path")
+            if project_path_str:
+                server._project_path = project_path_str
+                project_path = Path(project_path_str)
                 if project_path.exists():
                     ComponentRegistry.register_components(server, project_path)
 
             return server
         except Exception as e:
-            self._error_handler.handle_error("Failed to rebuild server from data", e, {"server_id": server_id})
+            self._error_handler.handle_error("Failed to rebuild server from state data", e, {"server_id": server_id})
             raise  # Re-raise exception to maintain type consistency
+
+    def _create_server_from_data(self, server_id: str, server_data: dict[str, Any]) -> ManagedServer:
+        """Legacy method - kept for backward compatibility"""
+        # This method is kept in case old state files need to be processed
+        # In normal operation, _create_server_from_state_data should be used
+        return self._create_server_from_state_data(server_id, server_data)

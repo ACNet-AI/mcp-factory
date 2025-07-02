@@ -1,12 +1,12 @@
 """FastMCP-Factory test configuration and shared fixtures."""
 
 import asyncio
-import os
 import shutil
 import tempfile
 import tracemalloc
-from collections.abc import Generator
-from typing import Any
+import warnings
+from collections.abc import Generator, Iterator
+from pathlib import Path
 
 import pytest
 import yaml
@@ -15,7 +15,7 @@ from mcp_factory import MCPFactory
 
 
 # Set up pytest session
-def pytest_configure(config: Any) -> None:
+def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest session."""
     # Ensure asyncio warnings are handled
     asyncio.get_event_loop_policy().new_event_loop()
@@ -28,31 +28,37 @@ def pytest_configure(config: Any) -> None:
         "ignore:Exposing FastMCP native methods as management tools without authentication.*:UserWarning",
     )
 
+    # Ensure asyncio warnings are handled
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 
 # Provide temporary configuration file
 @pytest.fixture
-def temp_config_file() -> Generator[str, None, None]:
-    """Create a temporary test configuration file and clean up after the test."""
-    # Create temporary configuration file
-    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as temp_file:
-        config = {
-            "server": {
-                "name": "test-server",
-                "instructions": "Test server configuration",
-                "host": "localhost",
-                "port": 8080,
-            }
-        }
-        yaml_content = yaml.dump(config)
-        temp_file.write(yaml_content.encode("utf-8"))
+def temp_config_file() -> Iterator[str]:
+    """Create a temporary configuration file for testing."""
+    config = {
+        "server": {
+            "name": "test-server",
+            "instructions": "Test server for unit tests",
+            "expose_management_tools": True,
+        },
+        "transport": {
+            "host": "localhost",
+            "port": 8080,
+        },
+    }
+    yaml_content = yaml.dump(config)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as temp_file:
+        temp_file.write(yaml_content)
         config_path = temp_file.name
 
-    # Provide file path
     yield config_path
 
     # Clean up temporary file
-    if os.path.exists(config_path):
-        os.unlink(config_path)
+    config_path_obj = Path(config_path)
+    if config_path_obj.exists():
+        config_path_obj.unlink()
 
 
 # Create temporary directory for testing

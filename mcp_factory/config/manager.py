@@ -75,7 +75,7 @@ def load_config_file(config_path: str | Path) -> dict[str, Any]:
                 f"Configuration file format error, must be object type: {config_path}", config_path=str(config_path)
             )
 
-        logger.info(f"Successfully loaded configuration file: {config_path}")
+        logger.info("Successfully loaded configuration file: %s", config_path)
         return config
 
     except yaml.YAMLError as e:
