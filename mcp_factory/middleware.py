@@ -39,7 +39,7 @@ def load_middleware_from_config(config: dict[str, Any]) -> list[Any] | None:
                 # Handle custom middleware
                 middleware_class = middleware_def.get("class")
                 if not middleware_class:
-                    logger.error(f"Custom middleware missing 'class' field: {middleware_def}")
+                    logger.error("Custom middleware missing 'class' field: %s", middleware_def)
                     continue
 
                 # Import and instantiate custom middleware
@@ -55,15 +55,15 @@ def load_middleware_from_config(config: dict[str, Any]) -> list[Any] | None:
                 middleware_instance = _create_builtin_middleware(middleware_type, middleware_config_params)
 
             else:
-                logger.error(f"Unknown middleware type: {middleware_type}")
+                logger.error("Unknown middleware type: %s", middleware_type)
                 continue
 
             if middleware_instance:
                 middleware_instances.append(middleware_instance)
-                logger.info(f"Loaded middleware: {middleware_type}")
+                logger.info("Loaded middleware: %s", middleware_type)
 
         except Exception as e:
-            logger.error(f"Failed to load middleware {middleware_type}: {e}")
+            logger.error("Failed to load middleware %s: %s", middleware_type, e)
             continue
 
     return middleware_instances if middleware_instances else None
@@ -100,7 +100,7 @@ def _load_custom_middleware(class_path: str, args: list[Any], kwargs: dict[str, 
         return middleware_class(*args, **final_kwargs)
 
     except Exception as e:
-        logger.error(f"Failed to load custom middleware {class_path}: {e}")
+        logger.error("Failed to load custom middleware %s: %s", class_path, e)
         raise
 
 
@@ -152,12 +152,12 @@ def _create_builtin_middleware(middleware_type: str, config: dict[str, Any]) -> 
             )
 
         else:
-            logger.error(f"Unknown builtin middleware type: {middleware_type}")
+            logger.error("Unknown builtin middleware type: %s", middleware_type)
             return None
 
     except ImportError as e:
-        logger.error(f"Failed to import FastMCP middleware '{middleware_type}': {e}")
+        logger.error("Failed to import FastMCP middleware '%s': %s", middleware_type, e)
         return None
     except Exception as e:
-        logger.error(f"Failed to create FastMCP middleware '{middleware_type}': {e}")
+        logger.error("Failed to create FastMCP middleware '%s': %s", middleware_type, e)
         return None

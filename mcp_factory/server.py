@@ -106,7 +106,7 @@ class ManagedServer(FastMCP):
 
         # Log initialization information
         server_name = kwargs.get("name", "ManagedServer")
-        logger.info(f"Initializing ManagedServer: {server_name}")
+        logger.info("Initializing ManagedServer: %s", server_name)
         logger.info(
             f"Expose management tools: {expose_management_tools}, Permission check: {self.enable_permission_check}"
         )
@@ -114,7 +114,7 @@ class ManagedServer(FastMCP):
         if expose_management_tools:
             # Create management tool object list
             management_tools = self._create_management_tools()
-            logger.info(f"Created {len(management_tools)} management tools")
+            logger.info("Created %s management tools", len(management_tools))
 
             # Merge business tools and management tools
             business_tools = kwargs.get("tools", [])
@@ -125,7 +125,7 @@ class ManagedServer(FastMCP):
             kwargs["instructions"] = kwargs.pop("description")
 
         super().__init__(**kwargs)
-        logger.info(f"ManagedServer {server_name} initialization completed")
+        logger.info("ManagedServer %s initialization completed", server_name)
 
     def _validate_security_config(self) -> None:
         """Validate security configuration."""
@@ -352,7 +352,7 @@ class ManagedServer(FastMCP):
             if hasattr(self, method_name) and callable(getattr(self, method_name)):
                 result[method_name] = config
             else:
-                logger.debug(f"FastMCP method '{method_name}' not available in current version, skipping")
+                logger.debug("FastMCP method '%s' not available in current version, skipping", method_name)
 
         return result
 
@@ -365,7 +365,7 @@ class ManagedServer(FastMCP):
         management_methods = self._get_management_methods()
         all_tool_names = {f"manage_{method_name}" for method_name in management_methods}
 
-        logger.debug(f"Defined {len(management_methods)} management methods")
+        logger.debug("Defined %s management methods", len(management_methods))
 
         result = self._create_tools_from_names(all_tool_names, management_methods, use_tool_objects=True)
         # Since use_tool_objects=True, result should be list[Tool]
@@ -386,13 +386,13 @@ class ManagedServer(FastMCP):
             method_name = tool_name[7:]  # Remove "manage_" prefix
 
             if method_name not in management_methods:
-                logger.warning(f"Configuration for method {method_name} not found, skipping creation of {tool_name}")
+                logger.warning("Configuration for method %s not found, skipping creation of %s", method_name, tool_name)
                 continue
 
             config = management_methods[method_name]
 
             if not config.get("enabled", True):
-                logger.debug(f"Skipping disabled management tool: {tool_name}")
+                logger.debug("Skipping disabled management tool: %s", tool_name)
                 continue
 
             try:
@@ -432,10 +432,10 @@ class ManagedServer(FastMCP):
                     )(wrapper)
 
                 created_count += 1
-                logger.debug(f"Successfully created management tool: {tool_name}")
+                logger.debug("Successfully created management tool: %s", tool_name)
 
             except Exception as e:
-                logger.error(f"Error occurred while creating management tool {tool_name}: {e}")
+                logger.error("Error occurred while creating management tool %s: %s", tool_name, e)
                 continue
 
         result_msg = (
@@ -461,7 +461,7 @@ class ManagedServer(FastMCP):
             wrapper = self._create_wrapper(
                 method_name, config["description"], annotation_type, config["async"], has_params=False
             )
-            logger.debug(f"Created no-parameter wrapper for method {method_name}")
+            logger.debug("Created no-parameter wrapper for method %s", method_name)
             return wrapper, {}
 
         # Parameterized method: dynamically detect parameters
@@ -469,7 +469,7 @@ class ManagedServer(FastMCP):
             original_method = getattr(self, method_name)
             sig = inspect.signature(original_method)
             parameters = self._generate_parameters_from_signature(sig, method_name)
-            logger.debug(f"Detected {len(parameters)} parameters for method {method_name}")
+            logger.debug("Detected %s parameters for method %s", len(parameters), method_name)
 
             wrapper = self._create_wrapper(
                 method_name, config["description"], annotation_type, config["async"], has_params=True
@@ -495,7 +495,7 @@ class ManagedServer(FastMCP):
             if self.enable_permission_check:
                 permission_result = check_annotation_type(perm_type)
                 if not permission_result.allowed:
-                    logger.warning(f"Permission check failed: method {name}, permission type {perm_type}")
+                    logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
                     return format_permission_error(permission_result)
             return None
 
@@ -503,24 +503,24 @@ class ManagedServer(FastMCP):
             """Unified execution logging."""
             async_prefix = "Async" if is_async else "Sync"
             if execution_time is not None:
-                logger.info(f"{async_prefix} management tool {name} {action}, took {execution_time:.3f} seconds")
+                logger.info("%s management tool %s %s, took %.3f seconds", async_prefix, name, action, execution_time)
             else:
-                logger.info(f"Executing {async_prefix} management tool: {name}")
+                logger.info("Executing %s management tool: %s", async_prefix, name)
 
         def execute_method(original_method: Any, *args: Any, **kwargs: Any) -> Any:
             """Unified method execution logic."""
             if asyncio.iscoroutinefunction(original_method) and not is_async:
-                logger.error(f"Error: execute_method used for async method {name}")
+                logger.error("Error: execute_method used for async method %s", name)
                 return "❌ Internal error: async method should use async wrapper"
 
             if has_params:
-                logger.debug(f"Executing {name} with parameters: args={args}, kwargs={kwargs}")
+                logger.debug("Executing %s with parameters: args=%s, kwargs=%s", name, args, kwargs)
                 if kwargs:
                     return original_method(**kwargs)
                 if args:
                     return original_method(*args)
                 return original_method()
-            logger.debug(f"Executing {name} without parameters")
+            logger.debug("Executing %s without parameters", name)
             return original_method()
 
         # Create wrapper
@@ -624,9 +624,9 @@ class ManagedServer(FastMCP):
     def _safe_execute(self, operation: str, func: Callable[[], str]) -> str:
         """Unified wrapper for safe operation execution."""
         try:
-            logger.info(f"Starting {operation}")
+            logger.info("Starting %s", operation)
             result = func()
-            logger.info(f"{operation} successful")
+            logger.info("%s successful", operation)
             return result
         except Exception as e:
             error_msg = f"❌ Error occurred during {operation}: {e}"
@@ -686,7 +686,7 @@ class ManagedServer(FastMCP):
         expected_tools = {f"manage_{method_name}" for method_name in management_methods}
         missing_tools = expected_tools - existing_tools
 
-        logger.debug(f"Currently {len(existing_tools)} exist, found {len(missing_tools)} missing management tools")
+        logger.debug("Currently %s exist, found %s missing management tools", len(existing_tools), len(missing_tools))
 
         if not missing_tools:
             return "✅ All management tools already exist, no need to recreate"
@@ -697,7 +697,7 @@ class ManagedServer(FastMCP):
     def _reset_management_tools_impl(self) -> str:
         """Implementation for resetting management tools."""
         cleared_count = self._clear_management_tools()
-        logger.info(f"Cleared {cleared_count} management tools")
+        logger.info("Cleared %s management tools", cleared_count)
 
         management_methods = self._get_management_methods()
         all_tool_names = {f"manage_{method_name}" for method_name in management_methods}
@@ -737,7 +737,7 @@ class ManagedServer(FastMCP):
 
     def _get_tools_by_tags_impl(self, include_tags: set[str] | None, exclude_tags: set[str] | None) -> str:
         """Implementation for querying tools by tags."""
-        logger.debug(f"Querying tools by tags: include={include_tags}, exclude={exclude_tags}")
+        logger.debug("Querying tools by tags: include=%s, exclude=%s", include_tags, exclude_tags)
 
         if not hasattr(self, "_tool_manager") or not hasattr(self._tool_manager, "_tools"):
             return "📋 Tool manager not found"
@@ -845,7 +845,7 @@ class ManagedServer(FastMCP):
             🎯 New tool has been added to the server and is ready to use!
         """).strip()
 
-        logger.info(f"🎯 Successfully transformed tool: {source_tool_name} -> {new_tool_name}")
+        logger.info("🎯 Successfully transformed tool: %s -> %s", source_tool_name, new_tool_name)
         return result
 
     # =============================================================================
@@ -883,9 +883,9 @@ class ManagedServer(FastMCP):
                         try:
                             self.remove_tool(tool_name)
                             removed_count += 1
-                            logger.debug(f"Removed management tool: {tool_name}")
+                            logger.debug("Removed management tool: %s", tool_name)
                         except Exception as e:
-                            logger.warning(f"Error removing tool {tool_name}: {e}")
+                            logger.warning("Error removing tool %s: %s", tool_name, e)
 
             logger.info(
                 f"Successfully cleared {removed_count} management tools (preserved {len(self._META_MANAGEMENT_TOOLS)})"

@@ -36,11 +36,11 @@ class ServerRegistry:
             try:
                 parsed_config = self._parse_single_server_config(server_name, server_config)
                 parsed_configs[server_name] = parsed_config
-                logger.debug(f"Parsing server configuration: {server_name}")
+                logger.debug("Parsing server configuration: %s", server_name)
             except Exception as e:
-                logger.error(f"Failed to parse server configuration {server_name}: {e}")
+                logger.error("Failed to parse server configuration %s: %s", server_name, e)
 
-        logger.info(f"Successfully parsed {len(parsed_configs)} server configurations")
+        logger.info("Successfully parsed %s server configurations", len(parsed_configs))
         return parsed_configs
 
     def _parse_single_server_config(self, name: str, config: dict[str, Any]) -> ServerConfig:
@@ -59,7 +59,7 @@ class ServerRegistry:
     def register_servers(self, configs: dict[str, ServerConfig]) -> None:
         """Register server configurations"""
         self.server_configs.update(configs)
-        logger.info(f"Registered {len(configs)} server configurations")
+        logger.info("Registered %s server configurations", len(configs))
 
     def register_discovered_server(
         self, discovered: DiscoveredServer, custom_config: dict[str, Any] | None = None
@@ -78,7 +78,7 @@ class ServerRegistry:
         # Register to configuration
         self.server_configs[discovered.name] = server_config
 
-        logger.info(f"Registered discovered server: {discovered.name}")
+        logger.info("Registered discovered server: %s", discovered.name)
         return server_config
 
     def get_server_config(self, name: str) -> ServerConfig | None:
@@ -122,7 +122,7 @@ class ServerRegistry:
 
         mount_tasks = []
         for server_name, server_config in self.server_configs.items():
-            logger.info(f"Auto-mounting server: {server_name}")
+            logger.info("Auto-mounting server: %s", server_name)
             # Create coroutine task instead of immediate execution
             task = self.mounter.mount_server(server_name, server_config)
             mount_tasks.append(task)
@@ -131,7 +131,7 @@ class ServerRegistry:
         if mount_tasks:
             results = await asyncio.gather(*mount_tasks, return_exceptions=True)
             success_count = sum(1 for r in results if r is True)
-            logger.info(f"Auto-mount completed: {success_count}/{len(results)} servers successful")
+            logger.info("Auto-mount completed: %s/%s servers successful", success_count, len(results))
 
     def get_mounter(self) -> ServerMounter | None:
         """Get mounter instance"""
@@ -140,7 +140,7 @@ class ServerRegistry:
     def update_server_config(self, name: str, config_updates: dict[str, Any]) -> None:
         """Update server configuration"""
         if name not in self.server_configs:
-            logger.warning(f"Server configuration does not exist: {name}")
+            logger.warning("Server configuration does not exist: %s", name)
             return
 
         current_config = self.server_configs[name]
@@ -150,17 +150,17 @@ class ServerRegistry:
             if hasattr(current_config, key):
                 setattr(current_config, key, value)
             else:
-                logger.warning(f"Unknown configuration field: {key}")
+                logger.warning("Unknown configuration field: %s", key)
 
-        logger.info(f"Updated server configuration: {name}")
+        logger.info("Updated server configuration: %s", name)
 
     def remove_server_config(self, name: str) -> None:
         """Remove server configuration"""
         if name in self.server_configs:
             del self.server_configs[name]
-            logger.info(f"Removed server configuration: {name}")
+            logger.info("Removed server configuration: %s", name)
         else:
-            logger.warning(f"Server configuration does not exist: {name}")
+            logger.warning("Server configuration does not exist: %s", name)
 
     def validate_configs(self) -> dict[str, Any]:
         """Validate all server configurations"""

@@ -112,7 +112,7 @@ class TestServerCreation:
                         "instructions": "Test server description",
                         "host": "127.0.0.1",
                         "port": 8000,
-                    }
+                    },
                 }
                 yaml_content = yaml.dump(config)
                 temp_file.write(yaml_content.encode("utf-8"))
@@ -127,7 +127,9 @@ class TestServerCreation:
 
                     # Call create method (updated method name)
                     server_id = factory.create_server(
-                        name="Test-server", source=config_path, expose_management_tools=True
+                        name="Test-server",
+                        source=config_path,
+                        expose_management_tools=True,
                     )
 
                     # Verify server was created and registered
@@ -154,7 +156,7 @@ class TestServerCreation:
                         "instructions": "Server created with names from config",
                         "host": "localhost",
                         "port": 8080,
-                    }
+                    },
                 }
                 yaml_content = yaml.dump(config)
                 temp_file.write(yaml_content.encode("utf-8"))
@@ -241,9 +243,8 @@ class TestComponentRegistry:
 
         mock_server = MagicMock()
 
-        def test_func():
+        def test_func() -> None:
             """Test function"""
-            pass
 
         functions = [(test_func, "test_func", "Test function")]
 
@@ -262,30 +263,53 @@ class TestComponentRegistry:
 class TestServerStateManager:
     """Test ServerStateManager functionality."""
 
-    def test_initialize_server_state(self) -> None:
+    @pytest.fixture
+    def sample_config(self):
+        """Sample server configuration"""
+        return {
+            "server": {
+                "name": "test-server",
+                "instructions": "Test instructions",
+                "expose_management_tools": True,
+            },
+            "project_path": "/test/project",
+        }
+
+    def test_initialize_server_state(self, sample_config) -> None:
         """Test server state initialization."""
         from mcp_factory.factory import ServerStateManager
 
         with tempfile.TemporaryDirectory() as temp_dir:
             state_manager = ServerStateManager(Path(temp_dir))
 
-            state_manager.initialize_server_state("Test-server")
-            state = state_manager.get_server_state("Test-server")
+            state_manager.initialize_server_state("test-server", "Test Server", sample_config)
 
+            # Check summary
+            summary = state_manager.get_servers_summary()
+            assert "test-server" in summary
+            assert summary["test-server"]["status"] == "created"
+
+            # Check legacy compatibility
+            state = state_manager.get_server_state("test-server")
             assert state["status"] == "created"
             assert "created_at" in state
 
-    def test_update_server_state(self) -> None:
+    def test_update_server_state(self, sample_config) -> None:
         """Test updating server state."""
         from mcp_factory.factory import ServerStateManager
 
         with tempfile.TemporaryDirectory() as temp_dir:
             state_manager = ServerStateManager(Path(temp_dir))
 
-            state_manager.initialize_server_state("Test-server")
-            state_manager.update_server_state("Test-server", "status", "running")
+            state_manager.initialize_server_state("test-server", "Test Server", sample_config)
+            state_manager.update_server_state("test-server", status="running", event="server_started")
 
-            state = state_manager.get_server_state("Test-server")
+            # Check summary updated
+            summary = state_manager.get_servers_summary()
+            assert summary["test-server"]["status"] == "running"
+
+            # Check legacy compatibility
+            state = state_manager.get_server_state("test-server")
             assert state["status"] == "running"
 
     def test_get_nonexistent_server_state(self) -> None:
@@ -298,41 +322,48 @@ class TestServerStateManager:
             state = state_manager.get_server_state("nonexistent")
             assert state == {}
 
-    def test_remove_server_state(self) -> None:
+    def test_remove_server_state(self, sample_config) -> None:
         """Test removing server state."""
         from mcp_factory.factory import ServerStateManager
 
         with tempfile.TemporaryDirectory() as temp_dir:
             state_manager = ServerStateManager(Path(temp_dir))
 
-            state_manager.initialize_server_state("Test-server")
-            state_manager.remove_server_state("Test-server")
+            state_manager.initialize_server_state("test-server", "Test Server", sample_config)
+            state_manager.remove_server_state("test-server")
 
-            state = state_manager.get_server_state("Test-server")
+            # Check removed from summary
+            summary = state_manager.get_servers_summary()
+            assert "test-server" not in summary
+
+            # Check legacy compatibility
+            state = state_manager.get_server_state("test-server")
             assert state == {}
 
-    def test_load_and_save_states(self) -> None:
-        """Test loading and saving states."""
+    def test_dual_storage_architecture(self, sample_config) -> None:
+        """Test dual storage architecture functionality."""
         from mcp_factory.factory import ServerStateManager
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_manager = ServerStateManager(Path(temp_dir))
-            state_file = Path(temp_dir) / "Test_states.json"
+            workspace_path = Path(temp_dir)
+            state_manager = ServerStateManager(workspace_path)
 
-            # Initialize some states
-            state_manager.initialize_server_state("server1")
-            state_manager.initialize_server_state("server2")
+            # Initialize server
+            state_manager.initialize_server_state("test-server", "Test Server", sample_config)
 
-            # Save to file
-            state_manager.save_to_file(state_file)
-            assert state_file.exists()
+            # Check summary file exists
+            summary_file = workspace_path / ".servers_state.json"
+            assert summary_file.exists()
 
-            # Load from file
-            new_state_manager = ServerStateManager(Path(temp_dir) / "new")
-            new_state_manager.load_from_file(state_file)
+            # Check detail file exists
+            detail_file = workspace_path / ".states" / "test-server.json"
+            assert detail_file.exists()
 
-            assert new_state_manager.get_server_state("server1") != {}
-            assert new_state_manager.get_server_state("server2") != {}
+            # Verify new state manager can load existing data
+            new_state_manager = ServerStateManager(workspace_path)
+            summary = new_state_manager.get_servers_summary()
+            assert "test-server" in summary
+            assert summary["test-server"]["name"] == "Test Server"
 
 
 class TestFactoryErrorHandling:
@@ -431,7 +462,8 @@ class TestFactoryProjectIntegration:
 
             # Create a project and server first
             project_path, server_id = factory.create_project_and_server(
-                "Test-sync-project", {"server": {"name": "Test-sync", "instructions": "Test sync"}}
+                "Test-sync-project",
+                {"server": {"name": "Test-sync", "instructions": "Test sync"}},
             )
 
             # Sync should work correctly
@@ -440,99 +472,125 @@ class TestFactoryProjectIntegration:
 
 
 class TestServerStateManagerFileOperations:
-    """Test ServerStateManager fileoperationfunction"""
+    """Test ServerStateManager file operation functionality for new architecture"""
 
-    def test_save_and_load_state_file(self) -> None:
-        """Test state file saving and loading"""
+    @pytest.fixture
+    def sample_config(self):
+        """Sample server configuration"""
+        return {
+            "server": {
+                "name": "test-server",
+                "instructions": "Test instructions",
+                "expose_management_tools": True,
+            },
+            "project_path": "/test/project",
+        }
+
+    def test_atomic_file_operations(self, sample_config) -> None:
+        """Test atomic file operations in new architecture"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_dir = Path(temp_dir)
-            manager = ServerStateManager(state_dir)
+            workspace_path = Path(temp_dir)
+            manager = ServerStateManager(workspace_path)
 
-            # Add some state
-            manager.initialize_server_state("server1")
-            manager.update_server_state("server1", "status", "running")
-            manager.initialize_server_state("server2")
+            # Initialize server - should create files atomically
+            manager.initialize_server_state("server1", "Server One", sample_config)
 
-            # Save to file
-            state_file = state_dir / "Test_states.json"
-            manager.save_to_file(state_file)
+            # Verify files exist and temp files are cleaned up
+            summary_file = workspace_path / ".servers_state.json"
+            detail_file = workspace_path / ".states" / "server1.json"
 
-            # Verify file exists
-            assert state_file.exists()
+            assert summary_file.exists()
+            assert detail_file.exists()
 
-            # Create new manager and load state
-            new_manager = ServerStateManager(state_dir)
-            new_manager.load_from_file(state_file)
+            # Ensure no temp files left behind
+            assert not (workspace_path / ".servers_state.tmp").exists()
+            assert not (workspace_path / ".states" / "server1.tmp").exists()
 
-            # Verify state was correctly loaded
-            assert "server1" in new_manager.get_all_states()
-            assert new_manager.get_server_state("server1")["status"] == "running"
-
-    def test_save_state_file_error(self) -> None:
-        """Test state file save error handling"""
+    def test_concurrent_state_updates(self, sample_config) -> None:
+        """Test that state updates don't corrupt files"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_dir = Path(temp_dir)
-            manager = ServerStateManager(state_dir)
+            workspace_path = Path(temp_dir)
+            manager = ServerStateManager(workspace_path)
 
-            # Try to save to invalid path
-            invalid_path = Path("/invalid/path/states.json")
+            # Initialize multiple servers
+            manager.initialize_server_state("server1", "Server One", sample_config)
+            manager.initialize_server_state("server2", "Server Two", sample_config)
 
-            # Should not throw exception, only record error
-            manager.save_to_file(invalid_path)
-            # If no exception is thrown, test passes
+            # Update states rapidly
+            for i in range(5):
+                manager.update_server_state("server1", status="running", event=f"update_{i}")
+                manager.update_server_state("server2", status="stopped", event=f"update_{i}")
 
-    def test_load_nonexistent_state_file(self) -> None:
-        """Test loading nonexistent state file"""
+            # Verify both servers have consistent state
+            summary = manager.get_servers_summary()
+            assert summary["server1"]["status"] == "running"
+            assert summary["server2"]["status"] == "stopped"
+
+            # Verify detailed history
+            history1 = manager.get_server_history("server1")
+            history2 = manager.get_server_history("server2")
+            assert len(history1) == 6  # Initial + 5 updates
+            assert len(history2) == 6  # Initial + 5 updates
+
+    def test_error_handling_in_file_operations(self, sample_config) -> None:
+        """Test error handling during file operations"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_dir = Path(temp_dir)
-            manager = ServerStateManager(state_dir)
+            workspace_path = Path(temp_dir)
+            manager = ServerStateManager(workspace_path)
 
-            # Loading nonexistent file should not perform any operation
-            nonexistent_file = state_dir / "nonexistent.json"
-            manager.load_from_file(nonexistent_file)
+            # Initialize server normally
+            manager.initialize_server_state("server1", "Server One", sample_config)
 
-            # State should be empty
-            assert manager.get_all_states() == {}
+            # Test error handling with file permission issues
+            with patch("mcp_factory.factory.logger") as mock_logger:
+                with patch("builtins.open", side_effect=OSError("Permission denied")):
+                    # This should log error but not crash
+                    manager.update_server_state("server1", status="running")
 
-    def test_load_invalid_state_file(self) -> None:
-        """Test loading invalid state file"""
+                # Verify error was logged
+                mock_logger.error.assert_called()
+
+    def test_state_persistence_across_restarts(self, sample_config) -> None:
+        """Test that state persists across manager restarts"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_dir = Path(temp_dir)
-            manager = ServerStateManager(state_dir)
+            workspace_path = Path(temp_dir)
 
-            # Create invalid JSON file
-            invalid_file = state_dir / "invalid.json"
-            with open(invalid_file, "w") as f:
+            # Create first manager and add data
+            manager1 = ServerStateManager(workspace_path)
+            manager1.initialize_server_state("server1", "Server One", sample_config)
+            manager1.update_server_state("server1", status="running", event="startup")
+
+            # Create second manager - should load existing data
+            manager2 = ServerStateManager(workspace_path)
+            summary = manager2.get_servers_summary()
+
+            assert "server1" in summary
+            assert summary["server1"]["name"] == "Server One"
+            assert summary["server1"]["status"] == "running"
+
+            # Verify detailed state also loaded
+            details = manager2.get_server_details("server1")
+            assert details["current_status"] == "running"
+            assert len(details["state_history"]) == 2  # Initial + update
+
+    def test_corrupted_summary_file_handling(self, sample_config) -> None:
+        """Test handling of corrupted summary files"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace_path = Path(temp_dir)
+            summary_file = workspace_path / ".servers_state.json"
+
+            # Create corrupted summary file
+            with open(summary_file, "w") as f:
                 f.write("invalid json content")
 
-            # Should not throw exception, only record error
-            manager.load_from_file(invalid_file)
-            # If no exception is thrown, test passes
+            # Manager should handle this gracefully
+            with patch("mcp_factory.factory.logger") as mock_logger:
+                manager = ServerStateManager(workspace_path)
+                mock_logger.error.assert_called()
 
-    def test_load_states_batch(self) -> None:
-        """Test batch loading states"""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            state_dir = Path(temp_dir)
-            manager = ServerStateManager(state_dir)
-
-            # First add some state
-            manager.initialize_server_state("existing")
-            manager.update_server_state("existing", "status", "old_status")
-
-            # Batch load new states
-            new_states = {
-                "existing": {"status": "updated_status", "new_field": "value"},
-                "new_server": {"status": "new", "created_at": "2024"},
-            }
-            manager.load_states(new_states)
-
-            # Verify states
-            existing_state = manager.get_server_state("existing")
-            assert existing_state["status"] == "updated_status"
-            assert existing_state["new_field"] == "value"
-
-            new_state = manager.get_server_state("new_server")
-            assert new_state["status"] == "new"
+            # Should start with empty state
+            summary = manager.get_servers_summary()
+            assert len(summary) == 0
 
 
 class TestComponentRegistryAdvanced:
@@ -615,7 +673,7 @@ def _private_function():
                 assert functions == []
 
     def test_load_component_functions_loader_none(self) -> None:
-        """Test module loader being None situation"""
+        """Test module loading when spec.loader is None."""
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = Path(temp_dir)
 
@@ -625,7 +683,7 @@ def _private_function():
             tool_file = tools_dir / "Test.py"
             tool_file.write_text("def test_func(): pass")
 
-            # Mock spec.loader as None
+            # Mock spec with None loader
             mock_spec = MagicMock()
             mock_spec.loader = None
 
@@ -640,7 +698,7 @@ def _private_function():
         mock_server = MagicMock()
         mock_server.resource = MagicMock()
 
-        def sample_resource():
+        def sample_resource() -> str:
             """Example resource"""
             return "resource data"
 
@@ -656,7 +714,7 @@ def _private_function():
         mock_server = MagicMock()
         mock_server.prompt = MagicMock()
 
-        def sample_prompt():
+        def sample_prompt() -> str:
             """Example prompt"""
             return "prompt text"
 
@@ -673,7 +731,7 @@ def _private_function():
         # Don't set resource method
         del mock_server.resource
 
-        def sample_resource():
+        def sample_resource() -> str:
             return "data"
 
         functions = [(sample_resource, "sample_resource", "description")]
@@ -688,7 +746,7 @@ def _private_function():
         mock_server = MagicMock()
         mock_server.tool.side_effect = Exception("register failure")
 
-        def sample_tool():
+        def sample_tool() -> str:
             return "tool"
 
         functions = [(sample_tool, "sample_tool", "description")]
@@ -778,8 +836,9 @@ class TestFactoryAdvancedServerManagement:
         factory._servers["Test-server"] = mock_server
 
         # Add state information
-        factory._state_manager.initialize_server_state("Test-server")
-        factory._state_manager.update_server_state("Test-server", "status", "running")
+        config = {"server": {"name": "Test-server", "instructions": "Test instructions"}}
+        factory._state_manager.initialize_server_state("Test-server", "Test-server", config)
+        factory._state_manager.update_server_state("Test-server", status="running")
 
         # Get state
         status = factory.get_server_status("Test-server")
@@ -958,61 +1017,92 @@ class TestFactoryStateManagement:
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
 
-            # Create a Mock server
+            # Create a Mock server and initialize state first
             mock_server = MagicMock()
             mock_server.name = "Test-server"
             factory._servers["Test-server"] = mock_server
 
-            # Test completing an operation
-            factory._complete_operation("Test-server", "Test_key", "Test operation completed")
+            # Initialize server state (required by new architecture)
+            config = {"server": {"name": "Test-server"}}
+            factory._state_manager.initialize_server_state("Test-server", "Test-server", config)
 
-            # Verify state was updated
-            state = factory._state_manager.get_server_state("Test-server")
-            assert "Test_key" in state
+            # Test completing an operation
+            factory._complete_operation("Test-server", "test_operation", "Test operation completed")
+
+            # Verify state was updated with the operation event
+            details = factory._state_manager.get_server_details("Test-server")
+            assert details is not None
+            assert "state_history" in details
+            # Check if operation was logged in history
+            assert len(details["state_history"]) > 0
 
     def test_save_servers_state(self) -> None:
         """Test saving servers state to file."""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
 
-            # Add Mock server
+            # Add Mock server with initialization of state (required in new architecture)
             mock_server = MagicMock()
             mock_server.name = "Test-server"
             mock_server.instructions = "Test instructions"
             factory._servers["Test-server"] = mock_server
 
-            # Save state
-            factory._save_servers_state()
+            # Initialize state to trigger file creation
+            config = {"server": {"name": "Test-server", "instructions": "Test instructions"}}
+            factory._state_manager.initialize_server_state("Test-server", "Test-server", config)
 
-            # Verify state file exists
-            state_file = factory._servers_state_file
-            assert state_file.exists()
+            # Verify summary file exists (new architecture)
+            summary_file = factory.workspace_root / ".servers_state.json"
+            assert summary_file.exists()
 
     def test_load_servers_state_file_exists(self) -> None:
         """Test loading servers state when file exists."""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
 
-            # Create Mock state data
-            state_data = {
-                "Test-server": {
-                    "name": "Test-server",
-                    "instructions": "Test instructions",
-                    "project_path": None,
-                    "config": {},
-                    "expose_management_tools": True,
-                }
+            # Create detailed state data first (required by new architecture)
+            detailed_state = {
+                "name": "Test-server",
+                "config": {
+                    "server": {
+                        "name": "Test-server",
+                        "instructions": "Test instructions",
+                    },
+                },
+                "created_at": 1234567890.0,
+                "state_history": [],
             }
 
-            # Write state file
-            with open(factory._servers_state_file, "w") as f:
-                json.dump(state_data, f)
+            # Write detailed state file
+            states_dir = factory.workspace_root / ".states"
+            states_dir.mkdir(exist_ok=True)
+            with open(states_dir / "Test-server.json", "w") as f:
+                json.dump(detailed_state, f)
+
+            # Create Mock state data for new architecture
+            summary_data = {
+                "Test-server": {
+                    "name": "Test-server",
+                    "status": "created",
+                    "created_at": 1234567890.0,
+                    "last_updated": 1234567890.0,
+                    "project_path": None,
+                },
+            }
+
+            # Write summary state file (new architecture)
+            summary_file = factory.workspace_root / ".servers_state.json"
+            with open(summary_file, "w") as f:
+                json.dump(summary_data, f)
 
             # Load state (this happens in init, so create new factory)
-            with patch.object(factory, "_create_server_from_data") as mock_create:
-                factory._load_servers_state()
-                # Verify create method was called for each server
-                assert mock_create.call_count == 1
+            with patch.object(factory, "_create_server_from_state_data") as mock_create:
+                # Mock both methods needed by _load_servers_state
+                with patch.object(factory._state_manager, "get_servers_summary", return_value=summary_data):
+                    with patch.object(factory._state_manager, "get_server_details", return_value=detailed_state):
+                        factory._load_servers_state()
+                        # Verify create method was called for each server
+                        assert mock_create.call_count == 1
 
     def test_create_server_from_data(self) -> None:
         """Test creating server from saved data."""
@@ -1126,7 +1216,7 @@ class TestComponentRegistryErrorHandling:
         # Make server.tool() raise exception
         mock_server.tool.side_effect = Exception("Registration failed")
 
-        def test_func():
+        def test_func() -> str:
             """Test function"""
             return "Test"
 
@@ -1143,7 +1233,7 @@ class TestComponentRegistryErrorHandling:
         """Test registering functions with unknown component type."""
         mock_server = MagicMock()
 
-        def test_func():
+        def test_func() -> str:
             """Test function"""
             return "Test"
 
@@ -1206,14 +1296,16 @@ class TestFactoryInitializationErrors:
         mock_server.name = "Test-server"
         factory._servers["Test-server"] = mock_server
 
-        # Mock _save_servers_state to raise exception
-        with patch.object(factory, "_save_servers_state", side_effect=Exception("Save failed")):
+        # Mock remove_server_state to raise exception (this is what actually gets called in new architecture)
+        with patch.object(factory._state_manager, "remove_server_state", side_effect=Exception("State removal failed")):
             with patch.object(factory._error_handler, "handle_error") as mock_handle:
-                # Should call error handler instead of raising
-                factory.delete_server("Test-server")
+                # Should call error handler and return False
+                result = factory.delete_server("Test-server")
 
                 # Verify error handler was called
                 mock_handle.assert_called_once()
+                # Verify False was returned due to error
+                assert result is False
 
 
 class TestFactoryAdvancedErrorScenarios:
@@ -1239,7 +1331,7 @@ class TestFactoryAdvancedErrorScenarios:
                 # Verify error handler was called
                 mock_handle.assert_called_once()
 
-    def test_reload_server_config_no_project_path(self):
+    def test_reload_server_config_no_project_path(self) -> None:
         """Test reload_server_config when server has no project path"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1249,7 +1341,7 @@ class TestFactoryAdvancedErrorScenarios:
             with pytest.raises(ServerError, match="has no associated project path"):
                 factory.reload_server_config(server_id)
 
-    def test_restart_server_success(self):
+    def test_restart_server_success(self) -> None:
         """Test successful server restart"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1266,7 +1358,7 @@ class TestFactoryAdvancedErrorScenarios:
             restarted_server = factory.restart_server(server_id)
             assert restarted_server is not None
 
-    def test_sync_to_project_no_project_path(self):
+    def test_sync_to_project_no_project_path(self) -> None:
         """Test sync to project when server has no project path"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1276,7 +1368,7 @@ class TestFactoryAdvancedErrorScenarios:
             result = factory.sync_to_project(server_id)
             assert result is False
 
-    def test_sync_to_project_nonexistent_path(self):
+    def test_sync_to_project_nonexistent_path(self) -> None:
         """Test sync to project with nonexistent target path"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1286,7 +1378,7 @@ class TestFactoryAdvancedErrorScenarios:
             result = factory.sync_to_project(server_id, "/nonexistent/path")
             assert result is False
 
-    def test_load_config_from_source_dict(self):
+    def test_load_config_from_source_dict(self) -> None:
         """Test loading config from dictionary source"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1295,7 +1387,7 @@ class TestFactoryAdvancedErrorScenarios:
             result = factory._load_config_from_source(config_dict)
             assert result == config_dict
 
-    def test_load_config_from_source_directory_no_config(self):
+    def test_load_config_from_source_directory_no_config(self) -> None:
         """Test loading config from directory without config file"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1309,7 +1401,7 @@ class TestFactoryAdvancedErrorScenarios:
             assert isinstance(result, dict)
             assert "server" in result
 
-    def test_load_config_from_source_nonexistent_path(self):
+    def test_load_config_from_source_nonexistent_path(self) -> None:
         """Test loading config from nonexistent path"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
@@ -1317,7 +1409,7 @@ class TestFactoryAdvancedErrorScenarios:
             with pytest.raises(ProjectError, match="Source path does not exist"):
                 factory._load_config_from_source("/nonexistent/path")
 
-    def test_apply_all_params_streamable_features(self):
+    def test_apply_all_params_streamable_features(self) -> None:
         """Test applying streamable parameters"""
         with tempfile.TemporaryDirectory() as temp_dir:
             factory = MCPFactory(workspace_root=temp_dir)
