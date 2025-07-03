@@ -87,12 +87,7 @@ class ProjectPublisher:
         except (ProjectError, ValidationError) as e:
             return PublishResult(False, f"Project publishing failed: {e}")
         except Exception as e:
-            self.error_handler.handle_error(
-                "publish_project",
-                e,
-                {"project_path": project_path},
-                reraise=False
-            )
+            self.error_handler.handle_error("publish_project", e, {"project_path": project_path}, reraise=False)
             return PublishResult(False, f"Unknown error: {e}")
 
     def _smart_publish(self, project_path: Path, metadata: dict[str, Any]) -> PublishResult:
@@ -134,12 +129,7 @@ class ProjectPublisher:
         except (ConnectionError, requests.RequestException, TimeoutError) as e:
             return PublishResult(False, f"API publishing failed: {e}")
         except Exception as e:
-            self.error_handler.handle_error(
-                "try_api_publish",
-                e,
-                {"project_path": str(project_path)},
-                reraise=False
-            )
+            self.error_handler.handle_error("try_api_publish", e, {"project_path": str(project_path)}, reraise=False)
             return PublishResult(False, "API publishing exception")
 
     def _prepare_manual_publish(self, project_path: Path, metadata: dict[str, Any]) -> PublishResult:
@@ -165,10 +155,7 @@ class ProjectPublisher:
             return PublishResult(False, f"Failed to prepare manual publishing: {e}")
         except Exception as e:
             self.error_handler.handle_error(
-                "prepare_manual_publish",
-                e,
-                {"project_path": str(project_path)},
-                reraise=False
+                "prepare_manual_publish", e, {"project_path": str(project_path)}, reraise=False
             )
             return PublishResult(False, f"Failed to prepare manual publishing: {e}")
 
@@ -203,7 +190,7 @@ class ProjectPublisher:
                 "commit_changes",
                 GitError(f"Git commit failed: {e}"),
                 {"project_path": str(project_path)},
-                reraise=False
+                reraise=False,
             )
             return False
 
@@ -214,10 +201,7 @@ class ProjectPublisher:
             return True
         except subprocess.CalledProcessError as e:
             self.error_handler.handle_error(
-                "push_changes",
-                GitError(f"Git push failed: {e}"),
-                {"project_path": str(project_path)},
-                reraise=False
+                "push_changes", GitError(f"Git push failed: {e}"), {"project_path": str(project_path)}, reraise=False
             )
             return False
 
@@ -243,7 +227,7 @@ class ProjectPublisher:
                 "trigger_initial_registration",
                 GitError(f"Git registration failed: {e}"),
                 {"project_path": str(project_path)},
-                reraise=False
+                reraise=False,
             )
             return False
 
@@ -259,10 +243,7 @@ class ProjectPublisher:
             return True
         except (OSError, toml.TomlDecodeError) as e:
             self.error_handler.handle_error(
-                "add_hub_configuration",
-                e,
-                {"project_path": str(project_path)},
-                reraise=False
+                "add_hub_configuration", e, {"project_path": str(project_path)}, reraise=False
             )
             return False
 
@@ -279,10 +260,7 @@ class ProjectPublisher:
             return bool(hub_config), hub_config
         except (OSError, toml.TomlDecodeError) as e:
             self.error_handler.handle_error(
-                "check_hub_configuration",
-                e,
-                {"project_path": str(project_path)},
-                reraise=False
+                "check_hub_configuration", e, {"project_path": str(project_path)}, reraise=False
             )
             return False, {}
 
@@ -329,7 +307,7 @@ class ProjectPublisher:
         }
 
     # ============================================================================
-            # GitHub App integration
+    # GitHub App integration
     # ============================================================================
 
     def create_github_app_install_url(self, repo_full_name: str, metadata: dict[str, Any]) -> str:
@@ -344,7 +322,7 @@ class ProjectPublisher:
         return f"https://github.com/apps/{self.github_app_name}/installations/new?state={state}"
 
     # ============================================================================
-            # Private methods
+    # Private methods
     # ============================================================================
 
     def _check_github_app_status(self) -> bool:
@@ -547,6 +525,6 @@ class ProjectPublisher:
         # Add mcp-servers-hub configuration
         config["tool"]["mcp-servers-hub"] = hub_config
 
-                    # Write back to file
+        # Write back to file
         with open(pyproject_path, "w") as f:
             toml.dump(config, f)
