@@ -94,7 +94,9 @@ class ServerStateManager:
         self._save_server_details(server_id, detailed_state)
         self._save_summary()
 
-    def update_server_state(self, server_id: str, status: str | None = None, event: str | None = None, details: dict[str, Any] | None = None) -> None:
+    def update_server_state(
+        self, server_id: str, status: str | None = None, event: str | None = None, details: dict[str, Any] | None = None
+    ) -> None:
         """Update server state with event tracking"""
         import time
 
