@@ -94,7 +94,7 @@ class ServerStateManager:
         self._save_server_details(server_id, detailed_state)
         self._save_summary()
 
-    def update_server_state(self, server_id: str, status: str = None, event: str = None, details: dict = None) -> None:
+    def update_server_state(self, server_id: str, status: str | None = None, event: str | None = None, details: dict[str, Any] | None = None) -> None:
         """Update server state with event tracking"""
         import time
 
@@ -176,7 +176,9 @@ class ServerStateManager:
         """Get server state change history"""
         detailed_state = self._load_server_details(server_id)
         if detailed_state and "state_history" in detailed_state:
-            return detailed_state["state_history"][-limit:]
+            history = detailed_state["state_history"]
+            if isinstance(history, list):
+                return history[-limit:]
         return []
 
     def remove_server_state(self, server_id: str) -> None:
@@ -198,7 +200,8 @@ class ServerStateManager:
 
         try:
             with open(self.summary_file, encoding="utf-8") as f:
-                self._summary = json.load(f)
+                loaded_data = json.load(f)
+                self._summary = loaded_data if isinstance(loaded_data, dict) else {}
             logger.debug("Summary loaded: %s servers", len(self._summary))
         except Exception as e:
             logger.error("Failed to load summary: %s", e)
@@ -223,7 +226,8 @@ class ServerStateManager:
 
         try:
             with open(detail_file, encoding="utf-8") as f:
-                return json.load(f)
+                loaded_data = json.load(f)
+                return loaded_data if isinstance(loaded_data, dict) else None
         except Exception as e:
             logger.error("Failed to load details for %s: %s", server_id, e)
             return None
@@ -743,7 +747,7 @@ class MCPFactory:
 
             # 4. Update synchronization status
             sync_info = {"timestamp": datetime.now().isoformat(), "target_path": str(project_path)}
-            self._state_manager.update_server_state(server_id, "last_sync", sync_info)
+            self._state_manager.update_server_state(server_id, event="last_sync", details=sync_info)
             self._complete_operation(
                 server_id, "sync_completed", f"Server state synchronization completed: {server.name} -> {target_path}"
             )

@@ -103,10 +103,7 @@ class ServerMounter:
         except Exception as e:
             # Handle unexpected errors
             self.error_handler.handle_error(
-                "mount_server",
-                e,
-                {"server_name": server_name, "mount_point": server_name},
-                reraise=False
+                "mount_server", e, {"server_name": server_name, "mount_point": server_name}, reraise=False
             )
             if server_name in self.mounted_servers:
                 self.mounted_servers[server_name].status = "failed"
@@ -122,7 +119,7 @@ class ServerMounter:
             command_list = [config.command] + (config.args or [])
             # Ensure all command arguments are strings
             full_command = [str(arg) for arg in command_list if arg is not None]
-            logger.debug("Executing command: %s", ' '.join(full_command))
+            logger.debug("Executing command: %s", " ".join(full_command))
 
             # Use proper resource management for subprocess
             try:
@@ -137,7 +134,7 @@ class ServerMounter:
                 server_info.process = process
             except (OSError, subprocess.SubprocessError, Exception) as e:
                 # Ensure cleanup if process creation fails
-                if 'process' in locals() and process is not None:
+                if "process" in locals() and process is not None:
                     process.terminate()
                 logger.error("Failed to create subprocess for %s: %s", server_info.name, e)
                 return False
@@ -163,7 +160,7 @@ class ServerMounter:
                 "start_local_server",
                 e,
                 {"server_name": server_info.name, "mount_point": server_info.name},
-                reraise=False
+                reraise=False,
             )
             return False
 
@@ -190,7 +187,7 @@ class ServerMounter:
                 "start_remote_server",
                 e,
                 {"server_name": server_info.name, "mount_point": server_info.name},
-                reraise=False
+                reraise=False,
             )
             return False
 
@@ -207,9 +204,7 @@ class ServerMounter:
                 await server_info.client.list_tools()
         except (ConnectionError, OSError, TimeoutError) as e:
             raise MountingError(
-                f"Server connection test failed: {e}",
-                mount_point=server_info.name,
-                operation="test_server_connection"
+                f"Server connection test failed: {e}", mount_point=server_info.name, operation="test_server_connection"
             ) from e
 
     async def _mount_to_main_server(self, server_info: MountedServerInfo) -> None:
@@ -263,7 +258,7 @@ class ServerMounter:
             raise MountingError(
                 f"Failed to mount server to main server: {e}",
                 mount_point=server_info.name,
-                operation="mount_to_main_server"
+                operation="mount_to_main_server",
             ) from e
 
     async def unmount_server(self, server_name: str) -> bool:
@@ -299,10 +294,7 @@ class ServerMounter:
 
         except (OSError, subprocess.SubprocessError, KeyError, Exception) as e:
             self.error_handler.handle_error(
-                "unmount_server",
-                e,
-                {"server_name": server_name, "mount_point": server_name},
-                reraise=False
+                "unmount_server", e, {"server_name": server_name, "mount_point": server_name}, reraise=False
             )
             return False
 

@@ -673,9 +673,9 @@ def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Pa
         if not publisher.add_hub_configuration(project_path_obj, config):
             cli_helper.show_error_message("Failed to save configuration")
             sys.exit(1)
-        return config
+        return dict(config) if isinstance(config, dict) else {}
     else:
-        return existing_config
+        return dict(existing_config)
 
 
 def _handle_git_operations(publisher: Any, cli_helper: Any, project_path_obj: Path) -> None:
@@ -718,10 +718,7 @@ def _handle_publish_result(
         sys.exit(1)
 
     if result.data.get("method") == "api":
-        cli_helper.show_publish_success(
-            result.data.get("repo_url", ""),
-            result.data.get("registration_url", "")
-        )
+        cli_helper.show_publish_success(result.data.get("repo_url", ""), result.data.get("registration_url", ""))
     elif result.data.get("method") == "manual":
         _handle_manual_installation(result.data, publisher, cli_helper, project_path_obj, config)
     else:
@@ -735,6 +732,7 @@ def _handle_manual_installation(
     cli_helper.show_installation_guide(data["install_url"], data["repo_name"], data["project_name"])
 
     import webbrowser
+
     webbrowser.open(data["install_url"])
 
     cli_helper.wait_for_installation_completion()
@@ -785,6 +783,7 @@ def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
         error_message(f"Error occurred during publish: {e}")
         if is_verbose(ctx):
             import traceback
+
             click.echo(traceback.format_exc(), err=True)
         sys.exit(1)
 
@@ -1103,6 +1102,7 @@ def health(ctx: click.Context, check_config: bool, check_env: bool) -> None:
         error_message(f"Health check failed: {e}")
         if is_verbose(ctx):
             import traceback
+
             click.echo(traceback.format_exc(), err=True)
         sys.exit(1)
 

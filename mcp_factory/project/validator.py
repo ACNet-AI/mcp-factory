@@ -163,7 +163,7 @@ class ProjectValidator:
             result["errors"].append(f"Invalid config file format: {e}")
             result["valid"] = False
 
-        logger.info("Project validation completed. Valid: %s", result['valid'])
+        logger.info("Project validation completed. Valid: %s", result["valid"])
         return result
 
     def validate_project_structure_only(self, project_path: str) -> bool:
