@@ -36,6 +36,8 @@ dependencies = [
   "psutil>=7.0.0",
   "rich>=13.0.0",
   "questionary>=2.0.1",
+  "requests>=2.32.0",
+  "toml>=0.10.0",
 ]
 
 
@@ -198,11 +200,11 @@ dev = [
   "mypy>=1.16.0",
   "types-PyYAML>=6.0.12.20250516",
   "types-setuptools>=80.9.0.20250529",
+  "types-requests>=2.32.4.20250611",
+  "types-toml>=0.10.8.20240310",
   "types-jsonschema>=4.24.0.20250528",
   "types-tabulate>=0.9.0.20241207",
   "bandit>=1.8.5",
-  "types-requests>=2.32.4.20250611",
-  "types-toml>=0.10.8.20240310",
 ]
 test = [
   "pytest>=8.4.0",

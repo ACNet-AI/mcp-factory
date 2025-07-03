@@ -329,7 +329,7 @@ class ProjectPublisher:
         """Check GitHub App service status"""
         try:
             response = requests.get(f"{self.github_app_url}/api/health", timeout=10)
-            return response.status_code == 200
+            return bool(response.status_code == 200)
         except (ConnectionError, requests.RequestException, TimeoutError):
             return False
 
