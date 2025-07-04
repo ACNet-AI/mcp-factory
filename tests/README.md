@@ -18,8 +18,12 @@ tests/
 │   ├── test_factory.py     # ✅ Factory core functionality (8 tests)
 │   ├── test_project.py     # ✅ Project building system (38 tests)
 │   └── test_server.py      # ✅ Server management system (21 tests)
-├── integration/             # Integration tests (1 file)
-│   └── test_workflows.py   # ✅ End-to-end workflows (14 tests)
+├── integration/             # Integration tests (3 files)
+│   ├── test_workflows.py   # ✅ Single-project workflows (14 tests)
+│   ├── test_middleware.py  # ✅ Middleware integration tests
+│   └── test_servers_integration.py # ✅ Server integration tests
+├── e2e/                     # End-to-end tests (1 file)
+│   └── test_mcp_project_lifecycle.py # 🚀 Cross-project E2E workflows
 └── run_tests.py            # Test runner script
 ```
 
@@ -83,6 +87,13 @@ tests/
 - **Real Scenarios**: User actual usage scenario simulation
 - **Performance Testing**: Batch operations and resource usage evaluation
 
+#### 8. **e2e.mcp_project_lifecycle** - Cross-Project End-to-End Tests (🚀 New!)
+- **Complete Workflow**: mcp-factory → mcp-project-manager → mcp-servers-hub
+- **GitHub Integration**: Webhook processing and project publishing simulation
+- **Registry Workflow**: Server registration and discovery across the ecosystem
+- **Production Scenarios**: High-throughput creation and version management
+- **Error Handling**: Cross-project error scenarios and resilience testing
+
 ## 🚀 Technical Achievements
 
 ### **Test Quality Metrics**
@@ -135,6 +146,10 @@ pytest tests/unit/test_server.py -v
 
 # Integration tests
 pytest tests/integration/ -v
+
+# End-to-end tests (cross-project workflows)
+pytest tests/e2e/ -v
+pytest tests/e2e/test_mcp_project_lifecycle.py -v
 ```
 
 ### Detailed Output
@@ -167,8 +182,10 @@ pytest tests/ -v --tb=long
 ### Planned Improvements
 1. **Performance Testing**: Add stress testing and performance benchmarks
 2. **Concurrency Testing**: Multi-threading and asynchronous operation tests
-3. **Integration Extensions**: More real-scenario end-to-end tests
-4. **Automated Reporting**: CI/CD integration and coverage reports
+3. **Cross-Project E2E**: Real integration with mcp-project-manager and mcp-servers-hub
+4. **GitHub App Testing**: Direct integration testing with GitHub webhooks
+5. **Registry Integration**: Live testing with mcp-servers-hub API
+6. **Automated Reporting**: CI/CD integration and coverage reports
 
 ### Continuous Monitoring
 - **Test Pass Rate**: Target > 98%
