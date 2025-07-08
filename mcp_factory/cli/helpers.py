@@ -1,14 +1,22 @@
-"""
-CLI Interactive Helper Module
-Handles user input, configuration wizards and UI-related logic
+"""MCP Factory CLI Helpers
+
+Provides helper classes and functions for CLI operations.
 """
 
+from __future__ import annotations
+
+import os
 import textwrap
+from pathlib import Path
 from typing import Any
 
 import questionary
+import yaml
 from questionary import Style
 from rich.console import Console
+
+# Import the new error filter
+from .error_filter import UserFriendlyErrorHandler
 
 # Custom CLI style - matches mcp-factory design
 MCP_FACTORY_STYLE = Style(
@@ -300,6 +308,327 @@ class ConfigCLIHelper(BaseCLIHelper):
         self.show_warning_message(f"About to delete server '{server_id}'")
         return self.confirm_action("Confirm deletion? This action cannot be undone.", default=False)
 
+    def check_configuration(self, config_file: str | None = None, auto_fix: bool = False) -> dict[str, Any]:
+        """
+        Check configuration for common issues
+
+        Args:
+            config_file: Path to configuration file (optional)
+            auto_fix: Whether to automatically fix issues
+
+        Returns:
+            Dictionary containing check results
+        """
+        issues = []
+        fixed_issues = []
+
+        self.show_separator("🔍 Configuration Check")
+
+        try:
+            # 1. Check if config file exists
+            if config_file:
+                config_path = Path(config_file)
+                if not config_path.exists():
+                    issue = {
+                        "type": "missing_file",
+                        "severity": "critical",
+                        "description": f"Configuration file '{config_file}' not found",
+                        "auto_fixable": True,
+                        "fix_suggestion": f"Create configuration file with: mcp-factory config template > {config_file}",
+                    }
+                    issues.append(issue)
+
+                    if auto_fix:
+                        if self._create_default_config(config_path):
+                            fixed_issues.append(issue)
+                            issues.remove(issue)
+            else:
+                # Check current directory for config files
+                config_files = list(Path(".").glob("*.yaml")) + list(Path(".").glob("*.yml"))
+                if not config_files:
+                    issue = {
+                        "type": "no_config_found",
+                        "severity": "warning",
+                        "description": "No configuration files found in current directory",
+                        "auto_fixable": True,
+                        "fix_suggestion": "Create a configuration file with: mcp-factory config template > config.yaml",
+                    }
+                    issues.append(issue)
+
+                    if auto_fix:
+                        if self._create_default_config(Path("config.yaml")):
+                            fixed_issues.append(issue)
+                            issues.remove(issue)
+                            config_file = "config.yaml"
+
+            # 2. Validate YAML syntax and structure
+            if config_file and Path(config_file).exists():
+                yaml_issues, yaml_fixed = self._check_yaml_issues(config_file, auto_fix)
+                issues.extend(yaml_issues)
+                fixed_issues.extend(yaml_fixed)
+
+                # 3. Check required fields
+                field_issues, field_fixed = self._check_required_fields(config_file, auto_fix)
+                issues.extend(field_issues)
+                fixed_issues.extend(field_fixed)
+
+                # 4. Check data types
+                type_issues, type_fixed = self._check_data_types(config_file, auto_fix)
+                issues.extend(type_issues)
+                fixed_issues.extend(type_fixed)
+
+                # 5. Check environment variables
+                env_issues = self._check_environment_variables(config_file)
+                issues.extend(env_issues)
+
+        except Exception as e:
+            self.show_error_message(f"Configuration check failed: {e}")
+
+        return {
+            "issues": issues,
+            "fixed_issues": fixed_issues,
+            "has_errors": any(issue["severity"] == "critical" for issue in issues),
+            "has_warnings": any(issue["severity"] == "warning" for issue in issues),
+            "config_file": config_file,
+        }
+
+    def show_check_results(self, results: dict[str, Any]) -> None:
+        """Display configuration check results"""
+        issues = results.get("issues", [])
+        fixed_issues = results.get("fixed_issues", [])
+
+        # Show fixed issues first
+        if fixed_issues:
+            self.show_separator("✅ Auto-Fixed Issues")
+            for issue in fixed_issues:
+                self.console.print(f"  🔧 Fixed: {issue['description']}", style="green")
+
+        # Show remaining issues
+        if issues:
+            self.show_separator("⚠️  Remaining Issues")
+
+            critical_issues = [i for i in issues if i["severity"] == "critical"]
+            warning_issues = [i for i in issues if i["severity"] == "warning"]
+
+            if critical_issues:
+                self.console.print("🚨 Critical Issues:", style="bold red")
+                for issue in critical_issues:
+                    self.console.print(f"  ❌ {issue['description']}", style="red")
+                    if issue.get("fix_suggestion"):
+                        self.console.print(f"     💡 Fix: {issue['fix_suggestion']}", style="blue")
+
+            if warning_issues:
+                self.console.print("\n⚠️  Warnings:", style="bold yellow")
+                for issue in warning_issues:
+                    self.console.print(f"  ⚠️  {issue['description']}", style="yellow")
+                    if issue.get("fix_suggestion"):
+                        self.console.print(f"     💡 Suggestion: {issue['fix_suggestion']}", style="blue")
+        else:
+            self.show_success_message("Configuration check passed! No issues found.")
+
+        # Show summary
+        if issues or fixed_issues:
+            self.console.print("\n📊 Summary:")
+            if fixed_issues:
+                self.console.print(f"  ✅ Fixed: {len(fixed_issues)} issues", style="green")
+            if issues:
+                critical_count = len([i for i in issues if i["severity"] == "critical"])
+                warning_count = len([i for i in issues if i["severity"] == "warning"])
+                if critical_count:
+                    self.console.print(f"  ❌ Critical: {critical_count} issues", style="red")
+                if warning_count:
+                    self.console.print(f"  ⚠️  Warnings: {warning_count} issues", style="yellow")
+
+    def _create_default_config(self, config_path: Path) -> bool:
+        """Create a default configuration file"""
+        try:
+            from ..config.manager import get_default_config
+
+            default_config = get_default_config()
+
+            with config_path.open("w") as f:
+                yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
+
+            self.show_success_message(f"Created default configuration: {config_path}")
+            return True
+
+        except Exception as e:
+            self.show_error_message(f"Failed to create default config: {e}")
+            return False
+
+    def _check_yaml_issues(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+        """Check for YAML syntax issues"""
+        issues = []
+        fixed_issues: list[dict[str, Any]] = []
+
+        try:
+            with open(config_file) as f:
+                yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            issue = {
+                "type": "yaml_syntax",
+                "severity": "critical",
+                "description": f"YAML syntax error: {e}",
+                "auto_fixable": False,
+                "fix_suggestion": "Please check YAML syntax, especially indentation and special characters",
+            }
+            issues.append(issue)
+        except Exception as e:
+            issue = {
+                "type": "file_read_error",
+                "severity": "critical",
+                "description": f"Cannot read configuration file: {e}",
+                "auto_fixable": False,
+                "fix_suggestion": "Check file permissions and existence",
+            }
+            issues.append(issue)
+
+        return issues, fixed_issues
+
+    def _check_required_fields(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+        """Check for required configuration fields"""
+        issues = []
+        fixed_issues = []
+
+        try:
+            with open(config_file) as f:
+                config = yaml.safe_load(f) or {}
+
+            changed = False
+
+            # Check for server name
+            if "server" not in config:
+                config["server"] = {}
+                changed = True
+
+            server_config = config.get("server", {})
+
+            if not server_config.get("name"):
+                issue = {
+                    "type": "missing_server_name",
+                    "severity": "critical",
+                    "description": "Server name is required",
+                    "auto_fixable": True,
+                    "fix_suggestion": "Add 'name' field under 'server' section",
+                }
+
+                if auto_fix:
+                    server_config["name"] = "my-server"
+                    config["server"] = server_config
+                    changed = True
+                    fixed_issues.append(issue)
+                else:
+                    issues.append(issue)
+
+            # Check for transport
+            if not server_config.get("transport"):
+                issue = {
+                    "type": "missing_transport",
+                    "severity": "warning",
+                    "description": "Transport method not specified",
+                    "auto_fixable": True,
+                    "fix_suggestion": "Add 'transport: stdio' or 'transport: ws' under 'server' section",
+                }
+
+                if auto_fix:
+                    server_config["transport"] = "stdio"
+                    config["server"] = server_config
+                    changed = True
+                    fixed_issues.append(issue)
+                else:
+                    issues.append(issue)
+
+            # Save changes if auto-fix was applied
+            if changed and auto_fix:
+                with open(config_file, "w") as f:
+                    yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        except Exception as e:
+            issue = {
+                "type": "validation_error",
+                "severity": "critical",
+                "description": f"Cannot validate configuration: {e}",
+                "auto_fixable": False,
+                "fix_suggestion": "Check configuration file format",
+            }
+            issues.append(issue)
+
+        return issues, fixed_issues
+
+    def _check_data_types(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+        """Check for incorrect data types"""
+        issues = []
+        fixed_issues = []
+
+        try:
+            with open(config_file) as f:
+                config = yaml.safe_load(f) or {}
+
+            changed = False
+            server_config = config.get("server", {})
+
+            # Check port type
+            if "port" in server_config:
+                port_value = server_config["port"]
+                if isinstance(port_value, str) and port_value.isdigit():
+                    issue = {
+                        "type": "port_type_error",
+                        "severity": "warning",
+                        "description": f"Port should be a number, not string: '{port_value}'",
+                        "auto_fixable": True,
+                        "fix_suggestion": f"Change port from '{port_value}' to {port_value}",
+                    }
+
+                    if auto_fix:
+                        server_config["port"] = int(port_value)
+                        config["server"] = server_config
+                        changed = True
+                        fixed_issues.append(issue)
+                    else:
+                        issues.append(issue)
+
+            # Save changes if auto-fix was applied
+            if changed and auto_fix:
+                with open(config_file, "w") as f:
+                    yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        except Exception as e:
+            issue = {
+                "type": "type_check_error",
+                "severity": "warning",
+                "description": f"Cannot check data types: {e}",
+                "auto_fixable": False,
+                "fix_suggestion": "Manual review recommended",
+            }
+            issues.append(issue)
+
+        return issues, fixed_issues
+
+    def _check_environment_variables(self, config_file: str) -> list[dict]:
+        """Check for environment variable configuration"""
+        issues = []
+
+        # Common environment variables that might be needed
+        important_env_vars = [
+            ("JWT_SECRET_KEY", "Required for authentication"),
+            ("LOG_LEVEL", "Controls logging verbosity"),
+            ("MCP_HOST", "Server host configuration"),
+            ("MCP_PORT", "Server port configuration"),
+        ]
+
+        for env_var, description in important_env_vars:
+            if env_var not in os.environ:
+                issue = {
+                    "type": "missing_env_var",
+                    "severity": "info",
+                    "description": f"Environment variable '{env_var}' not set",
+                    "auto_fixable": False,
+                    "fix_suggestion": f"Set with: export {env_var}=<value> # {description}",
+                }
+                issues.append(issue)
+
+        return issues
+
 
 class ServerCLIHelper(BaseCLIHelper):
     """Server management-related CLI helper"""
@@ -334,3 +663,216 @@ class ServerCLIHelper(BaseCLIHelper):
             "unknown": "⚪",
         }
         return status_icons.get(status.lower(), "⚪")
+
+
+class ServerNameResolver(BaseCLIHelper):
+    """Server name resolver - supports server management by name"""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def resolve_server_identifier(self, factory: Any, name_or_id: str) -> str | None:
+        """
+        Resolve server name or ID to actual server ID
+
+        Args:
+            factory: MCPFactory instance
+            name_or_id: Server name or ID
+
+        Returns:
+            str | None: Resolved server ID, None if not found
+        """
+        try:
+            # Get all server information
+            servers = factory.list_servers()
+
+            if not servers:
+                self.show_error_message("No servers found")
+                return None
+
+            # 1. Exact match: try as ID first
+            exact_id_match = self._find_exact_id_match(servers, name_or_id)
+            if exact_id_match:
+                return exact_id_match
+
+            # 2. Exact match: try as name
+            exact_name_matches = self._find_exact_name_matches(servers, name_or_id)
+            if len(exact_name_matches) == 1:
+                server_id = exact_name_matches[0]["id"]
+                return str(server_id) if server_id is not None else None
+            elif len(exact_name_matches) > 1:
+                # Handle name conflicts
+                return self._handle_name_conflicts(exact_name_matches, name_or_id)
+
+            # 3. Fuzzy match: partial server name matching
+            fuzzy_matches = self._find_fuzzy_matches(servers, name_or_id)
+            if len(fuzzy_matches) == 1:
+                self.show_info_message(f"Found fuzzy match: {fuzzy_matches[0]['name']}")
+                server_id = fuzzy_matches[0]["id"]
+                return str(server_id) if server_id is not None else None
+            elif len(fuzzy_matches) > 1:
+                # Interactive selection
+                return self._interactive_server_selection(fuzzy_matches, name_or_id)
+
+            # 4. No match found
+            self.show_error_message(f"Server with name or ID '{name_or_id}' not found")
+            self._suggest_similar_servers(servers, name_or_id)
+            return None
+
+        except Exception as e:
+            self.show_error_message(f"Error resolving server identifier: {e}")
+            return None
+
+    def _find_exact_id_match(self, servers: list[dict[str, Any]], identifier: str) -> str | None:
+        """Find exact ID match"""
+        for server in servers:
+            if server.get("id") == identifier:
+                server_id = server["id"]
+                return str(server_id) if server_id is not None else None
+        return None
+
+    def _find_exact_name_matches(self, servers: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
+        """Find exact name matches"""
+        matches = []
+        for server in servers:
+            if server.get("name") == name:
+                matches.append(server)
+        return matches
+
+    def _find_fuzzy_matches(self, servers: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+        """Find fuzzy matches"""
+        matches = []
+        query_lower = query.lower()
+
+        for server in servers:
+            server_name = server.get("name", "").lower()
+            server_id = server.get("id", "").lower()
+
+            # Check if name or ID contains query string
+            if query_lower in server_name or query_lower in server_id:
+                matches.append(server)
+
+        return matches
+
+    def _handle_name_conflicts(self, matches: list[dict[str, Any]], name: str) -> str | None:
+        """Handle name conflicts"""
+        self.show_warning_message(f"Found multiple servers named '{name}':")
+
+        # Show conflicting servers
+        choices = []
+        for i, server in enumerate(matches):
+            server_info = f"{server['name']} (ID: {server['id'][:8]}...)"
+            choices.append(server_info)
+            self.console.print(f"  {i + 1}. {server_info}")
+
+        # Let user choose
+        try:
+            selected = self.select_choice("Please select the server to operate on:", choices)
+
+            # Find corresponding server
+            for i, choice in enumerate(choices):
+                if choice == selected:
+                    server_id = matches[i]["id"]
+                    return str(server_id) if server_id is not None else None
+
+        except (KeyboardInterrupt, EOFError):
+            self.show_info_message("Operation cancelled")
+            return None
+
+        return None
+
+    def _interactive_server_selection(self, matches: list[dict[str, Any]], query: str) -> str | None:
+        """Interactive server selection"""
+        self.show_info_message(f"Found multiple servers containing '{query}':")
+
+        # Prepare choices
+        choices = []
+        for server in matches:
+            server_status = self._get_status_icon(server.get("status", "unknown"))
+            server_info = f"{server_status} {server['name']} (ID: {server['id'][:8]}...)"
+            choices.append(server_info)
+
+        # Add cancel option
+        choices.append("❌ Cancel operation")
+
+        try:
+            selected = self.select_choice("Please select the server to operate on:", choices)
+
+            # Handle cancel operation
+            if selected == "❌ Cancel operation":
+                self.show_info_message("Operation cancelled")
+                return None
+
+            # Find corresponding server
+            for i, choice in enumerate(choices[:-1]):  # Exclude cancel option
+                if choice == selected:
+                    server_id = matches[i]["id"]
+                    return str(server_id) if server_id is not None else None
+
+        except (KeyboardInterrupt, EOFError):
+            self.show_info_message("Operation cancelled")
+            return None
+
+        return None
+
+    def _suggest_similar_servers(self, servers: list[dict[str, Any]], query: str) -> None:
+        """Suggest similar servers"""
+        if not servers:
+            return
+
+        self.show_info_message("Available servers:")
+        for server in servers[:5]:  # Show only first 5
+            status_icon = self._get_status_icon(server.get("status", "unknown"))
+            self.console.print(f"  {status_icon} {server.get('name', 'N/A')} (ID: {server.get('id', 'N/A')[:8]}...)")
+
+        if len(servers) > 5:
+            self.console.print(f"  ... and {len(servers) - 5} more servers")
+
+    def _get_status_icon(self, status: str) -> str:
+        """Get status icon"""
+        status_icons = {
+            "running": "🟢",
+            "stopped": "🔴",
+            "error": "🟡",
+            "unknown": "⚪",
+        }
+        return status_icons.get(status.lower(), "⚪")
+
+    def show_resolved_server_info(self, factory: Any, server_id: str) -> None:
+        """Show resolved server information"""
+        try:
+            server_info = factory.get_server_status(server_id)
+            if server_info:
+                name = server_info.get("name", "N/A")
+                status = server_info.get("state", {}).get("status", "unknown")
+                status_icon = self._get_status_icon(status)
+
+                self.console.print(f"✅ Selected server: {status_icon} {name} (ID: {server_id[:8]}...)")
+            else:
+                self.show_warning_message(f"Unable to get details for server {server_id}")
+
+        except Exception as e:
+            self.show_warning_message(f"Error getting server information: {e}")
+
+
+# Add smart error handling function
+def handle_cli_error(error: Exception, operation: str | None = None, verbose: bool = False) -> None:
+    """
+    Handle CLI errors using intelligent error filtering
+
+    Args:
+        error: Exception that occurred
+        operation: Description of the operation that failed
+        verbose: Whether to show technical details
+    """
+    error_handler = UserFriendlyErrorHandler()
+    error_info = error_handler.process_error(error, operation, verbose)
+
+    # Display formatted error
+    console = Console()
+    error_display = error_handler.format_error_display(error_info)
+    console.print(error_display, style="red")
+
+    # If verbose mode is off but user might need more details
+    if not verbose and error_info.get("technical_details"):
+        console.print("\n💡 Use --verbose flag for technical details", style="dim")

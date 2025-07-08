@@ -784,13 +784,17 @@ class TestFactoryAdvancedServerManagement:
         # Create Mock server
         mock_server = MagicMock()
         mock_server.name = "Test-server"
+        mock_server.project_path = "/some/project/path"  # Add required attribute
         factory._servers["Test-server"] = mock_server
 
-        # Reload configuration
-        reloaded_server = factory.reload_server_config("Test-server")
+        # Mock the project directory existence check and reload configuration
+        with patch("os.path.exists", return_value=True), \
+             patch.object(factory, "_get_server_project_path", return_value="/some/project/path"):
+            # Reload configuration
+            reloaded_server = factory.reload_server_config("Test-server")
 
-        # Verify returned server
-        assert reloaded_server is mock_server
+            # Verify returned server
+            assert reloaded_server is mock_server
 
     def test_reload_nonexistent_server_config(self) -> None:
         """Test reloading nonexistent server configuration"""
@@ -808,7 +812,10 @@ class TestFactoryAdvancedServerManagement:
         # Create mock server
         mock_server = MagicMock()
         mock_server.name = "Test-server"
-        factory._servers["Test-server"] = mock_server
+        mock_server.project_path = "/some/project/path"  # Add required attribute
+        # Also mock the project directory existence check
+        with patch("os.path.exists", return_value=True):
+            factory._servers["Test-server"] = mock_server
 
         # Restart server
         restarted_server = factory.restart_server("Test-server")

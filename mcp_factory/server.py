@@ -99,7 +99,6 @@ class ManagedServer(FastMCP):
         self._config: dict[str, Any] = {}
         self._server_id: str = ""
         self._created_at: str = ""
-        self._project_path: str = ""
 
         # ⚠️ Security warning: warn when dangerous configuration
         self._validate_security_config()
