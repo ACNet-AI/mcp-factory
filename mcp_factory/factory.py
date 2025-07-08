@@ -792,8 +792,8 @@ class MCPFactory:
         """
         summary = self._state_manager.get_servers_summary().get(server_id, {})
         source_path = summary.get("source_path")
-        if source_path and Path(source_path).is_dir():
-            return source_path
+        if source_path and isinstance(source_path, str) and Path(source_path).is_dir():
+            return str(source_path)
         return None
 
     def _determine_source_type(self, source: str | dict[str, Any] | Path) -> tuple[str, str | None]:
