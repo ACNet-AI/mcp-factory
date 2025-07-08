@@ -68,7 +68,8 @@ class ServerStateManager:
             "status": "created",
             "created_at": current_time,
             "last_updated": current_time,
-            "project_path": config.get("project_path"),
+            "source_type": config.get("source_type", "unknown"),
+            "source_path": config.get("source_path"),
         }
 
         # Create detailed state file
@@ -79,12 +80,14 @@ class ServerStateManager:
             "current_status": "created",
             "created_at": current_time,
             "last_updated": current_time,
+            "source_type": config.get("source_type", "unknown"),
+            "source_path": config.get("source_path"),
             "state_history": [
                 {
                     "timestamp": current_time,
                     "status": "created",
                     "event": "server_initialized",
-                    "details": {"name": server_name},
+                    "details": {"name": server_name, "source_type": config.get("source_type", "unknown")},
                 }
             ],
             "performance_metrics": {"requests_handled": 0, "error_count": 0, "last_error": None},
@@ -458,6 +461,9 @@ class MCPFactory:
             str | None: Server ID or None
         """
         try:
+            # Determine source type before loading config
+            source_type, source_path = self._determine_source_type(source)
+
             config = self._load_config_from_source(source)
             self._apply_all_params(config, name, expose_management_tools, server_kwargs)
             config = self._validate_config(config)  # Use normalized configuration
@@ -465,7 +471,12 @@ class MCPFactory:
             self._add_components(server, source)
             server_id = self._register_server(server, name)
             # Extract config for state initialization
-            server_config = self._extract_current_server_config(server)
+            server_config = self._extract_current_server_config(server, server_id)
+
+            # Add source type information to config
+            server_config["source_type"] = source_type
+            server_config["source_path"] = source_path
+
             self._state_manager.initialize_server_state(server_id, name, server_config)
 
             return server_id
@@ -491,8 +502,12 @@ class MCPFactory:
                 "status": self._state_manager.get_server_state(server_id).get("status", "unknown"),
                 "host": getattr(server, "host", "localhost"),
                 "port": getattr(server, "port", 8000),
-                "project_path": getattr(server, "_project_path", None),
+                "project_path": self._get_server_project_path(server_id),
                 "created_at": self._state_manager.get_server_state(server_id).get("created_at"),
+                "source_type": self._state_manager.get_servers_summary()
+                .get(server_id, {})
+                .get("source_type", "unknown"),
+                "source_path": self._state_manager.get_servers_summary().get(server_id, {}).get("source_path"),
             }
             for server_id, server in self._servers.items()
         ]
@@ -501,15 +516,18 @@ class MCPFactory:
         """Get detailed server status"""
         server = self.get_server(server_id)
         state = self._state_manager.get_server_state(server_id)
+        summary = self._state_manager.get_servers_summary().get(server_id, {})
 
         return {
             "id": server_id,
             "name": server.name,
             "instructions": server.instructions,
-            "project_path": getattr(server, "_project_path", None),
+            "project_path": self._get_server_project_path(server_id),
             "config": getattr(server, "_config", {}),
             "state": state,
             "expose_management_tools": getattr(server, "expose_management_tools", True),
+            "source_type": summary.get("source_type", "unknown"),
+            "source_path": summary.get("source_path"),
         }
 
     def delete_server(self, server_id: str) -> bool:
@@ -558,7 +576,7 @@ class MCPFactory:
         try:
             server = self.get_server(server_id)
 
-            project_path = getattr(server, "_project_path", None)
+            project_path = self._get_server_project_path(server_id)
             if not project_path:
                 raise ServerError(f"Server {server_id} has no associated project path", server_id=server_id)
 
@@ -598,7 +616,7 @@ class MCPFactory:
             )
 
             # If there's a project path, re-register components
-            project_path = getattr(server, "_project_path", None)
+            project_path = self._get_server_project_path(server_id)
             if project_path and Path(project_path).exists():
                 ComponentRegistry.register_components(server, Path(project_path))
 
@@ -728,7 +746,7 @@ class MCPFactory:
             server = self.get_server(server_id)
 
             # Determine target path
-            target_path = target_path or getattr(server, "_project_path", None)
+            target_path = target_path or self._get_server_project_path(server_id)
             if not target_path:
                 logger.warning("Server %s has no associated project path, cannot synchronize", server_id)
                 return False
@@ -739,7 +757,7 @@ class MCPFactory:
                 return False
 
             # 1. Extract current server configuration state
-            current_config = self._extract_current_server_config(server)
+            current_config = self._extract_current_server_config(server, server_id)
 
             # 2. Delegate Builder to update configuration file
             self.builder.update_config_file(str(project_path), current_config)
@@ -762,6 +780,57 @@ class MCPFactory:
     # =========================================================================
     # Internal Methods - Configuration and Building
     # =========================================================================
+
+    def _get_server_project_path(self, server_id: str) -> str | None:
+        """Get project path from server source information
+
+        Args:
+            server_id: Server ID
+
+        Returns:
+            str | None: Project path if server is from project directory, None otherwise
+        """
+        summary = self._state_manager.get_servers_summary().get(server_id, {})
+        source_path = summary.get("source_path")
+        if source_path and Path(source_path).is_dir():
+            return source_path
+        return None
+
+    def _determine_source_type(self, source: str | dict[str, Any] | Path) -> tuple[str, str | None]:
+        """Determine the type and path of the server source
+
+        Args:
+            source: Configuration source
+
+        Returns:
+            tuple[str, str | None]: (source_type, source_path)
+
+        Source types:
+        - "dict_config": Dictionary configuration
+        - "config_file": Configuration file (.yaml/.yml)
+        - "project_dir": Project directory
+        """
+        try:
+            if isinstance(source, dict):
+                return ("dict_config", None)
+
+            source_path = Path(source)
+
+            if not source_path.exists():
+                # For consistency, treat non-existent paths as potential config files
+                return ("config_file", str(source_path))
+
+            if source_path.is_file():
+                return ("config_file", str(source_path))
+            elif source_path.is_dir():
+                return ("project_dir", str(source_path))
+            else:
+                # Fallback for special file types
+                return ("config_file", str(source_path))
+
+        except Exception as e:
+            logger.warning("Failed to determine source type for %s: %s", source, e)
+            return ("unknown", str(source) if not isinstance(source, dict) else None)
 
     def _load_config_from_source(self, source: str | dict[str, Any] | Path) -> dict[str, Any]:
         """Load configuration from various sources"""
@@ -974,7 +1043,6 @@ class MCPFactory:
         if isinstance(source, str | Path):
             source_path = Path(source)
             if source_path.is_dir():
-                server._project_path = str(source_path)
                 ComponentRegistry.register_components(server, source_path)
 
     def _complete_operation(self, server_id: str, event: str, log_message: str) -> None:
@@ -982,7 +1050,7 @@ class MCPFactory:
         self._state_manager.update_server_state(server_id, event=event, details={"operation": event})
         logger.info(log_message)
 
-    def _extract_current_server_config(self, server: ManagedServer) -> dict[str, Any]:
+    def _extract_current_server_config(self, server: ManagedServer, server_id: str | None = None) -> dict[str, Any]:
         """Extract current configuration state of server
 
         Args:
@@ -1007,10 +1075,11 @@ class MCPFactory:
         if "expose_management_tools" not in base_config["server"]:
             base_config["server"]["expose_management_tools"] = getattr(server, "expose_management_tools", True)
 
-        # Add project path information if available
-        project_path = getattr(server, "_project_path", None)
-        if project_path:
-            base_config["project_path"] = project_path
+        # Add project path information if available (use source_path for project directories)
+        if server_id:
+            project_path = self._get_server_project_path(server_id)
+            if project_path:
+                base_config["project_path"] = project_path
 
         # TODO: This can be extended to extract more runtime state
         # Such as mounting information, dynamically added tools, resources, etc. For now, implement basic functionality
@@ -1086,11 +1155,10 @@ class MCPFactory:
             server._config = config
             server._created_at = detailed_state.get("created_at", "")
 
-            # Restore project path if available
-            project_path_str = config.get("project_path")
-            if project_path_str:
-                server._project_path = project_path_str
-                project_path = Path(project_path_str)
+            # Restore project components if available (use source_path instead of project_path)
+            source_path_str = detailed_state.get("source_path")
+            if source_path_str and Path(source_path_str).is_dir():
+                project_path = Path(source_path_str)
                 if project_path.exists():
                     ComponentRegistry.register_components(server, project_path)
 

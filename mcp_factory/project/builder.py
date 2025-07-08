@@ -110,7 +110,13 @@ class Builder:
             ProjectBuildError: Raised when build fails
         """
         logger.info("Starting to build project: %s", name)
-        project_path = self.workspace_root / name
+
+        # Create projects directory in workspace if it doesn't exist
+        projects_dir = self.workspace_root / "projects"
+        projects_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create project in the projects subdirectory
+        project_path = projects_dir / name
 
         try:
             # Validate project name

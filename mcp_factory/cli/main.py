@@ -49,32 +49,35 @@ def warning_message(message: str) -> None:
 def get_factory(workspace: str | None = None) -> MCPFactory:
     """Get MCPFactory instance"""
     if workspace:
-        # Ensure directory exists before switching
+        # If user specified workspace, perform intelligent path processing
         workspace_path = Path(workspace)
-        if workspace_path.exists() and workspace_path.is_dir():
-            try:
-                os.chdir(workspace)
-            except (OSError, FileNotFoundError):
-                # If switching fails, continue using current directory
-                pass
 
-    # Smart selection of workspace_root：
-    # 1. If workspace parameter is explicitly specified, use it
-    # 2. If current directory name is "workspace", use current directory
-    # 3. If we're already in a project directory that has a workspace subdirectory, use it
-    # 4. Otherwise use default "./workspace"
-    if workspace:
-        workspace_root = workspace
+        # If it's an absolute path, use it directly
+        if workspace_path.is_absolute():
+            workspace_root = workspace
+        else:
+            # If it's a relative path, convert to absolute path to avoid ambiguity
+            workspace_root = str(workspace_path.resolve())
+
+        # Optional: create directory in advance if it doesn't exist (to avoid subsequent errors)
+        try:
+            Path(workspace_root).mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # If unable to create, let MCPFactory handle the error
+            pass
     else:
+        # Smart selection of workspace_root：
+        # 1. If current directory name is "workspace", use current directory
+        # 2. If we're already in a project directory that has a workspace subdirectory, use it
+        # 3. Otherwise use default "./workspace"
         try:
             current_dir = Path.cwd()
             if current_dir.name == "workspace":
-                workspace_root = "."
+                workspace_root = str(current_dir)  # Use absolute path
             elif (current_dir / "workspace").exists() and (current_dir / "workspace").is_dir():
-                # If there's already a workspace directory, use it to avoid nesting
-                workspace_root = "workspace"
+                workspace_root = str(current_dir / "workspace")  # Use absolute path
             else:
-                workspace_root = "./workspace"
+                workspace_root = str(current_dir / "workspace")  # Use absolute path
         except (OSError, FileNotFoundError):
             # If we can't get current directory (e.g., it was deleted), use safe default
             workspace_root = "./workspace"
@@ -210,7 +213,7 @@ def cli(ctx: click.Context, workspace: str | None, verbose: bool) -> None:
 @cli.group()
 @click.pass_context
 def server(ctx: click.Context) -> None:
-    """🖥️ Server Management"""
+    """🖥️ Server Management (supports both server name and ID)"""
     ctx.ensure_object(dict)
 
 
@@ -242,13 +245,27 @@ def _output_servers_as_table(servers: list[dict[str, Any]], show_mounts: bool) -
         click.echo("📭 No servers found")
         return
 
+    # Modify server data to display simplified ID
+    display_servers = []
+    for server in servers:
+        display_server = server.copy()
+        # Only show first 8 characters of ID
+        if "id" in display_server:
+            display_server["id"] = display_server["id"][:8] + "..."
+        display_servers.append(display_server)
+
     headers = ["ID", "Name", "Status", "Host", "Port"]
     if show_mounts:
         headers.append("Mounts")
-        _add_mount_info_to_servers(servers)
+        _add_mount_info_to_servers(display_servers)
 
-    table = format_table(servers, headers)
+    table = format_table(display_servers, headers)
     click.echo(table)
+
+    # Add usage tips
+    click.echo("\n💡 Tip: You can use server name or ID to manage servers")
+    click.echo("   Example: mcpf server status my-server-name")
+    click.echo("   Or: mcpf server delete abc12345...")
 
 
 def _display_mount_details(servers: list[dict[str, Any]]) -> None:
@@ -334,21 +351,32 @@ def list_servers(ctx: click.Context, status_filter: str | None, output_format: s
                 _display_mount_details(servers)
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Failed to get server list")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="list_servers", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
 @server.command()
-@click.argument("server_id")
+@click.argument("server_identifier")
 @click.option("--show-mounts", "-m", is_flag=True, help="Show mounted external server details")
 @click.pass_context
-def status(ctx: click.Context, server_id: str, show_mounts: bool) -> None:
-    """View server status"""
+def status(ctx: click.Context, server_identifier: str, show_mounts: bool) -> None:
+    """View server status (supports both server name and ID)"""
     try:
+        from .helpers import ServerNameResolver
+
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        resolver = ServerNameResolver()
+
+        # Resolve server identifier
+        server_id = resolver.resolve_server_identifier(factory, server_identifier)
+        if not server_id:
+            sys.exit(1)
+
+        # Show resolved server information
+        resolver.show_resolved_server_info(factory, server_id)
+
         server_info = factory.get_server_status(server_id)
 
         if not server_info:
@@ -365,33 +393,47 @@ def status(ctx: click.Context, server_id: str, show_mounts: bool) -> None:
             _show_mount_information(server_info)
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Failed to get server status")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="server_status", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
 @server.command()
-@click.argument("server_id")
+@click.argument("server_identifier")
 @click.option("--force", "-f", is_flag=True, help="Force delete without confirmation")
 @click.pass_context
-def delete(ctx: click.Context, server_id: str, force: bool) -> None:
-    """Delete server"""
+def delete(ctx: click.Context, server_identifier: str, force: bool) -> None:
+    """Delete server (supports both server name and ID)"""
     try:
+        from .helpers import ServerNameResolver
+
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        resolver = ServerNameResolver()
+
+        # Resolve server identifier
+        server_id = resolver.resolve_server_identifier(factory, server_identifier)
+        if not server_id:
+            sys.exit(1)
+
+        # Get server information for display
+        server_info = factory.get_server_status(server_id)
+        server_name = server_info.get("name", "N/A") if server_info else "N/A"
+
+        # Show resolved server information
+        resolver.show_resolved_server_info(factory, server_id)
 
         if not force:
-            warning_message(f"Are you sure you want to delete server '{server_id}'?")
+            warning_message(f"Are you sure you want to delete server '{server_name}' (ID: {server_id[:8]}...)?")
             if not click.confirm("Continue with deletion?"):
                 error_message("Operation cancelled")
                 return
 
         success = factory.delete_server(server_id)
         if success:
-            success_message(f"Server '{server_id}' deleted")
+            success_message(f"Server '{server_name}' deleted successfully")
         else:
-            error_message(f"Failed to delete server '{server_id}'")
+            error_message(f"Failed to delete server '{server_name}'")
 
     except Exception as e:
         if is_verbose(ctx):
@@ -402,28 +444,42 @@ def delete(ctx: click.Context, server_id: str, force: bool) -> None:
 
 
 @server.command()
-@click.argument("server_id")
+@click.argument("server_identifier")
 @click.pass_context
-def restart(ctx: click.Context, server_id: str) -> None:
-    """Restart server"""
+def restart(ctx: click.Context, server_identifier: str) -> None:
+    """Restart server (supports both server name and ID)"""
     try:
+        from .helpers import ServerNameResolver
+
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        resolver = ServerNameResolver()
+
+        # Resolve server identifier
+        server_id = resolver.resolve_server_identifier(factory, server_identifier)
+        if not server_id:
+            sys.exit(1)
+
+        # Show resolved server information
+        resolver.show_resolved_server_info(factory, server_id)
 
         if not factory.get_server(server_id):
             error_message(f"Server '{server_id}' does not exist")
             sys.exit(1)
 
-        click.echo(f"🔄 Restarting server '{server_id}'...")
+        # Get server name for display
+        server_info = factory.get_server_status(server_id)
+        server_name = server_info.get("name", "N/A") if server_info else "N/A"
 
-        restarted_server = factory.restart_server(server_id)
-        success_message(f"Server '{server_id}' restart completed")
-        info_message(f"Server name: {restarted_server.name}")
+        click.echo(f"🔄 Restarting server '{server_name}'...")
+
+        factory.restart_server(server_id)
+        success_message(f"Server '{server_name}' restart completed")
+        info_message(f"Server ID: {server_id[:8]}...")
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Failed to restart server")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="server_restart", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
@@ -445,10 +501,9 @@ def run(ctx: click.Context, config_file: str, transport: str | None, host: str |
         success_message(f"Server '{server_id}' started successfully!")
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Failed to run server")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="server_run", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
@@ -550,10 +605,9 @@ def init(
             click.echo(f"   mcp-factory server run {config_file}")
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Project initialization failed")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="project_init", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
@@ -582,10 +636,9 @@ def build(ctx: click.Context, config_file: str) -> None:
         success_message(f"Project build completed: {project_path}")
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Project build failed")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="project_build", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
@@ -803,12 +856,30 @@ def config(ctx: click.Context) -> None:
 @config.command()
 @click.option("--name", prompt=True, help="Project name")
 @click.option("--description", prompt=True, help="Project description")
-@click.option("--output", "-o", default="config.yaml", help="Output configuration file name")
+@click.option("--output", "-o", help="Output configuration file name (default: generated from name)")
 @click.option("--with-mounts", "-m", is_flag=True, help="Include mounted server example configuration")
 @click.pass_context
 def template(ctx: click.Context, name: str, description: str, output: str, with_mounts: bool) -> None:
     """Generate configuration template"""
     try:
+        # Get workspace from context
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        workspace_root = factory.workspace_root
+
+        # Create configs directory in workspace
+        configs_dir = workspace_root / "configs"
+        configs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate output filename if not provided
+        if not output:
+            # Sanitize name for filename
+            safe_name = name.lower().replace(" ", "_").replace("-", "_")
+            safe_name = "".join(c for c in safe_name if c.isalnum() or c == "_")
+            output = f"{safe_name}.yaml"
+
+        # Ensure output path is in configs directory
+        output_path = configs_dir / output
+
         # Generate basic configuration template
         config_template = {
             "server": {
@@ -836,12 +907,13 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
 
         # Write configuration file with proper resource management
         try:
-            with open(output, "w") as f:
+            with open(output_path, "w") as f:
                 yaml.dump(config_template, f, default_flow_style=False, sort_keys=False)
         except OSError as e:
             raise click.ClickException(f"Failed to write configuration file: {e}") from e
 
-        success_message(f"Configuration template generated: {output}{mount_info}")
+        success_message(f"Configuration template generated: {output_path}{mount_info}")
+        info_message(f"💡 Tip: Use 'mcp-factory config promote {output}' to convert to full project")
 
     except Exception as e:
         if is_verbose(ctx):
@@ -896,30 +968,145 @@ def validate(ctx: click.Context, config_file: str, check_mounts: bool) -> None:
         sys.exit(1)
 
 
+@config.command()
+@click.argument("config_file", type=click.Path(exists=False), required=False)
+@click.option("--fix", is_flag=True, help="Automatically fix issues when possible")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.pass_context
+def check(ctx: click.Context, config_file: str | None, fix: bool, output_format: str) -> None:
+    """Check configuration for common issues and optionally fix them"""
+    try:
+        from .helpers import ConfigCLIHelper
+
+        cli_helper = ConfigCLIHelper()
+
+        # Perform configuration check
+        results = cli_helper.check_configuration(config_file, auto_fix=fix)
+
+        if output_format == "json":
+            import json
+
+            click.echo(json.dumps(results, indent=2))
+        else:
+            cli_helper.show_check_results(results)
+
+        # Exit with appropriate code
+        if results.get("has_errors", False):
+            sys.exit(1)
+        elif results.get("has_warnings", False):
+            sys.exit(2)  # Warning exit code
+        else:
+            sys.exit(0)  # Success
+
+    except Exception as e:
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="config_check", verbose=is_verbose(ctx))
+        sys.exit(1)
+
+
 @config.command("list")
 @click.pass_context
 def list_configs(ctx: click.Context) -> None:
     """List configuration files"""
     try:
-        workspace = (ctx.obj.get("workspace") if ctx.obj else None) or "."
-        workspace_path = Path(workspace)
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        workspace_root = factory.workspace_root
+        configs_dir = workspace_root / "configs"
 
-        # Find YAML configuration files
-        config_files = list(workspace_path.glob("*.yaml")) + list(workspace_path.glob("*.yml"))
-
-        if not config_files:
-            click.echo("📭 No configuration files found")
+        if not configs_dir.exists():
+            click.echo("📭 No configs directory found")
+            click.echo("💡 Use 'mcp-factory config template' to create configuration files")
             return
 
-        click.echo("📋 Configuration files found:")
+        # Find YAML configuration files in configs directory
+        config_files = list(configs_dir.glob("*.yaml")) + list(configs_dir.glob("*.yml"))
+
+        if not config_files:
+            click.echo("📭 No configuration files found in configs directory")
+            click.echo("💡 Use 'mcp-factory config template' to create configuration files")
+            return
+
+        click.echo(f"📋 Configuration files in {configs_dir}:")
         for config_file in config_files:
             click.echo(f"   📄 {config_file.name}")
+
+        click.echo("\n💡 Tips:")
+        click.echo(f"   • Use files with: mcp-factory server run {configs_dir / 'filename.yaml'}")
+        click.echo("   • Promote to project: mcp-factory config promote filename.yaml")
 
     except Exception as e:
         if is_verbose(ctx):
             error_message(f"Detailed error: {e!s}")
         else:
             error_message("Failed to list configuration files")
+        sys.exit(1)
+
+
+@config.command()
+@click.argument("config_name")
+@click.option("--to-project", help="Target project name (default: derived from config name)")
+@click.option("--keep-config", is_flag=True, help="Keep original config file after promotion")
+@click.pass_context
+def promote(ctx: click.Context, config_name: str, to_project: str, keep_config: bool) -> None:
+    """Promote configuration file to full project"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        workspace_root = factory.workspace_root
+        configs_dir = workspace_root / "configs"
+
+        # Find config file
+        config_path = configs_dir / config_name
+        if not config_path.exists():
+            # Try with .yaml extension
+            if not config_name.endswith((".yaml", ".yml")):
+                config_path = configs_dir / f"{config_name}.yaml"
+                if not config_path.exists():
+                    config_path = configs_dir / f"{config_name}.yml"
+
+        if not config_path.exists():
+            error_message(f"Configuration file not found: {config_name}")
+            error_message(f"Available configs in {configs_dir}:")
+            config_files = list(configs_dir.glob("*.yaml")) + list(configs_dir.glob("*.yml"))
+            for cf in config_files:
+                error_message(f"   📄 {cf.name}")
+            sys.exit(1)
+
+        # Load configuration
+        from ..config.manager import load_config_file
+
+        config_dict = load_config_file(config_path)
+
+        # Determine project name
+        if not to_project:
+            # Derive from config name
+            to_project = config_path.stem
+
+        info_message(f"🔄 Promoting {config_path.name} to project '{to_project}'...")
+
+        # Create project using the configuration
+        project_path = factory.build_project(to_project, config_dict)
+        success_message(f"✅ Project created: {project_path}")
+
+        # Handle original config file
+        if not keep_config:
+            config_path.unlink()
+            info_message(f"🗑️  Removed original config file: {config_path}")
+        else:
+            info_message(f"📁 Original config file preserved: {config_path}")
+
+        # Show next steps
+        click.echo("\n🎉 Success! Configuration promoted to full project.")
+        click.echo(f"📂 Project location: {project_path}")
+        click.echo("💡 Next steps:")
+        click.echo(f"   • Add functionality: cd {project_path}")
+        click.echo(f"   • Create server: mcp-factory server create {to_project} {project_path}")
+
+    except Exception as e:
+        if is_verbose(ctx):
+            error_message(f"Detailed error: {e!s}")
+        else:
+            error_message("Failed to promote configuration to project")
         sys.exit(1)
 
 
@@ -953,8 +1140,8 @@ def help(ctx: click.Context) -> None:
 @auth.command()
 @click.option("--fastmcp", is_flag=True, help="Check FastMCP JWT environment variables")
 @click.pass_context
-def check(ctx: click.Context, fastmcp: bool) -> None:
-    """Check authentication environment"""
+def env(ctx: click.Context, fastmcp: bool) -> None:
+    """Check authentication environment variables"""
     try:
         click.echo("🔐 Authentication environment check:")
         click.echo("-" * 30)
