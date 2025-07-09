@@ -328,7 +328,11 @@ def _show_mount_information(server_info: dict[str, Any]) -> None:
 
 
 @server.command("list")
-@click.option("--status-filter", type=click.Choice(["running", "stopped", "error"]), help="Filter by status")
+@click.option(
+    "--status-filter",
+    type=click.Choice(["created", "starting", "running", "stopping", "stopped", "error", "restarting"]),
+    help="Filter by status",
+)
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.option("--show-mounts", "-m", is_flag=True, help="Show mounted external servers")
 @click.pass_context
@@ -401,45 +405,82 @@ def status(ctx: click.Context, server_identifier: str, show_mounts: bool) -> Non
 
 @server.command()
 @click.argument("server_identifier")
-@click.option("--force", "-f", is_flag=True, help="Force delete without confirmation")
+@click.option("--force", "-f", is_flag=True, help="Force deletion without confirmation")
+@click.option("--batch", "-b", is_flag=True, help="Enable batch mode for multiple servers")
 @click.pass_context
-def delete(ctx: click.Context, server_identifier: str, force: bool) -> None:
-    """Delete server (supports both server name and ID)"""
+def delete(ctx: click.Context, server_identifier: str, force: bool, batch: bool) -> None:
+    """Delete server (supports both server name and ID, or multiple with comma separation)"""
     try:
         from .helpers import ServerNameResolver
 
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         resolver = ServerNameResolver()
 
-        # Resolve server identifier
+        # Handle multiple servers (comma-separated)
+        if "," in server_identifier or batch:
+            server_identifiers = [s.strip() for s in server_identifier.split(",")]
+            success_count = 0
+
+            info_message(f"Batch delete mode: {len(server_identifiers)} server(s)")
+
+            for identifier in server_identifiers:
+                try:
+                    server_id = resolver.resolve_server_identifier(factory, identifier)
+                    if not server_id:
+                        warning_message(f"Server '{identifier}' not found, skipping")
+                        continue
+
+                    server_info = factory.get_server_status(server_id)
+                    server_name = server_info.get("name", "N/A") if server_info else "N/A"
+
+                    if not force:
+                        import click
+
+                        if not click.confirm(f"Delete server '{server_name}' ({server_id[:8]}...)?"):
+                            info_message(f"Skipped: {server_name}")
+                            continue
+
+                    if factory.delete_server(server_id):
+                        success_message(f"Deleted: {server_name} ({server_id[:8]}...)")
+                        success_count += 1
+                    else:
+                        error_message(f"Failed to delete: {server_name}")
+
+                except Exception as e:
+                    error_message(f"Error deleting '{identifier}': {e}")
+
+            info_message(f"Batch delete completed: {success_count}/{len(server_identifiers)} servers deleted")
+            return
+
+        # Single server deletion
         server_id = resolver.resolve_server_identifier(factory, server_identifier)
         if not server_id:
             sys.exit(1)
 
-        # Get server information for display
-        server_info = factory.get_server_status(server_id)
-        server_name = server_info.get("name", "N/A") if server_info else "N/A"
-
         # Show resolved server information
         resolver.show_resolved_server_info(factory, server_id)
 
+        server_info = factory.get_server_status(server_id)
+        server_name = server_info.get("name", "N/A") if server_info else "N/A"
+
         if not force:
-            warning_message(f"Are you sure you want to delete server '{server_name}' (ID: {server_id[:8]}...)?")
-            if not click.confirm("Continue with deletion?"):
-                error_message("Operation cancelled")
+            warning_message(f"About to delete server '{server_name}'")
+            import click
+
+            if not click.confirm("Are you sure you want to continue?"):
+                info_message("Operation cancelled")
                 return
 
-        success = factory.delete_server(server_id)
-        if success:
+        if factory.delete_server(server_id):
             success_message(f"Server '{server_name}' deleted successfully")
         else:
             error_message(f"Failed to delete server '{server_name}'")
+            sys.exit(1)
 
     except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Failed to delete server")
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="server_delete", verbose=is_verbose(ctx))
         sys.exit(1)
 
 
@@ -462,18 +503,8 @@ def restart(ctx: click.Context, server_identifier: str) -> None:
         # Show resolved server information
         resolver.show_resolved_server_info(factory, server_id)
 
-        if not factory.get_server(server_id):
-            error_message(f"Server '{server_id}' does not exist")
-            sys.exit(1)
-
-        # Get server name for display
-        server_info = factory.get_server_status(server_id)
-        server_name = server_info.get("name", "N/A") if server_info else "N/A"
-
-        click.echo(f"🔄 Restarting server '{server_name}'...")
-
         factory.restart_server(server_id)
-        success_message(f"Server '{server_name}' restart completed")
+        success_message(f"Server '{server_id}' restart completed")
         info_message(f"Server ID: {server_id[:8]}...")
 
     except Exception as e:
@@ -484,19 +515,119 @@ def restart(ctx: click.Context, server_identifier: str) -> None:
 
 
 @server.command()
+@click.argument("server_identifier")
+@click.pass_context
+def stop(ctx: click.Context, server_identifier: str) -> None:
+    """Stop server (supports both server name and ID)"""
+    try:
+        from .helpers import ServerNameResolver
+
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        resolver = ServerNameResolver()
+
+        # Resolve server identifier
+        server_id = resolver.resolve_server_identifier(factory, server_identifier)
+        if not server_id:
+            sys.exit(1)
+
+        # Show resolved server information
+        resolver.show_resolved_server_info(factory, server_id)
+
+        # Update server state to stopped
+        factory._state_manager.update_server_state(server_id, status="stopped")
+        factory._state_manager.record_server_event(server_id, "stopped", {"stop_reason": "manual"})
+
+        success_message(f"Server '{server_id}' stopped successfully")
+        info_message(f"Server ID: {server_id[:8]}...")
+
+    except Exception as e:
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="server_stop", verbose=is_verbose(ctx))
+        sys.exit(1)
+
+
+@server.command()
+@click.option("--force", "-f", is_flag=True, help="Force cleanup without confirmation")
+@click.option("--keep-configs", is_flag=True, help="Keep configuration files")
+@click.pass_context
+def clear(ctx: click.Context, force: bool, keep_configs: bool) -> None:
+    """Clear workspace (remove all servers and optionally configs)"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        servers = factory.list_servers()
+
+        if not servers:
+            info_message("Workspace is already clean - no servers found")
+            return
+
+        # Show what will be cleared
+        warning_message(f"About to clear workspace: {factory.workspace_root}")
+        info_message(f"This will remove {len(servers)} server(s):")
+        for server in servers:
+            info_message(f"  • {server['name']} ({server['id'][:8]}...)")
+
+        if not keep_configs:
+            warning_message("Configuration files will also be removed")
+        else:
+            info_message("Configuration files will be preserved")
+
+        # Confirm if not forced
+        if not force:
+            import click
+
+            if not click.confirm("Are you sure you want to continue?"):
+                info_message("Operation cancelled")
+                return
+
+        # Clear all servers
+        cleared_count = 0
+        for server in servers:
+            if factory.delete_server(server["id"]):
+                cleared_count += 1
+
+        # Clear config files if requested
+        configs_cleared = 0
+        if not keep_configs:
+            configs_dir = factory.workspace_root / "configs"
+            if configs_dir.exists():
+                for config_file in configs_dir.glob("*.yaml"):
+                    try:
+                        config_file.unlink()
+                        configs_cleared += 1
+                    except Exception as e:
+                        warning_message(f"Failed to remove {config_file.name}: {e}")
+
+        # Summary
+        success_message("Workspace cleared successfully")
+        info_message(f"Removed {cleared_count} server(s)")
+        if not keep_configs and configs_cleared > 0:
+            info_message(f"Removed {configs_cleared} configuration file(s)")
+
+    except Exception as e:
+        from .helpers import handle_cli_error
+
+        handle_cli_error(e, operation="workspace_clear", verbose=is_verbose(ctx))
+        sys.exit(1)
+
+
+@server.command()
 @click.argument("config_file", type=click.Path(exists=True))
+@click.option("--name", help="Override server name")
 @click.option("--transport", type=click.Choice(["stdio", "http", "sse"]), help="Override transport method")
 @click.option("--host", help="Override host address")
 @click.option("--port", type=int, help="Override port number")
 @click.pass_context
-def run(ctx: click.Context, config_file: str, transport: str | None, host: str | None, port: int | None) -> None:
+def run(
+    ctx: click.Context, config_file: str, name: str | None, transport: str | None, host: str | None, port: int | None
+) -> None:
     """Run server using FastMCP"""
     try:
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
         click.echo(f"🚀 Starting server from config: {config_file}")
 
         # Use Factory's run_server method for core logic
-        server_id = factory.run_server(source=config_file, transport=transport, host=host, port=port)
+        server_id = factory.run_server(source=config_file, name=name, transport=transport, host=host, port=port)
 
         success_message(f"Server '{server_id}' started successfully!")
 
@@ -885,11 +1016,10 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
             "server": {
                 "name": name,
                 "description": description,
-                "host": "localhost",
-                "port": 8000,
-                "transport": "stdio",
                 "instructions": f"This is {name} - {description}",
-            }
+            },
+            "transport": {"transport": "stdio", "host": "127.0.0.1", "port": 8000, "log_level": "INFO"},
+            "management": {"expose_management_tools": True},
         }
 
         # Add mount configuration example if requested
@@ -907,8 +1037,8 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
 
         # Write configuration file with proper resource management
         try:
-            with open(output_path, "w") as f:
-                yaml.dump(config_template, f, default_flow_style=False, sort_keys=False)
+            with open(output_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_template, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
         except OSError as e:
             raise click.ClickException(f"Failed to write configuration file: {e}") from e
 

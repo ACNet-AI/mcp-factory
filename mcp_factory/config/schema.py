@@ -11,6 +11,9 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
     "type": "object",
     "required": ["server"],
     "properties": {
+        # ===================================================================
+        # Group 1: Core Configuration (Required for new users) - Basic and commonly used
+        # ===================================================================
         # FastMCP constructor parameters (excluding function objects)
         "server": {
             "type": "object",
@@ -68,156 +71,6 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     "description": "Whether to mask error details in responses, only showing explicitly raised errors",
                     "default": False,
                 },
-            },
-        },
-        # Authentication configuration - used to create AuthProvider objects (passed through FastMCP's auth parameter)
-        "auth": {
-            "type": "object",
-            "properties": {
-                "provider": {
-                    "type": "string",
-                    "enum": ["oauth", "none"],
-                    "description": textwrap.dedent("""
-                        Authentication provider type:
-                        - 'none': Use FastMCP default behavior (automatically checks for JWT environment variables)
-                        - 'oauth': Use OAuth2 authorization flow with explicit configuration
-
-                        JWT Environment Variables (when provider='none'):
-                        - FASTMCP_AUTH_BEARER_PUBLIC_KEY: JWT verification public key (PEM format)
-                        - FASTMCP_AUTH_BEARER_ISSUER: JWT issuer URL (e.g., https://auth0.com/, https://okta.com/oauth2/default)
-                        - FASTMCP_AUTH_BEARER_AUDIENCE: JWT audience claim validation (optional)
-                        - FASTMCP_AUTH_BEARER_JWKS_URI: JWKS endpoint for dynamic key retrieval (optional)
-
-                        Compatible with: Auth0, Okta, Azure AD, AWS Cognito, and other JWT-issuing identity providers.
-                    """).strip(),
-                    "default": "none",
-                },
-                # OAuth2 Authentication - complete OAuth2 authorization code flow
-                "oauth": {
-                    "type": "object",
-                    "description": "OAuth2 authorization code flow configuration",
-                    "properties": {
-                        "issuer_url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "OAuth2 authorization server URL",
-                        },
-                        "client_id": {
-                            "type": "string",
-                            "description": "OAuth2 client identifier",
-                        },
-                        "client_secret": {
-                            "type": "string",
-                            "description": "OAuth2 client secret (supports environment variable references)",
-                        },
-                        "redirect_uri": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "OAuth2 redirect URI after authorization",
-                        },
-                        "scopes": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Required OAuth2 scopes (include mcp:read, mcp:write, mcp:admin as needed)",
-                            "default": ["openid", "profile", "mcp:read"],
-                        },
-                        "response_type": {
-                            "type": "string",
-                            "enum": ["code", "token", "id_token"],
-                            "description": "OAuth2 response type",
-                            "default": "code",
-                        },
-                        "service_documentation_url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "Service documentation URL",
-                        },
-                    },
-                    "required": ["issuer_url", "client_id", "client_secret", "redirect_uri"],
-                    "additionalProperties": False,
-                },
-            },
-            "additionalProperties": False,
-            "anyOf": [
-                {"properties": {"provider": {"const": "oauth"}}, "required": ["oauth"]},
-                {"properties": {"provider": {"const": "none"}}},
-            ],
-        },
-        # ManagedServer extensions
-        "management": {
-            "type": "object",
-            "properties": {
-                "expose_management_tools": {
-                    "type": "boolean",
-                    "description": "Whether to automatically register FastMCP methods as management tools",
-                    "default": True,
-                },
-                "enable_permission_check": {
-                    "type": ["boolean", "null"],
-                    "description": textwrap.dedent("""
-                        Whether to enable JWT permission checking for management tools:
-                        - null (default): Auto-enable when expose_management_tools=true
-                        - true: Force enable permission checking
-                        - false: Disable permission checking (development only, not recommended for production)
-                    """).strip(),
-                    "default": None,
-                },
-            },
-        },
-        # MCP protocol middleware configuration (works with all transports: stdio, HTTP, SSE)
-        "middleware": {
-            "type": "array",
-            "description": textwrap.dedent("""
-                MCP protocol layer middleware configuration.
-                These middleware operate at the MCP protocol level and work with all transport types
-                (stdio, streamable-http, sse). They can intercept and modify MCP requests/responses,
-                add logging, implement rate limiting, handle errors, and provide other cross-cutting concerns.
-
-                Available built-in middleware types:
-                - timing: Performance monitoring and request timing
-                - logging: Request/response logging with configurable detail levels
-                - rate_limiting: Request rate limiting and throttling
-                - error_handling: Centralized error handling and transformation
-                - custom: Custom middleware implementation (requires class path)
-            """).strip(),
-            "items": {
-                "type": "object",
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "enum": ["timing", "logging", "rate_limiting", "error_handling", "custom"],
-                        "description": "Middleware type - built-in types or 'custom' for custom implementations",
-                    },
-                    "config": {
-                        "type": "object",
-                        "description": "Middleware-specific configuration parameters",
-                        "additionalProperties": True,
-                        "default": {},
-                    },
-                    "enabled": {
-                        "type": "boolean",
-                        "description": "Whether this middleware is enabled",
-                        "default": True,
-                    },
-                    "class": {
-                        "type": "string",
-                        "description": "Custom middleware class path (required when type='custom')",
-                    },
-                    "args": {
-                        "type": "array",
-                        "description": "Custom middleware constructor arguments (for type='custom')",
-                        "default": [],
-                    },
-                    "kwargs": {
-                        "type": "object",
-                        "description": "Custom middleware constructor keyword arguments (for type='custom')",
-                        "default": {},
-                    },
-                },
-                "required": ["type"],
-                "additionalProperties": False,
-                "if": {"properties": {"type": {"const": "custom"}}},
-                "then": {"required": ["type", "class"]},
             },
         },
         # Transport and network configuration (set at startup, not runtime dynamic parameters)
@@ -302,6 +155,30 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                         },
                         "required": ["class"],
                     },
+                },
+            },
+        },
+        # ===================================================================
+        # Group 2: Feature Configuration (Optional for common use) - Simple and practical
+        # ===================================================================
+        # ManagedServer extensions
+        "management": {
+            "type": "object",
+            "properties": {
+                "expose_management_tools": {
+                    "type": "boolean",
+                    "description": "Whether to automatically register FastMCP methods as management tools",
+                    "default": True,
+                },
+                "enable_permission_check": {
+                    "type": ["boolean", "null"],
+                    "description": textwrap.dedent("""
+                        Whether to enable JWT permission checking for management tools:
+                        - null (default): Auto-enable when expose_management_tools=true
+                        - true: Force enable permission checking
+                        - false: Disable permission checking (development only, not recommended for production)
+                    """).strip(),
+                    "default": None,
                 },
             },
         },
@@ -482,6 +359,138 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     },
                 },
             },
+        },
+        # ===================================================================
+        # Group 3: Advanced Configuration (For advanced users) - Complex and professional
+        # ===================================================================
+        # MCP protocol middleware configuration (works with all transports: stdio, HTTP, SSE)
+        "middleware": {
+            "type": "array",
+            "description": textwrap.dedent("""
+                MCP protocol layer middleware configuration.
+                These middleware operate at the MCP protocol level and work with all transport types
+                (stdio, streamable-http, sse). They can intercept and modify MCP requests/responses,
+                add logging, implement rate limiting, handle errors, and provide other cross-cutting concerns.
+
+                Available built-in middleware types:
+                - timing: Performance monitoring and request timing
+                - logging: Request/response logging with configurable detail levels
+                - rate_limiting: Request rate limiting and throttling
+                - error_handling: Centralized error handling and transformation
+                - custom: Custom middleware implementation (requires class path)
+            """).strip(),
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["timing", "logging", "rate_limiting", "error_handling", "custom"],
+                        "description": "Middleware type - built-in types or 'custom' for custom implementations",
+                    },
+                    "config": {
+                        "type": "object",
+                        "description": "Middleware-specific configuration parameters",
+                        "additionalProperties": True,
+                        "default": {},
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Whether this middleware is enabled",
+                        "default": True,
+                    },
+                    "class": {
+                        "type": "string",
+                        "description": "Custom middleware class path (required when type='custom')",
+                    },
+                    "args": {
+                        "type": "array",
+                        "description": "Custom middleware constructor arguments (for type='custom')",
+                        "default": [],
+                    },
+                    "kwargs": {
+                        "type": "object",
+                        "description": "Custom middleware constructor keyword arguments (for type='custom')",
+                        "default": {},
+                    },
+                },
+                "required": ["type"],
+                "additionalProperties": False,
+                "if": {"properties": {"type": {"const": "custom"}}},
+                "then": {"required": ["type", "class"]},
+            },
+        },
+        # Authentication configuration - used to create AuthProvider objects (passed through FastMCP's auth parameter)
+        "auth": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "type": "string",
+                    "enum": ["oauth", "none"],
+                    "description": textwrap.dedent("""
+                        Authentication provider type:
+                        - 'none': Use FastMCP default behavior (automatically checks for JWT environment variables)
+                        - 'oauth': Use OAuth2 authorization flow with explicit configuration
+
+                        JWT Environment Variables (when provider='none'):
+                        - FASTMCP_AUTH_BEARER_PUBLIC_KEY: JWT verification public key (PEM format)
+                        - FASTMCP_AUTH_BEARER_ISSUER: JWT issuer URL (e.g., https://auth0.com/, https://okta.com/oauth2/default)
+                        - FASTMCP_AUTH_BEARER_AUDIENCE: JWT audience claim validation (optional)
+                        - FASTMCP_AUTH_BEARER_JWKS_URI: JWKS endpoint for dynamic key retrieval (optional)
+
+                        Compatible with: Auth0, Okta, Azure AD, AWS Cognito, and other JWT-issuing identity providers.
+                    """).strip(),
+                    "default": "none",
+                },
+                # OAuth2 Authentication - complete OAuth2 authorization code flow
+                "oauth": {
+                    "type": "object",
+                    "description": "OAuth2 authorization code flow configuration",
+                    "properties": {
+                        "issuer_url": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "OAuth2 authorization server URL",
+                        },
+                        "client_id": {
+                            "type": "string",
+                            "description": "OAuth2 client identifier",
+                        },
+                        "client_secret": {
+                            "type": "string",
+                            "description": "OAuth2 client secret (supports environment variable references)",
+                        },
+                        "redirect_uri": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "OAuth2 redirect URI after authorization",
+                        },
+                        "scopes": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Required OAuth2 scopes (include mcp:read, mcp:write, mcp:admin as needed)",
+                            "default": ["openid", "profile", "mcp:read"],
+                        },
+                        "response_type": {
+                            "type": "string",
+                            "enum": ["code", "token", "id_token"],
+                            "description": "OAuth2 response type",
+                            "default": "code",
+                        },
+                        "service_documentation_url": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "Service documentation URL",
+                        },
+                    },
+                    "required": ["issuer_url", "client_id", "client_secret", "redirect_uri"],
+                    "additionalProperties": False,
+                },
+            },
+            "additionalProperties": False,
+            "anyOf": [
+                {"properties": {"provider": {"const": "oauth"}}, "required": ["oauth"]},
+                {"properties": {"provider": {"const": "none"}}},
+            ],
         },
         # External MCP server configuration - follows FastMCP MCPConfig standards
         "mcpServers": {
