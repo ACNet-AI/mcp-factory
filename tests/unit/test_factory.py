@@ -340,8 +340,8 @@ class TestServerStateManager:
             state = state_manager.get_server_state("test-server")
             assert state == {}
 
-    def test_dual_storage_architecture(self, sample_config) -> None:
-        """Test dual storage architecture functionality."""
+    def test_state_manager_functionality(self, sample_config) -> None:
+        """Test state manager functionality."""
         from mcp_factory.factory import ServerStateManager
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -354,10 +354,6 @@ class TestServerStateManager:
             # Check summary file exists
             summary_file = workspace_path / ".servers_state.json"
             assert summary_file.exists()
-
-            # Check detail file exists
-            detail_file = workspace_path / ".states" / "test-server.json"
-            assert detail_file.exists()
 
             # Verify new state manager can load existing data
             new_state_manager = ServerStateManager(workspace_path)
@@ -497,14 +493,10 @@ class TestServerStateManagerFileOperations:
 
             # Verify files exist and temp files are cleaned up
             summary_file = workspace_path / ".servers_state.json"
-            detail_file = workspace_path / ".states" / "server1.json"
-
             assert summary_file.exists()
-            assert detail_file.exists()
 
             # Ensure no temp files left behind
             assert not (workspace_path / ".servers_state.tmp").exists()
-            assert not (workspace_path / ".states" / "server1.tmp").exists()
 
     def test_concurrent_state_updates(self, sample_config) -> None:
         """Test that state updates don't corrupt files"""
@@ -518,19 +510,19 @@ class TestServerStateManagerFileOperations:
 
             # Update states rapidly
             for i in range(5):
-                manager.update_server_state("server1", status="running", event=f"update_{i}")
-                manager.update_server_state("server2", status="stopped", event=f"update_{i}")
+                manager.update_server_state("server1", status="running", last_event=f"update_{i}")
+                manager.update_server_state("server2", status="stopped", last_event=f"update_{i}")
 
             # Verify both servers have consistent state
             summary = manager.get_servers_summary()
             assert summary["server1"]["status"] == "running"
             assert summary["server2"]["status"] == "stopped"
 
-            # Verify detailed history
-            history1 = manager.get_server_history("server1")
-            history2 = manager.get_server_history("server2")
-            assert len(history1) == 6  # Initial + 5 updates
-            assert len(history2) == 6  # Initial + 5 updates
+            # Verify state updates are working
+            details1 = manager.get_server_details("server1")
+            details2 = manager.get_server_details("server2")
+            assert details1["last_event"] == "update_4"
+            assert details2["last_event"] == "update_4"
 
     def test_error_handling_in_file_operations(self, sample_config) -> None:
         """Test error handling during file operations"""
@@ -558,7 +550,7 @@ class TestServerStateManagerFileOperations:
             # Create first manager and add data
             manager1 = ServerStateManager(workspace_path)
             manager1.initialize_server_state("server1", "Server One", sample_config)
-            manager1.update_server_state("server1", status="running", event="startup")
+            manager1.update_server_state("server1", status="running", last_event="startup")
 
             # Create second manager - should load existing data
             manager2 = ServerStateManager(workspace_path)
@@ -570,8 +562,8 @@ class TestServerStateManagerFileOperations:
 
             # Verify detailed state also loaded
             details = manager2.get_server_details("server1")
-            assert details["current_status"] == "running"
-            assert len(details["state_history"]) == 2  # Initial + update
+            assert details["status"] == "running"
+            assert details["last_event"] == "startup"
 
     def test_corrupted_summary_file_handling(self, sample_config) -> None:
         """Test handling of corrupted summary files"""
@@ -1039,9 +1031,8 @@ class TestFactoryStateManagement:
             # Verify state was updated with the operation event
             details = factory._state_manager.get_server_details("Test-server")
             assert details is not None
-            assert "state_history" in details
-            # Check if operation was logged in history
-            assert len(details["state_history"]) > 0
+            # Check if operation was logged
+            assert details.get("last_event") == "test_operation"
 
     def test_save_servers_state(self) -> None:
         """Test saving servers state to file."""
@@ -1077,7 +1068,8 @@ class TestFactoryStateManagement:
                     },
                 },
                 "created_at": 1234567890.0,
-                "state_history": [],
+                "last_updated": 1234567890.0,
+                "last_event": "created",
             }
 
             # Write detailed state file
@@ -1111,30 +1103,7 @@ class TestFactoryStateManagement:
                         # Verify create method was called for each server
                         assert mock_create.call_count == 1
 
-    def test_create_server_from_data(self) -> None:
-        """Test creating server from saved data."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            factory = MCPFactory(workspace_root=temp_dir)
 
-            server_data = {
-                "name": "Test-server",
-                "instructions": "Test instructions",
-                "project_path": None,
-                "config": {"server": {"name": "Test-server", "instructions": "Test instructions"}},
-                "expose_management_tools": True,
-            }
-
-            with patch("mcp_factory.factory.ManagedServer") as mock_server_class:
-                mock_server = mock_server_class.return_value
-                mock_server.name = "Test-server"
-                mock_server.instructions = "Test instructions"
-
-                # Test creating server from data
-                result = factory._create_server_from_data("Test-server", server_data)
-
-                # Verify server was created
-                assert result is mock_server
-                assert mock_server_class.called
 
 
 class TestComponentRegistryErrorHandling:
