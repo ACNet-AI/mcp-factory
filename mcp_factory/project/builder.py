@@ -17,6 +17,7 @@ import yaml
 from mcp_factory.config import get_default_config, merge_configs, normalize_config, validate_config
 
 from ..exceptions import ProjectError
+from .components import ComponentManager
 from .constants import ALLOWED_MODULE_TYPES
 from .template import BasicTemplate
 from .validator import ProjectValidator, ValidationError
@@ -638,7 +639,7 @@ class Builder:
 
         # Auto-discover components (only when not manually configured)
         if "components" not in merged_config:
-            components_config = self._discover_project_components(project_path)
+            components_config = ComponentManager.discover_project_components(project_path)
             if components_config:
                 merged_config["components"] = components_config
                 logger.info("Auto-discovered components: %s", components_config)
@@ -697,165 +698,6 @@ class Builder:
         (project_path / ".gitignore").write_text(gitignore_content, encoding="utf-8")
 
         logger.debug("Template files created successfully")
-
-    # ========================================================================
-    # Private Methods - Component Scanning
-    # ========================================================================
-
-    def _discover_project_components(self, project_path: Path) -> dict[str, Any]:
-        """Auto-discover project components
-
-        Args:
-            project_path: Project path
-
-        Returns:
-            Component configuration dictionary
-        """
-        logger.info("Auto-discovering project components")
-        components_config = {}
-        total_components = 0
-
-        for component_type in ALLOWED_MODULE_TYPES:
-            component_dir = project_path / component_type
-            if component_dir.exists() and component_dir.is_dir():
-                discovered_modules = self._scan_component_directory(component_dir, component_type)
-                if discovered_modules:
-                    components_config[component_type] = discovered_modules
-                    total_components += len(discovered_modules)
-                logger.debug("Discovered %s %s modules", len(discovered_modules), component_type)
-
-        if total_components > 0:
-            logger.info("Auto-discovered %s components total", total_components)
-            return components_config
-        logger.debug("No components discovered, returning empty config")
-        return {}
-
-    def _scan_component_directory(self, component_dir: Path, component_type: str) -> list[dict[str, Any]]:
-        """Scan component directory
-
-        Args:
-            component_dir: Component directory path
-            component_type: Component type
-
-        Returns:
-            Component configuration list
-        """
-        modules = []
-
-        # Scan functions in __init__.py
-        init_file = component_dir / "__init__.py"
-        if init_file.exists():
-            init_functions = self._scan_init_file_functions(init_file, component_type)
-            modules.extend(init_functions)
-
-        # Scan independent .py files
-        for py_file in component_dir.glob("*.py"):
-            if py_file.name == "__init__.py":
-                continue
-
-            module_name = py_file.stem
-            description = self._extract_module_description(py_file)
-
-            module_config = {
-                "name": module_name,
-                "description": description or f"{component_type.rstrip('s')} module: {module_name}",
-                "file": str(py_file.relative_to(component_dir.parent)),
-            }
-            modules.append(module_config)
-            logger.debug("Found %s module: %s", component_type, module_name)
-
-        return modules
-
-    def _extract_module_description(self, module_file: Path) -> str | None:
-        """Extract description from module file
-
-        Args:
-            module_file: Module file path
-
-        Returns:
-            Module description or None
-        """
-        try:
-            with open(module_file, encoding="utf-8") as f:
-                content = f.read()
-
-            # Try to extract docstring
-            docstring_match = re.search(r'"""([^"]+)"""', content)
-            if docstring_match:
-                return docstring_match.group(1).strip()
-
-            # Try to extract single-line comment
-            comment_match = re.search(r"^#\s*(.+)", content, re.MULTILINE)
-            if comment_match:
-                return comment_match.group(1).strip()
-
-            return None
-
-        except Exception as e:
-            logger.debug("Failed to extract description from %s: %s", module_file, e)
-        return None
-
-    # ========================================================================
-    # Internal Methods - Function Scanning and Extraction
-    # ========================================================================
-
-    def _scan_init_file_functions(self, init_file: Path, component_type: str) -> list[dict[str, Any]]:
-        """Scan functions in __init__.py file
-
-        Args:
-            init_file: __init__.py file path
-            component_type: Component type
-
-        Returns:
-            Function configuration list
-        """
-        functions = []
-
-        try:
-            with open(init_file, encoding="utf-8") as f:
-                content = f.read()
-
-            # Use regex to match function definitions
-            function_pattern = r"^def (\w+)\("
-            matches = re.findall(function_pattern, content, re.MULTILINE)
-
-            for function_name in matches:
-                description = self._extract_function_description(content, function_name)
-                function_config = {
-                    "name": function_name,
-                    "description": description or f"{component_type.rstrip('s')}: {function_name}",
-                    "file": str(init_file.relative_to(init_file.parent.parent)),
-                }
-                functions.append(function_config)
-                logger.debug("Found %s function in __init__.py: %s", component_type, function_name)
-
-        except Exception as e:
-            logger.debug("Failed to scan __init__.py functions: %s", e)
-
-        return functions
-
-    def _extract_function_description(self, content: str, function_name: str) -> str | None:
-        """Extract description from function definition
-
-        Args:
-            content: File content
-            function_name: Function name
-
-        Returns:
-            Function description or None
-        """
-        try:
-            # Find function definition
-            pattern = rf"def {re.escape(function_name)}\([^)]*\):[^\"]*\"\"\"([^\"]+)\"\"\""
-            match = re.search(pattern, content, re.DOTALL)
-            if match:
-                return match.group(1).strip()
-
-            return None
-
-        except Exception as e:
-            logger.debug("Failed to extract description for function %s: %s", function_name, e)
-        return None
 
     # ========================================================================
     # Private Methods - Configuration and Authentication Handling
@@ -963,6 +805,9 @@ class Builder:
 
         # Generate function code
         function_code = self._generate_function_code(module_type, function_name, description, template_data)
+
+        # Update __all__ list
+        content = ComponentManager.update_all_exports(content, function_name)
 
         # Add function at end of file
         if not content.endswith("\n"):
@@ -1093,7 +938,7 @@ class Builder:
             rescan_components: Whether to rescan components
         """
         if rescan_components or ("components" not in user_config and "components" not in merged_config):
-            components_config = self._discover_project_components(path)
+            components_config = ComponentManager.discover_project_components(path)
             if components_config:
                 merged_config["components"] = components_config
                 if rescan_components:

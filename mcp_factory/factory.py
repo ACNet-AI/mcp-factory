@@ -23,6 +23,7 @@ import yaml
 from .config import get_default_config, normalize_config, validate_config
 from .exceptions import ErrorHandler, ProjectError, ServerError, ValidationError
 from .project import Builder
+from .project.components import ComponentManager
 from .server import ManagedServer
 
 logger = logging.getLogger(__name__)
@@ -262,123 +263,6 @@ class ServerStateManager:
         self.update_server_state(server_id, status=status)
 
 
-class ComponentRegistry:
-    """Component registry"""
-
-    @staticmethod
-    def register_components(server: Any, project_path: Path) -> None:
-        """Register project components to server
-
-        Args:
-            server: Server instance
-            project_path: Project path
-        """
-        try:
-            config = getattr(server, "_config", {})
-            components_config = config.get("components", {})
-
-            if not components_config:
-                logger.warning("Project has no component configuration: %s", project_path)
-                return
-
-            total_registered = 0
-            for component_type in ["tools", "resources", "prompts"]:
-                declared_modules = components_config.get(component_type, [])
-                if not declared_modules:
-                    continue
-
-                functions = []
-                for module_config in declared_modules:
-                    if module_config.get("enabled", True):
-                        module_functions = ComponentRegistry._load_component_functions(
-                            project_path, component_type, module_config["module"]
-                        )
-                        functions.extend(module_functions)
-
-                registered_count = ComponentRegistry._register_functions_to_server(server, component_type, functions)
-                total_registered += registered_count
-
-            logger.info("Component registration completed: %s functions", total_registered)
-        except Exception as e:
-            logger.error("Failed to register components: %s", e)
-            # Don't throw exception, allow server to continue creation
-
-    @staticmethod
-    def _load_component_functions(
-        project_path: Path, component_type: str, module_name: str
-    ) -> list[tuple[Callable, str, str]]:
-        """Load all functions from component module
-
-        Args:
-            project_path: Project path
-            component_type: Component type
-            module_name: Module name
-
-        Returns:
-            List[Tuple[Callable, str, str]]: Function list (function, name, description)
-        """
-        import importlib.util
-        import sys
-
-        module_file = project_path / component_type / f"{module_name}.py"
-        if not module_file.exists():
-            logger.error("Module file does not exist: %s", module_file)
-            return []
-
-        try:
-            spec = importlib.util.spec_from_file_location(module_name, module_file)
-            if spec is None or spec.loader is None:
-                logger.error("Cannot create module spec: %s", module_file)
-                return []
-
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-
-            functions = []
-            for attr_name in dir(module):
-                if not attr_name.startswith("_"):
-                    attr = getattr(module, attr_name)
-                    if callable(attr) and hasattr(attr, "__doc__"):
-                        description = attr.__doc__ or f"{component_type[:-1].title()}: {attr_name}"
-                        functions.append((attr, attr_name, description))
-
-            return functions
-        except Exception as e:
-            logger.error("Failed to load module %s: %s", module_name, e)
-            return []
-
-    @staticmethod
-    def _register_functions_to_server(
-        server: Any, component_type: str, functions: list[tuple[Callable, str, str]]
-    ) -> int:
-        """Register functions to server
-
-        Args:
-            server: Server instance
-            component_type: Component type
-            functions: Function list
-
-        Returns:
-            int: Number of successfully registered functions
-        """
-        registered_count = 0
-        for func, name, description in functions:
-            try:
-                if component_type == "tools":
-                    server.tool(name=name, description=description)(func)
-                elif component_type == "resources" and hasattr(server, "resource"):
-                    server.resource(name=name, description=description)(func)
-                elif component_type == "prompts" and hasattr(server, "prompt"):
-                    server.prompt(name=name, description=description)(func)
-                else:
-                    continue
-                registered_count += 1
-            except Exception as e:
-                logger.error("Failed to register %s %s: %s", component_type, name, e)
-        return registered_count
-
-
 # ============================================================================
 # MCP Factory Main Class
 # ============================================================================
@@ -593,7 +477,7 @@ class MCPFactory:
                     server._config = new_config
 
                     # Re-register components
-                    ComponentRegistry.register_components(server, Path(project_path))
+                    ComponentManager.register_components(server, Path(project_path))
 
                     self._complete_operation(
                         server_id, "config_reloaded", f"Configuration reload completed: {server.name}"
@@ -616,7 +500,7 @@ class MCPFactory:
             # If there's a project path, re-register components
             project_path = self._get_server_project_path(server_id)
             if project_path and Path(project_path).exists():
-                ComponentRegistry.register_components(server, Path(project_path))
+                ComponentManager.register_components(server, Path(project_path))
 
             self._complete_operation(server_id, "restarted", f"Server restart completed: {server.name}")
 
@@ -1035,21 +919,88 @@ class MCPFactory:
         return combined_lifespan
 
     def _add_components(self, server: ManagedServer, source: str | dict[str, Any] | Path) -> None:
-        """Add components to server (if it's a project path)
+        """Intelligently register components to the server
+
+        Automatically handle different component directory structures by determining
+        the appropriate base path based on source type.
+        """
+        config = getattr(server, "_config", {})
+        components_config = config.get("components")
+        if not components_config:
+            return  # No component configuration
+
+        if self._is_project_mode(source, config):
+            # Project mode: delegate to ComponentManager
+            project_path = self._determine_project_path(source)
+            if project_path:
+                from .project.components import ComponentManager
+
+                ComponentManager.register_components(server, project_path)
+        else:
+            # Configuration file mode: Factory handles shared-components
+            self._register_shared_components(server, components_config)
+
+    def _determine_project_path(self, source: str | dict[str, Any] | Path) -> Path | None:
+        """Determine project path from source"""
+        if isinstance(source, str | Path):
+            source_path = Path(source)
+            return source_path.parent if source_path.is_file() else source_path
+        return None
+
+    def _register_shared_components(self, server: ManagedServer, components_config: dict[str, Any]) -> None:
+        """Register shared components to server
 
         Args:
             server: Server instance
-            source: Configuration source
+            components_config: Component configuration dictionary
         """
+        shared_components_path = self.workspace_root / "shared-components"
+
+        for component_type in ["tools", "resources", "prompts"]:
+            modules = components_config.get(component_type, [])
+            for module_config in modules:
+                if module_config.get("enabled", True):
+                    module_name = module_config["module"]
+                    module_path = shared_components_path / component_type / f"{module_name}.py"
+
+                    if module_path.exists():
+                        # Reuse ComponentManager's file loading logic
+                        from .project.components import ComponentManager
+
+                        functions = ComponentManager._load_component_functions_from_file(module_path)
+                        ComponentManager._register_functions_to_server(server, component_type, functions)
+
+    def _is_project_mode(self, source: Any, config: dict[str, Any]) -> bool:
+        """Determine if the source represents project mode
+
+        Args:
+            source: Configuration source (file path, directory path, or dict)
+            config: Configuration dictionary
+
+        Returns:
+            True if this is project mode, False for configuration file mode
+        """
+        from pathlib import Path
+
+        # If source is a dictionary, it's configuration file mode
+        if isinstance(source, dict):
+            return False
+
+        # If source is a path
         if isinstance(source, str | Path):
             source_path = Path(source)
-            if source_path.is_dir():
-                ComponentRegistry.register_components(server, source_path)
+
+            # If it's a directory, it's project mode
+            if source_path.exists() and source_path.is_dir():
+                return True
+
+        # Default to configuration file mode
+        return False
 
     def _complete_operation(self, server_id: str, event: str, log_message: str) -> None:
-        """Record operation completion"""
+        """Complete operation logging and state update"""
         self._state_manager.record_server_event(server_id, event)
-        logger.info(log_message)
+        logger.info(log_message, server_id)
 
     def _extract_current_server_config(self, server: ManagedServer, server_id: str | None = None) -> dict[str, Any]:
         """Extract current configuration state of server
@@ -1099,6 +1050,179 @@ class MCPFactory:
         from .middleware import load_middleware_from_config
 
         return load_middleware_from_config(config)
+
+    # =========================================================================
+    # Shared Components Management
+    # =========================================================================
+
+    def create_shared_component(
+        self, component_type: str, component_name: str, functions: list[dict[str, Any]]
+    ) -> Path:
+        """Create shared component file
+
+        Args:
+            component_type: Component type (tools, resources, prompts)
+            component_name: Component name
+            functions: Function definition list
+
+        Returns:
+            Created component file path
+
+        Raises:
+            ValueError: When component type is invalid
+        """
+        from .project import ALLOWED_MODULE_TYPES
+
+        if component_type not in ALLOWED_MODULE_TYPES:
+            raise ValueError(f"Invalid component type: {component_type}. Must be one of {ALLOWED_MODULE_TYPES}")
+
+        logger.info("Creating shared component: %s/%s", component_type, component_name)
+
+        # Ensure shared component directory structure exists
+        shared_components_path = self._ensure_shared_components_structure()
+
+        # Create specific component file
+        component_file_path = shared_components_path / component_type / f"{component_name}.py"
+
+        # If file already exists, warn but continue
+        if component_file_path.exists():
+            logger.warning("Component file already exists: %s", component_file_path)
+
+        # Generate component file content
+        content_lines = [f"# {component_name.title()} - {component_type} module"]
+        content_lines.append("# Generated by MCP Factory")
+        content_lines.append("")
+
+        # Collect all function names for __all__
+        function_names = [func["name"] for func in functions]
+        content_lines.append(f"__all__ = {function_names}")
+        content_lines.append("")
+
+        # Generate each function
+        for func_info in functions:
+            function_name = func_info["name"]
+            description = func_info["description"]
+            template_data = func_info.get("template_data", {})
+
+            # Generate function code
+            function_code = self._generate_shared_component_function(
+                component_type, function_name, description, template_data
+            )
+            content_lines.append(function_code)
+            content_lines.append("")  # Function spacing
+
+        # Write to file
+        component_file_path.write_text("\n".join(content_lines), encoding="utf-8")
+
+        logger.info("Shared component created successfully: %s", component_file_path)
+        return component_file_path
+
+    def _generate_shared_component_function(
+        self, component_type: str, function_name: str, description: str, template_data: dict[str, Any]
+    ) -> str:
+        """Generate shared component function code - reusing Builder's mature logic
+
+        Args:
+            component_type: Component type
+            function_name: Function name
+            description: Function description
+            template_data: Template data
+
+        Returns:
+            Generated function code string
+        """
+        from .project import Builder
+
+        # Reuse Builder's mature function code generation logic
+        builder = Builder(str(self.workspace_root))
+        return builder._generate_function_code(component_type, function_name, description, template_data)
+
+    def list_shared_components(self) -> dict[str, list[dict[str, Any]]]:
+        """List existing shared components
+
+        Returns:
+            Dictionary of component information grouped by type
+        """
+        from .project import ALLOWED_MODULE_TYPES
+
+        shared_components_path = self.workspace_root / "shared-components"
+        if not shared_components_path.exists():
+            return {component_type: [] for component_type in ALLOWED_MODULE_TYPES}
+
+        components: dict[str, list[dict[str, Any]]] = {component_type: [] for component_type in ALLOWED_MODULE_TYPES}
+
+        for component_type in ALLOWED_MODULE_TYPES:
+            type_dir = shared_components_path / component_type
+            if type_dir.exists() and type_dir.is_dir():
+                for py_file in type_dir.glob("*.py"):
+                    if py_file.name == "__init__.py":
+                        continue
+
+                    component_info = {
+                        "name": py_file.stem,
+                        "file": py_file.name,
+                        "type": component_type,
+                        "path": str(py_file),
+                        "functions": self._extract_functions_from_file(py_file),
+                    }
+
+                    components[component_type].append(component_info)
+
+        return components
+
+    def _ensure_shared_components_structure(self) -> Path:
+        """Ensure shared component directory structure exists
+
+        Returns:
+            Shared component root directory path
+        """
+        from .project import ALLOWED_MODULE_TYPES
+
+        shared_components_path = self.workspace_root / "shared-components"
+        shared_components_path.mkdir(parents=True, exist_ok=True)
+
+        # Create directory and __init__.py for each component type
+        for component_type in ALLOWED_MODULE_TYPES:
+            type_dir = shared_components_path / component_type
+            type_dir.mkdir(parents=True, exist_ok=True)
+
+            init_file = type_dir / "__init__.py"
+            if not init_file.exists():
+                init_file.write_text(f"# Shared {component_type} module\n", encoding="utf-8")
+
+        logger.debug("Shared components structure ensured: %s", shared_components_path)
+        return shared_components_path
+
+    def _extract_functions_from_file(self, file_path: Path) -> list[str]:
+        """Extract function name list from file
+
+        Args:
+            file_path: Python file path
+
+        Returns:
+            Function name list
+        """
+        import re
+
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                content = f.read()
+
+            # First try to extract from __all__
+            all_match = re.search(r"__all__\s*=\s*\[(.*?)\]", content, re.DOTALL)
+            if all_match:
+                exports = all_match.group(1)
+                function_names = re.findall(r'["\']([^"\']+)["\']', exports)
+                if function_names:
+                    return function_names
+
+            # If no __all__, scan function definitions
+            function_pattern = r"^def (\w+)\("
+            return re.findall(function_pattern, content, re.MULTILINE)
+
+        except Exception as e:
+            logger.debug("Failed to extract functions from %s: %s", file_path, e)
+            return []
 
     # =========================================================================
     # Internal Methods - State Persistence
@@ -1168,7 +1292,7 @@ class MCPFactory:
             if source_type == "project_dir" and source_path:
                 project_path = Path(source_path)
                 if project_path.exists() and project_path.is_dir():
-                    ComponentRegistry.register_components(server, project_path)
+                    ComponentManager.register_components(server, project_path)
 
             return server
         except Exception as e:

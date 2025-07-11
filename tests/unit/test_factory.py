@@ -11,7 +11,8 @@ import yaml
 
 from mcp_factory import MCPFactory
 from mcp_factory.exceptions import ProjectError, ServerError, ValidationError
-from mcp_factory.factory import ComponentRegistry, ServerStateManager
+from mcp_factory.factory import ServerStateManager
+from mcp_factory.project.components import ComponentManager
 
 
 class TestFactoryBasics:
@@ -207,39 +208,39 @@ class TestServerCreation:
             assert status["instructions"] == "Test server"
 
 
-class TestComponentRegistry:
-    """Test ComponentRegistry functionality."""
+class TestComponentManager:
+    """Test ComponentManager functionality."""
 
     def test_register_components_no_config(self) -> None:
         """Test component registration with no components config."""
         mock_server = MagicMock()
         mock_server._config = {}
 
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
         # Should not raise exception
-        ComponentRegistry.register_components(mock_server, Path("/fake/path"))
+        ComponentManager.register_components(mock_server, Path("/fake/path"))
 
     def test_register_components_empty_config(self) -> None:
         """Test component registration with empty components config."""
         mock_server = MagicMock()
         mock_server._config = {"components": {}}
 
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
         # Should not raise exception
-        ComponentRegistry.register_components(mock_server, Path("/fake/path"))
+        ComponentManager.register_components(mock_server, Path("/fake/path"))
 
     def test_load_component_functions_nonexistent_file(self) -> None:
         """Test loading component functions from nonexistent file."""
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
-        functions = ComponentRegistry._load_component_functions(Path("/fake/path"), "tools", "nonexistent_module")
+        functions = ComponentManager._load_component_functions_from_file(Path("/fake/path"))
         assert functions == []
 
     def test_register_functions_to_server(self) -> None:
         """Test registering functions to server."""
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
         mock_server = MagicMock()
 
@@ -249,14 +250,14 @@ class TestComponentRegistry:
         functions = [(test_func, "test_func", "Test function")]
 
         # Test tool registration
-        count = ComponentRegistry._register_functions_to_server(mock_server, "tools", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "tools", functions)
         assert count == 1
         mock_server.tool.assert_called_once()
 
         # Test with server without resource method
         mock_server.reSet_Mock()
         del mock_server.resource  # Remove resource method
-        count = ComponentRegistry._register_functions_to_server(mock_server, "resources", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "resources", functions)
         assert count == 0
 
 
@@ -585,8 +586,8 @@ class TestServerStateManagerFileOperations:
             assert len(summary) == 0
 
 
-class TestComponentRegistryAdvanced:
-    """Test ComponentRegistry advancedfunction"""
+class TestComponentManagerAdvanced:
+    """Test ComponentManager advancedfunction"""
 
     def test_register_components_with_config(self) -> None:
         """Test component registration with configuration"""
@@ -599,6 +600,8 @@ class TestComponentRegistryAdvanced:
 
             tool_file = tools_dir / "sample.py"
             tool_file.write_text('''
+__all__ = ["sample_tool"]
+
 def sample_tool():
     """This is an example tool"""
     return "Hello from tool"
@@ -613,7 +616,7 @@ def _private_function():
             mock_server._config = {"components": {"tools": [{"module": "sample", "enabled": True}]}}
 
             # Register components
-            ComponentRegistry.register_components(mock_server, project_path)
+            ComponentManager.register_components(mock_server, project_path)
 
             # Verify tool was registered
             mock_server.tool.assert_called()
@@ -628,7 +631,7 @@ def _private_function():
             mock_server._config = {}
 
             # Component registration should not perform any operation
-            ComponentRegistry.register_components(mock_server, project_path)
+            ComponentManager.register_components(mock_server, project_path)
 
             # Verify no registration methods were called
             mock_server.tool.assert_not_called()
@@ -643,15 +646,15 @@ def _private_function():
             del mock_server._config  # Remove _config attribute
 
             # Should catch exception and continue
-            ComponentRegistry.register_components(mock_server, project_path)
+            ComponentManager.register_components(mock_server, project_path)
             # If no exception is thrown, test passes
 
     def test_load_component_functions_spec_create_error(self) -> None:
-        """Test module specification creation error"""
+        """Test loading component functions when spec creation fails."""
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = Path(temp_dir)
 
-            # Create empty tool file
+            # Create tool directory and file
             tools_dir = project_path / "tools"
             tools_dir.mkdir()
             empty_file = tools_dir / "empty.py"
@@ -659,7 +662,7 @@ def _private_function():
 
             # Use patch to Mock spec creation failure
             with patch("importlib.util.spec_from_file_location", return_value=None):
-                functions = ComponentRegistry._load_component_functions(project_path, "tools", "empty")
+                functions = ComponentManager._load_component_functions_from_file(empty_file)
 
                 # Should return empty list
                 assert functions == []
@@ -680,7 +683,7 @@ def _private_function():
             mock_spec.loader = None
 
             with patch("importlib.util.spec_from_file_location", return_value=mock_spec):
-                functions = ComponentRegistry._load_component_functions(project_path, "tools", "Test")
+                functions = ComponentManager._load_component_functions_from_file(tool_file)
 
                 # Should return empty list
                 assert functions == []
@@ -696,7 +699,7 @@ def _private_function():
 
         functions = [(sample_resource, "sample_resource", "Example resource")]
 
-        count = ComponentRegistry._register_functions_to_server(mock_server, "resources", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "resources", functions)
 
         assert count == 1
         mock_server.resource.assert_called_once()
@@ -712,7 +715,7 @@ def _private_function():
 
         functions = [(sample_prompt, "sample_prompt", "Example prompt")]
 
-        count = ComponentRegistry._register_functions_to_server(mock_server, "prompts", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "prompts", functions)
 
         assert count == 1
         mock_server.prompt.assert_called_once()
@@ -728,7 +731,7 @@ def _private_function():
 
         functions = [(sample_resource, "sample_resource", "description")]
 
-        count = ComponentRegistry._register_functions_to_server(mock_server, "resources", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "resources", functions)
 
         # Should skip registration
         assert count == 0
@@ -744,7 +747,7 @@ def _private_function():
         functions = [(sample_tool, "sample_tool", "description")]
 
         # Should catch exception and continue
-        count = ComponentRegistry._register_functions_to_server(mock_server, "tools", functions)
+        count = ComponentManager._register_functions_to_server(mock_server, "tools", functions)
 
         assert count == 0
 
@@ -1106,67 +1109,67 @@ class TestFactoryStateManagement:
 
 
 
-class TestComponentRegistryErrorHandling:
-    """Test ComponentRegistry error handling paths."""
+class TestComponentManagerErrorHandling:
+    """Test ComponentManager error handling paths."""
 
     def test_load_component_functions_importlib_exception(self) -> None:
-        """Test module loading with importlib exception."""
+        """Test exception in importlib.util operations."""
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = Path(temp_dir)
+
+            # Create tool directory and file
             tools_dir = project_path / "tools"
             tools_dir.mkdir()
+            bad_module_file = tools_dir / "bad_module.py"
+            bad_module_file.write_text("def test_func(): pass")
 
-            # Create a Python file with syntax error
-            bad_module = tools_dir / "bad_module.py"
-            bad_module.write_text("def bad_function(:\n    pass  # syntax error")
+            # Mock importlib to raise exception
+            with patch("importlib.util.spec_from_file_location", side_effect=Exception("Importlib error")):
+                from mcp_factory.project.components import ComponentManager
 
-            # Test loading the bad module
-            from mcp_factory.factory import ComponentRegistry
+                functions = ComponentManager._load_component_functions_from_file(bad_module_file)
 
-            functions = ComponentRegistry._load_component_functions(project_path, "tools", "bad_module")
-
-            # Should return empty list due to exception
-            assert functions == []
+                # Should return empty list due to exception
+                assert functions == []
 
     def test_load_component_functions_spec_none(self) -> None:
-        """Test module loading when spec is None."""
+        """Test loading component functions when spec is None."""
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = Path(temp_dir)
+
+            # Create tool directory and file
             tools_dir = project_path / "tools"
             tools_dir.mkdir()
+            test_module_file = tools_dir / "Test_module.py"
+            test_module_file.write_text("def test_func(): pass")
 
-            # Create a normal Python file
-            Test_module = tools_dir / "Test_module.py"
-            Test_module.write_text("def test_function():\n    return 'Test'")
-
-            # Mock spec_from_file_location to return None
-            from mcp_factory.factory import ComponentRegistry
+            from mcp_factory.project.components import ComponentManager
 
             with patch("importlib.util.spec_from_file_location", return_value=None):
-                functions = ComponentRegistry._load_component_functions(project_path, "tools", "Test_module")
+                functions = ComponentManager._load_component_functions_from_file(test_module_file)
 
                 # Should return empty list
                 assert functions == []
 
     def test_load_component_functions_loader_none(self) -> None:
-        """Test module loading when spec.loader is None."""
+        """Test loading component functions when loader is None."""
         with tempfile.TemporaryDirectory() as temp_dir:
             project_path = Path(temp_dir)
+
+            # Create tool directory and file
             tools_dir = project_path / "tools"
             tools_dir.mkdir()
+            test_module_file = tools_dir / "Test_module.py"
+            test_module_file.write_text("def test_func(): pass")
 
-            # Create a normal Python file
-            Test_module = tools_dir / "Test_module.py"
-            Test_module.write_text("def test_function():\n    return 'Test'")
+            from mcp_factory.project.components import ComponentManager
 
             # Mock spec with None loader
             mock_spec = MagicMock()
             mock_spec.loader = None
 
-            from mcp_factory.factory import ComponentRegistry
-
             with patch("importlib.util.spec_from_file_location", return_value=mock_spec):
-                functions = ComponentRegistry._load_component_functions(project_path, "tools", "Test_module")
+                functions = ComponentManager._load_component_functions_from_file(test_module_file)
 
                 # Should return empty list
                 assert functions == []
@@ -1179,12 +1182,12 @@ class TestComponentRegistryErrorHandling:
             # Create Mock server
             mock_server = MagicMock()
 
-            from mcp_factory.factory import ComponentRegistry
+            from mcp_factory.project.components import ComponentManager
 
             # Mock _load_component_functions to raise exception
-            with patch.object(ComponentRegistry, "_load_component_functions", side_effect=Exception("Test error")):
+            with patch.object(ComponentManager, "_load_component_functions_from_file", side_effect=Exception("Test error")):
                 # Should not raise exception, just log error
-                ComponentRegistry.register_components(mock_server, project_path)
+                ComponentManager.register_components(mock_server, project_path)
 
     def test_register_functions_to_server_registration_exception(self) -> None:
         """Test function registration with server exception."""
@@ -1198,9 +1201,9 @@ class TestComponentRegistryErrorHandling:
 
         functions = [(test_func, "test_func", "Test function")]
 
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
-        registered_count = ComponentRegistry._register_functions_to_server(mock_server, "tools", functions)
+        registered_count = ComponentManager._register_functions_to_server(mock_server, "tools", functions)
 
         # Should return 0 due to registration failure
         assert registered_count == 0
@@ -1215,9 +1218,9 @@ class TestComponentRegistryErrorHandling:
 
         functions = [(test_func, "test_func", "Test function")]
 
-        from mcp_factory.factory import ComponentRegistry
+        from mcp_factory.project.components import ComponentManager
 
-        registered_count = ComponentRegistry._register_functions_to_server(mock_server, "unknown_type", functions)
+        registered_count = ComponentManager._register_functions_to_server(mock_server, "unknown_type", functions)
 
         # Should return 0 for unknown type
         assert registered_count == 0

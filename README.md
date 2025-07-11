@@ -22,6 +22,65 @@ MCP Factory is a lightweight MCP (Model Context Protocol) server creation factor
 - **🔗 Server Mounting** - Support multi-server mounting and management
 - **🛠️ CLI Tools** - Simple and easy-to-use command line interface
 
+## 🎛️ Three Operation Modes
+
+MCP Factory supports three distinct operation modes, each designed for different use cases and user groups:
+
+### 📋 1. Configuration Dictionary Mode - Programmatic Integration
+```python
+# Dynamic configuration example
+config = {"server": {"name": "api-server"}, "tools": [...]}
+server_id = factory.create_server("dynamic-server", config)
+```
+
+**Best for:**
+- 🏢 **Enterprise Integration** - Embedding MCP servers in existing Python applications
+- 🧪 **Testing & Prototyping** - Quick validation in Jupyter notebooks or unit tests
+- 🔄 **Dynamic Configuration** - Generating configurations from databases or APIs
+- ⚡ **Batch Operations** - Creating multiple similar servers programmatically
+
+### 📄 2. Configuration File Mode - Declarative Deployment
+```yaml
+# config.yaml example
+server:
+  name: production-service
+tools:
+  - module: "auth_tools"
+    enabled: true
+```
+
+**Best for:**
+- 🚀 **DevOps & Deployment** - Environment-specific configurations (dev/staging/prod)
+- 👥 **Team Collaboration** - Standardized configuration templates
+- 🎓 **Learning & Simple Use Cases** - Low barrier to entry for newcomers
+- 🔧 **Lightweight Services** - Quick deployment of simple MCP servers
+
+### 🏗️ 3. Project Mode - Full Development Experience
+```
+my-mcp-project/
+├── config.yaml           # Project configuration
+├── tools/                # Custom tools
+├── resources/            # Resources
+└── server.py            # Entry point
+```
+
+**Best for:**
+- 👨‍💻 **Professional Development** - Complex MCP applications with multiple components
+- 🏗️ **Large Scale Projects** - Team development with code organization
+- 🔄 **Long-term Maintenance** - Projects requiring continuous iteration
+- 🧩 **Advanced Features** - Middleware, external mounting, complex architectures
+
+### 🎯 Choosing the Right Mode
+
+| Use Case | Recommended Mode | Why |
+|----------|------------------|-----|
+| Quick API integration | Dictionary | Programmatic control |
+| Multi-environment deployment | Config File | Environment flexibility |
+| Complex team project | Project | Full development structure |
+| Learning MCP | Config File | Simple to start |
+| Enterprise microservice | Dictionary | Dynamic integration |
+| Production deployment | Config File | DevOps friendly |
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -36,9 +95,9 @@ Or using uv:
 uv add mcp-factory
 ```
 
-### Basic Usage
+### Getting Started with Different Modes
 
-#### 1. Create project using factory
+#### 📋 Mode 1: Configuration Dictionary (Programmatic)
 
 ```python
 from mcp_factory import MCPFactory
@@ -46,51 +105,114 @@ from mcp_factory import MCPFactory
 # Create factory instance
 factory = MCPFactory(workspace_root="./workspace")
 
-# Build new MCP project
-project_path = factory.build_project(
-    "my-server", 
-    {"server": {"description": "My first MCP server"}}
-)
+# Create server with dynamic configuration
+config = {
+    "server": {
+        "name": "api-server", 
+        "description": "Dynamic API server"
+    },
+    "tools": [
+        {
+            "module": "greeting_tools",
+            "functions": [
+                {
+                    "name": "hello",
+                    "description": "Greet a user",
+                    "parameters": {"name": {"type": "str", "description": "User name"}}
+                }
+            ]
+        }
+    ]
+}
 
-# Create server instance
-server_id = factory.create_server(
-    name="my-server",
-    source=project_path
-)
+# Create and run server
+server_id = factory.create_server("api-server", config)
 ```
 
-#### 2. Directly create managed server
+#### 📄 Mode 2: Configuration File (Declarative)
+
+```yaml
+# config.yaml
+server:
+  name: file-server
+  description: "Server from configuration file"
+
+tools:
+  - module: "file_tools"
+    enabled: true
+    functions:
+      - name: "read_file"
+        description: "Read file contents"
+        parameters:
+          path:
+            type: "str"
+            description: "File path"
+```
+
+```python
+from mcp_factory import MCPFactory
+
+factory = MCPFactory(workspace_root="./workspace")
+
+# Create server from config file
+server_id = factory.create_server("file-server", "config.yaml")
+```
+
+#### 🏗️ Mode 3: Project Mode (Full Development)
+
+```bash
+# Use CLI to create complete project
+mcp-factory project create my-advanced-server
+
+# Or programmatically
+from mcp_factory import MCPFactory
+
+factory = MCPFactory(workspace_root="./workspace")
+
+# Build complete project structure
+project_path = factory.build_project(
+    "my-advanced-server",
+    {"server": {"description": "Advanced MCP server with full structure"}}
+)
+
+# Create server from project
+server_id = factory.create_server("my-advanced-server", project_path)
+```
+
+#### 🚀 Alternative: Direct Server Creation
+
+For simple use cases, you can also create servers directly without the factory:
 
 ```python
 from mcp_factory import ManagedServer
 
-# Create managed server
-server = ManagedServer(
-    name="example-server",
-    instructions="This is an example server"
-)
+server = ManagedServer(name="direct-server")
 
-# Add tools
 @server.tool()
-def hello(name: str) -> str:
-    """Greet the specified user"""
-    return f"Hello, {name}!"
+def calculate(x: float, y: float, operation: str) -> float:
+    """Perform mathematical calculations"""
+    return x + y if operation == "add" else x * y
 
-# Run server
 server.run()
 ```
 
-#### 3. Using CLI tools
+#### 🛠️ CLI Usage
 
 ```bash
 # Create new project
 mcp-factory project create my-project
 
-# Run server from configuration file
+# Create shared component
+mcp-factory config component create --type tools --name "auth_tools"
+
+# Run server from config file
 mcp-factory server run config.yaml
 
 # Run with custom transport
 mcp-factory server run config.yaml --transport http --host 0.0.0.0 --port 8080
+
+# List all servers
+mcp-factory server list
 ```
 
 ## 📁 Project Structure
@@ -112,37 +234,10 @@ mcp-factory/
 ## 🛠️ Core Components
 
 ### MCPFactory
+Factory main class for creating and managing MCP servers. Supports all three operation modes and provides workspace management capabilities.
 
-Factory main class, responsible for creating and managing MCP servers:
-
-```python
-factory = MCPFactory(workspace_root="./workspace")
-
-# Build project
-project_path = factory.build_project("server-name", config_dict)
-
-# Create server
-server_id = factory.create_server("server-name", source)
-
-# Manage servers
-servers = factory.list_servers()
-```
-
-### ManagedServer
-
-Managed server class, providing complete MCP server functionality:
-
-```python
-server = ManagedServer(name="my-server")
-
-# Add tools
-@server.tool()
-def my_tool(param: str) -> str:
-    return f"Processing: {param}"
-
-# Run server
-server.run()
-```
+### ManagedServer  
+Managed server class providing complete MCP server functionality with decorator-based tool registration and built-in lifecycle management.
 
 ## 📚 Examples
 

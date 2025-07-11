@@ -18,6 +18,7 @@ from mcp_factory.project import (
     ProjectValidator,
     ValidationError,
 )
+from mcp_factory.project.components import ComponentManager
 
 
 class TestBasicTemplate:
@@ -998,7 +999,7 @@ class TestBuilderComponentDiscovery:
 
             # Use private method to test component discovery (usually called indirectly through other methods)
             project_dir = Path(project_path)
-            components = builder._discover_project_components(project_dir)
+            components = ComponentManager.discover_project_components(project_dir)
 
             assert isinstance(components, dict)
             # Verify basic structure exists
@@ -1018,7 +1019,8 @@ class TestBuilderComponentDiscovery:
 
             # Test scan tools directory
             tools_dir = Path(project_path) / "tools"
-            components = builder._scan_component_directory(tools_dir, "tools")
+            # Fixed call in test_scan_component_directory_with_functions
+            components = ComponentManager._scan_component_directory(tools_dir, "tools")
 
             assert isinstance(components, list)
             # Verify functions are discovered
@@ -1216,7 +1218,7 @@ class TestBuilderAdvancedComponentDiscovery:
             for module_type in ["tools", "resources", "prompts"]:
                 (Path(project_path) / module_type).mkdir(exist_ok=True)
 
-            components = builder._discover_project_components(Path(project_path))
+            components = ComponentManager.discover_project_components(Path(project_path))
             assert components == {}  # Empty directories should return empty configuration
 
     def test_discover_project_components_with_init_functions(self):
@@ -1238,7 +1240,7 @@ class TestBuilderAdvancedComponentDiscovery:
                 encoding="utf-8",
             )
 
-            components = builder._discover_project_components(Path(project_path))
+            components = ComponentManager.discover_project_components(Path(project_path))
 
             assert "tools" in components
             assert len(components["tools"]) == 2
@@ -1257,7 +1259,7 @@ class TestBuilderAdvancedComponentDiscovery:
                 '"""Custom tool module"""\n\ndef custom_function():\n    return "custom result"\n', encoding="utf-8"
             )
 
-            modules = builder._scan_component_directory(tools_dir, "tools")
+            modules = ComponentManager._scan_component_directory(tools_dir, "tools")
 
             assert len(modules) >= 1
             custom_module = next((m for m in modules if m["name"] == "custom_tool"), None)
@@ -1267,29 +1269,32 @@ class TestBuilderAdvancedComponentDiscovery:
     def test_extract_module_description_methods(self):
         """Test extract module description methods"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            builder = Builder(temp_dir)
+            Builder(temp_dir)
 
             # Test docstring extraction
             file1 = Path(temp_dir) / "test1.py"
             file1.write_text('"""This is a docstring description"""', encoding="utf-8")
-            desc1 = builder._extract_module_description(file1)
+            # Fixed call in test_extract_module_description_methods
+            desc1 = ComponentManager._extract_module_description(file1)
             assert desc1 == "This is a docstring description"
 
             # Test comment extraction
             file2 = Path(temp_dir) / "test2.py"
             file2.write_text('# This is a comment description\nprint("hello")', encoding="utf-8")
-            desc2 = builder._extract_module_description(file2)
+            # Fixed call in test_extract_module_description_methods
+            desc2 = ComponentManager._extract_module_description(file2)
             assert desc2 == "This is a comment description"
 
             # Test no description case
             file3 = Path(temp_dir) / "test3.py"
             file3.write_text('print("no description")', encoding="utf-8")
-            desc3 = builder._extract_module_description(file3)
+            # Fixed call in test_extract_module_description_methods
+            desc3 = ComponentManager._extract_module_description(file3)
             assert desc3 is None
 
     def test_extract_function_description_from_content(self):
         """Test extract function description from content"""
-        builder = Builder(".")
+        Builder(".")
 
         content = '''
 def test_function():
@@ -1301,14 +1306,17 @@ def another_function():
     pass
 '''
 
-        desc1 = builder._extract_function_description(content, "test_function")
+        # Fixed call in test_extract_function_description_from_content
+        desc1 = ComponentManager._extract_function_description(content, "test_function")
         assert desc1 == "This is a function docstring"
 
-        desc2 = builder._extract_function_description(content, "another_function")
+        # Fixed call in test_extract_function_description_from_content
+        desc2 = ComponentManager._extract_function_description(content, "another_function")
         # Function may not extract comments as description, this is normal
         assert desc2 is None or "Function comment" in str(desc2)
 
-        desc3 = builder._extract_function_description(content, "nonexistent_function")
+        # Fixed call in test_extract_function_description_from_content
+        desc3 = ComponentManager._extract_function_description(content, "nonexistent_function")
         assert desc3 is None
 
 
@@ -1318,7 +1326,7 @@ class TestBuilderAdvancedConfiguration:
     def test_build_config_file_without_components_autodiscovery(self):
         """Test build config file without components autodiscovery"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            builder = Builder(temp_dir)
+            Builder(temp_dir)
             project_path = Path(temp_dir) / "test_project"
             project_path.mkdir()
 
@@ -1330,7 +1338,7 @@ class TestBuilderAdvancedConfiguration:
             )
 
             # Test automatic discovery components
-            components = builder._discover_project_components(project_path)
+            components = ComponentManager.discover_project_components(project_path)
 
             assert "tools" in components
             assert len(components["tools"]) >= 1
@@ -1463,28 +1471,28 @@ class TestBuilderErrorHandling:
 
     def test_extract_module_description_file_error(self):
         """Test extract module description file error"""
-        builder = Builder(".")
+        Builder(".")
 
         # Test nonexistent file
         nonexistent_file = Path("/nonexistent/path/module.py")
-        desc = builder._extract_module_description(nonexistent_file)
+        desc = ComponentManager._extract_module_description(nonexistent_file)
         assert desc is None
 
     def test_scan_init_file_functions_file_error(self):
         """Test scan __init__.py functions file error"""
-        builder = Builder(".")
+        Builder(".")
 
         # Test nonexistent file
         nonexistent_file = Path("/nonexistent/path/__init__.py")
-        functions = builder._scan_init_file_functions(nonexistent_file, "tools")
+        functions = ComponentManager._scan_init_file_functions(nonexistent_file, "tools")
         assert functions == []
 
     def test_extract_function_description_error_handling(self):
         """Test extract function description error handling"""
-        builder = Builder(".")
+        Builder(".")
 
         # Test malformed content
         malformed_content = "def broken_function(\n# Incomplete function definition"
-        desc = builder._extract_function_description(malformed_content, "broken_function")
+        desc = ComponentManager._extract_function_description(malformed_content, "broken_function")
         # Should handle error and return None or reasonable value
         assert desc is None or isinstance(desc, str)

@@ -989,8 +989,11 @@ def config(ctx: click.Context) -> None:
 @click.option("--description", prompt=True, help="Project description")
 @click.option("--output", "-o", help="Output configuration file name (default: generated from name)")
 @click.option("--with-mounts", "-m", is_flag=True, help="Include mounted server example configuration")
+@click.option("--with-shared-components", "-c", is_flag=True, help="Include shared components configuration")
 @click.pass_context
-def template(ctx: click.Context, name: str, description: str, output: str, with_mounts: bool) -> None:
+def template(
+    ctx: click.Context, name: str, description: str, output: str, with_mounts: bool, with_shared_components: bool
+) -> None:
     """Generate configuration template"""
     try:
         # Get workspace from context
@@ -1035,6 +1038,32 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
             }
             mount_info = " (with mount examples)"
 
+        # Add shared components configuration if requested
+        shared_components_info = ""
+        if with_shared_components:
+            # Check if shared components exist
+            shared_components = factory.list_shared_components()
+            has_components = any(len(comps) > 0 for comps in shared_components.values())
+
+            if has_components:
+                components_config = {}
+                for comp_type, comp_list in shared_components.items():
+                    if comp_list:
+                        # Convert to object format as expected by schema
+                        components_config[comp_type] = [{"module": comp["name"], "enabled": True} for comp in comp_list]
+
+                config_template["components"] = components_config
+                total_count = sum(len(comps) for comps in shared_components.values())
+                shared_components_info = f" (with {total_count} shared components)"
+            else:
+                # Add example components configuration
+                config_template["components"] = {
+                    "tools": [{"module": "example_tools", "enabled": True}],
+                    "resources": [{"module": "example_resources", "enabled": True}],
+                    "prompts": [{"module": "example_prompts", "enabled": True}],
+                }
+                shared_components_info = " (with example components - create them using 'mcp-factory component create')"
+
         # Write configuration file with proper resource management
         try:
             with open(output_path, "w", encoding="utf-8") as f:
@@ -1042,8 +1071,11 @@ def template(ctx: click.Context, name: str, description: str, output: str, with_
         except OSError as e:
             raise click.ClickException(f"Failed to write configuration file: {e}") from e
 
-        success_message(f"Configuration template generated: {output_path}{mount_info}")
+        success_message(f"Configuration template generated: {output_path}{mount_info}{shared_components_info}")
         info_message(f"💡 Tip: Use 'mcp-factory config promote {output}' to convert to full project")
+
+        if with_shared_components and not any(len(comps) > 0 for comps in factory.list_shared_components().values()):
+            info_message("💡 Tip: Create shared components using 'mcp-factory component create'")
 
     except Exception as e:
         if is_verbose(ctx):
@@ -1237,6 +1269,177 @@ def promote(ctx: click.Context, config_name: str, to_project: str, keep_config: 
             error_message(f"Detailed error: {e!s}")
         else:
             error_message("Failed to promote configuration to project")
+        sys.exit(1)
+
+
+# =============================================================================
+# Shared Components Management Commands
+# =============================================================================
+
+
+@config.group()
+@click.pass_context
+def component(ctx: click.Context) -> None:
+    """🧩 Shared component management"""
+    ctx.ensure_object(dict)
+
+
+@component.command()
+@click.option(
+    "--type", "component_type", type=click.Choice(["tools", "resources", "prompts"]), prompt=True, help="Component type"
+)
+@click.option("--name", prompt=True, help="Component name")
+@click.option("--description", prompt=True, help="Component description")
+@click.option("--function-name", prompt=True, help="Function name")
+@click.option("--parameters", help="Function parameter definition (format: name:type,name:type)")
+@click.option("--return-type", default="str", help="Return type (default: str)")
+@click.pass_context
+def create(
+    ctx: click.Context,
+    component_type: str,
+    name: str,
+    description: str,
+    function_name: str,
+    parameters: str | None,
+    return_type: str,
+) -> None:
+    """Create shared component"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+
+        # Simplified parameter parsing
+        param_dict = {}
+        if parameters:
+            try:
+                for param in parameters.split(","):
+                    if ":" in param:
+                        param_name, param_type = param.strip().split(":", 1)
+                        param_dict[param_name.strip()] = param_type.strip()
+            except Exception:
+                click.echo("⚠️  Parameter format error, using default parameters")
+                param_dict = {}
+
+        # Build function definition
+        functions = [
+            {
+                "name": function_name,
+                "description": description,
+                "template_data": {"parameters": param_dict, "return_type": return_type},
+            }
+        ]
+
+        # Create shared component
+        component_path = factory.create_shared_component(component_type, name, functions)
+
+        success_message(f"Shared component created successfully: {component_path}")
+        info_message(f"File location: {component_path}")
+        info_message(
+            "💡 Tip: Use 'mcp-factory config template --with-shared-components' to create configuration referencing this component"
+        )
+
+    except Exception as e:
+        if is_verbose(ctx):
+            error_message(f"Detailed error: {e!s}")
+        else:
+            error_message("Failed to create shared component")
+        sys.exit(1)
+
+
+@component.command("list")
+@click.option(
+    "--type", "component_type", type=click.Choice(["tools", "resources", "prompts"]), help="Filter component type"
+)
+@click.pass_context
+def list_components(ctx: click.Context, component_type: str | None) -> None:
+    """List existing shared components"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        components = factory.list_shared_components()
+
+        # Filter component type
+        if component_type:
+            components = {component_type: components.get(component_type, [])}
+
+        # Count total components
+        total_components = sum(len(comps) for comps in components.values())
+
+        if total_components == 0:
+            info_message("No shared components found")
+            info_message("💡 Tip: Use 'mcp-factory config component create' to create new shared components")
+            return
+
+        click.echo(f"📋 Shared component list (Total: {total_components})")
+        click.echo("=" * 50)
+
+        for comp_type, comp_list in components.items():
+            if not comp_list:
+                continue
+
+            click.echo(f"\n🧩 {comp_type.title()} ({len(comp_list)} items)")
+            click.echo("-" * 30)
+
+            for comp in comp_list:
+                click.echo(f"  📄 {comp['name']}")
+                click.echo(f"     File: {comp['file']}")
+                if comp["functions"]:
+                    click.echo(f"     Functions: {', '.join(comp['functions'])}")
+                click.echo()
+
+    except Exception as e:
+        if is_verbose(ctx):
+            error_message(f"Detailed error: {e!s}")
+        else:
+            error_message("Failed to list shared components")
+        sys.exit(1)
+
+
+@component.command()
+@click.option("--type", "component_type", type=click.Choice(["tools", "resources", "prompts"]), help="Component type")
+@click.option("--name", help="Component name")
+@click.pass_context
+def info(ctx: click.Context, component_type: str | None, name: str | None) -> None:
+    """Show shared component detailed information"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        components = factory.list_shared_components()
+
+        found = False
+
+        for comp_type, comp_list in components.items():
+            # Filter component type
+            if component_type and comp_type != component_type:
+                continue
+
+            for comp in comp_list:
+                # Filter component name
+                if name and comp["name"] != name:
+                    continue
+
+                found = True
+                click.echo(f"📄 {comp['name']} ({comp_type})")
+                click.echo("-" * 40)
+                click.echo(f"File path: {comp['path']}")
+                click.echo(f"Relative path: {comp['file']}")
+
+                if comp["functions"]:
+                    click.echo(f"Exported functions: {', '.join(comp['functions'])}")
+                else:
+                    click.echo("Exported functions: None")
+
+                click.echo(f"💡 Open with editor: {comp['path']}")
+                click.echo()
+
+        if not found:
+            if name:
+                error_message(f"No shared component named '{name}' found")
+            else:
+                error_message("No matching shared components found")
+
+    except Exception as e:
+        if is_verbose(ctx):
+            error_message(f"Detailed error: {e!s}")
+        else:
+            error_message("Failed to get component information")
         sys.exit(1)
 
 

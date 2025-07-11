@@ -366,8 +366,21 @@ def get_default_config() -> dict[str, Any]:
             "name": "Default Server",
             "instructions": "This is a default MCP server",
         },
-        "transport": {"type": "stdio"},
+        "transport": {"transport": "stdio", "host": "127.0.0.1", "port": 8000, "log_level": "INFO"},
         "management": {"expose_management_tools": True},
+        "components": {
+            "tools": [],
+            "resources": [],
+            "prompts": [],
+            "auto_discovery": {
+                "enabled": True,
+                "scan_directories": ["tools", "resources", "prompts"],
+                "ignore_patterns": ["__pycache__", "*.pyc", "__init__.py"],
+            },
+        },
+        "middleware": [],
+        "auth": {"provider": "none"},
+        "mcpServers": {},
     }
 
 
