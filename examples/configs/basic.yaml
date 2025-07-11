@@ -6,7 +6,7 @@ server:
   instructions: "This is a basic MCP server example demonstrating FastMCP-Factory core functionality"
 
 # Transport and connection settings
-runtime:
+transport:
   transport: "stdio"  # Use standard input/output, suitable for command line tools
   host: "localhost"
   port: 8080
@@ -21,8 +21,8 @@ runtime:
 #       max_payload_length: 1000
 #       log_level: 20
 
-# Tool configuration
-tools:
+# Management configuration
+management:
   expose_management_tools: true  # Expose management tools for debugging convenience
 
 # Advanced settings
