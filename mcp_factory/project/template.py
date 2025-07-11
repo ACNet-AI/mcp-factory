@@ -132,14 +132,14 @@ class BasicTemplate:
                 return server
 
             def register_components(server):
-                """Register project components using ComponentRegistry"""
+                """Register project components using ComponentManager"""
                 try:
-                    from mcp_factory.factory import ComponentRegistry
+                    from mcp_factory.project.components import ComponentManager
                     project_path = Path(__file__).parent
-                    ComponentRegistry.register_components(server, project_path)
+                    ComponentManager.register_components(server, project_path)
                     print(f"✅ Components registered successfully")
                 except ImportError:
-                    print("⚠️  ComponentRegistry not available, skipping auto-discovery")
+                    print("⚠️  ComponentManager not available, skipping auto-discovery")
                 except Exception as e:
                     print(f"⚠️  Component registration failed: {{e}}")
                     print("💡 You can still add tools manually using @server.tool()")
