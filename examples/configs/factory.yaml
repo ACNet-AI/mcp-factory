@@ -13,11 +13,10 @@ project:
   
 # Authentication configuration (development environment - for testing)
 auth:
-  enabled: false  # Temporarily disable authentication in development environment
   provider: "none"
 
 # Transport settings
-runtime:
+transport:
   transport: "streamable-http"
   host: "0.0.0.0"
   port: 8080
@@ -46,10 +45,9 @@ middleware:
       include_traceback: true  # Include stack traces for debugging
       transform_errors: true
 
-# Tool configuration
-tools:
+# Management configuration
+management:
   expose_management_tools: true
-  expose_project_tools: true
 
 # Hot reload configuration
 hot_reload:
