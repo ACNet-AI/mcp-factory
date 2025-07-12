@@ -485,7 +485,9 @@ class ConfigCLIHelper(BaseCLIHelper):
 
         return issues, fixed_issues
 
-    def _check_required_fields(self, config_file: str, auto_fix: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def _check_required_fields(
+        self, config_file: str, auto_fix: bool
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Check for required configuration fields"""
         issues = []
         fixed_issues = []
