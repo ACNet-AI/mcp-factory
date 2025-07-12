@@ -163,7 +163,7 @@ def _get_mounted_servers_count(config_file: str | None) -> int:
         return 0
 
 
-def _get_mounted_servers_info(config_file: str | None) -> dict:
+def _get_mounted_servers_info(config_file: str | None) -> dict[str, Any]:
     """Get mounted servers detailed information"""
     if not config_file:
         return {}

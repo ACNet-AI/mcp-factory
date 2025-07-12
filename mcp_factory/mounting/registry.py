@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ServerRegistry:
     """Server Registry - responsible for configuration management and lifespan integration"""
 
-    def __init__(self, main_server: FastMCP):
+    def __init__(self, main_server: FastMCP[Any]):
         self.main_server = main_server
         self.server_configs: dict[str, ServerConfig] = {}
         self.mounter: ServerMounter | None = None

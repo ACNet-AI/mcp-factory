@@ -456,7 +456,7 @@ class ConfigCLIHelper(BaseCLIHelper):
             self.show_error_message(f"Failed to create default config: {e}")
             return False
 
-    def _check_yaml_issues(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+    def _check_yaml_issues(self, config_file: str, auto_fix: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Check for YAML syntax issues"""
         issues = []
         fixed_issues: list[dict[str, Any]] = []
@@ -485,7 +485,7 @@ class ConfigCLIHelper(BaseCLIHelper):
 
         return issues, fixed_issues
 
-    def _check_required_fields(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+    def _check_required_fields(self, config_file: str, auto_fix: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Check for required configuration fields"""
         issues = []
         fixed_issues = []
@@ -555,7 +555,7 @@ class ConfigCLIHelper(BaseCLIHelper):
 
         return issues, fixed_issues
 
-    def _check_data_types(self, config_file: str, auto_fix: bool) -> tuple[list[dict], list[dict]]:
+    def _check_data_types(self, config_file: str, auto_fix: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Check for incorrect data types"""
         issues = []
         fixed_issues = []
@@ -604,7 +604,7 @@ class ConfigCLIHelper(BaseCLIHelper):
 
         return issues, fixed_issues
 
-    def _check_environment_variables(self, config_file: str) -> list[dict]:
+    def _check_environment_variables(self, config_file: str) -> list[dict[str, Any]]:
         """Check for environment variable configuration"""
         issues = []
 

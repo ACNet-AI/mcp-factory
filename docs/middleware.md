@@ -225,7 +225,7 @@ middleware:
     config:
       cache_ttl: 300
       max_cache_size: 100
-      cacheable_methods: ["list_tools", "get_resource"]
+      cacheable_methods: ["get_tools", "get_resource"]
     enabled: true
 
   # 4. Built-in middleware
