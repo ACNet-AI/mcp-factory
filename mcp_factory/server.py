@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp import FastMCP
 from fastmcp.tools.tool import Tool
+from mcp.types import ToolAnnotations
 
 # Update import path
 from .auth import check_annotation_type, format_permission_error
@@ -21,9 +22,6 @@ from .exceptions import ServerError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-
-    # ToolAnnotations类型仅在类型检查时使用，定义为兼容的类型
-    ToolAnnotations = dict[str, str | bool | None]
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -419,7 +417,7 @@ class ManagedServer(FastMCP[Any]):
                         name=tool_name,
                         description=config["description"],
                         parameters=parameters,
-                        annotations=annotations,  # type: ignore[arg-type]
+                        annotations=annotations,
                         tags=tool_tags,
                         enabled=config.get("enabled", True),
                     )
