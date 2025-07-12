@@ -21,6 +21,7 @@ from .exceptions import ServerError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
     # ToolAnnotations类型仅在类型检查时使用，定义为兼容的类型
     ToolAnnotations = dict[str, str | bool | None]
 
