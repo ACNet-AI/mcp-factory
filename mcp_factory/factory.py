@@ -229,6 +229,10 @@ class ServerStateManager:
         """Load config from source path"""
         source_path_obj = Path(source_path)
 
+        # If path is relative, resolve it relative to workspace_root
+        if not source_path_obj.is_absolute():
+            source_path_obj = self.workspace_root / source_path_obj
+
         if not source_path_obj.exists():
             raise FileNotFoundError(f"Source path does not exist: {source_path}")
 
