@@ -179,7 +179,7 @@ class ServerMounter:
 
             # Test connection - using context manager
             async with server_info.client:
-                await server_info.client.list_tools()  # Test connection
+                await server_info.client.get_tools()  # Test connection
             return True
 
         except (ConnectionError, OSError, TimeoutError, Exception) as e:
@@ -201,7 +201,7 @@ class ServerMounter:
         try:
             # Test connection using context manager
             async with server_info.client:
-                await server_info.client.list_tools()
+                await server_info.client.get_tools()
         except (ConnectionError, OSError, TimeoutError) as e:
             raise MountingError(
                 f"Server connection test failed: {e}", mount_point=server_info.name, operation="test_server_connection"
@@ -217,8 +217,8 @@ class ServerMounter:
         try:
             # Use context manager to get server tools, resources, etc.
             async with server_info.client:
-                tools = await server_info.client.list_tools()
-                resources = await server_info.client.list_resources()
+                tools = await server_info.client.get_tools()
+                resources = await server_info.client.get_resources()
 
                 # Proxy tools
                 for tool in tools:
@@ -336,10 +336,10 @@ class ServerMounter:
                 continue
 
             try:
-                # Simple health check - try to list tools using context manager
+                # Simple health check - try to get tools using context manager
                 if server_info.client is not None:
                     async with server_info.client:
-                        await server_info.client.list_tools()
+                        await server_info.client.get_tools()
                     server_info.last_health_check = time.time()
 
             except (ConnectionError, OSError, TimeoutError, Exception) as e:

@@ -299,7 +299,7 @@ async def demo_enterprise_middleware(factory: MCPFactory) -> None:
                 "config": {
                     "cache_ttl": 300,  # 5 minutes
                     "max_cache_size": 100,
-                    "cacheable_methods": ["list_tools", "get_resource"],
+                    "cacheable_methods": ["get_tools", "get_resource"],
                 },
             },
             # 4. Built-in middleware

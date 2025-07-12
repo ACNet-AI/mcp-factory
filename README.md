@@ -14,13 +14,16 @@
 
 MCP Factory is a lightweight MCP (Model Context Protocol) server creation factory. It focuses on simplifying the building, configuration and management process of MCP servers, enabling developers to quickly create and deploy MCP servers.
 
-### 🌟 Core Features
+### 🌟 Key Features
 
 - **🏭 Server Factory** - Quickly create and configure MCP server instances
 - **📁 Project Building** - Automatically generate complete MCP project structure
 - **🔧 Configuration Management** - Flexible YAML configuration system
 - **🔗 Server Mounting** - Support multi-server mounting and management
 - **🛠️ CLI Tools** - Simple and easy-to-use command line interface
+- **🔐 Permission Control** - Scope-based access control with 4-level permission system
+- **⚙️ Management Tools** - FastMCP native methods exposed as server tools (20+ tools)
+- **🛡️ Production Security** - Automatic security validation and flexible authentication
 
 ## 🚀 Quick Start
 
@@ -30,83 +33,53 @@ MCP Factory is a lightweight MCP (Model Context Protocol) server creation factor
 pip install mcp-factory
 ```
 
-Or using uv:
-
-```bash
-uv add mcp-factory
-```
-
 ### Basic Usage
 
-Choose your preferred approach:
-
-#### 📋 Programmatic Mode (Dictionary Configuration)
-
+#### 📋 Programmatic Mode
 ```python
 from mcp_factory import MCPFactory
 
 factory = MCPFactory(workspace_root="./workspace")
-
 config = {
-    "server": {
-        "name": "api-server", 
-        "description": "Dynamic API server"
-    },
+    "server": {"name": "api-server", "description": "Dynamic API server"},
     "components": {
-        "tools": [
-            {
-                "module": "greeting_tools",
-                "enabled": True,
-                "description": "Greeting tools module"
-            }
-        ]
+        "tools": [{"module": "greeting_tools", "enabled": True}]
     }
 }
-
 server_id = factory.create_server("api-server", config)
 ```
 
 #### 📄 Configuration File Mode
-
 ```yaml
 # config.yaml
 server:
   name: file-server
   description: "Server from configuration file"
 
+management:
+  expose_management_tools: true
+  enable_permission_check: true
+
+auth:
+  provider: "none"  # or "oauth" for OAuth2 flow
+
 components:
   tools:
     - module: "file_tools"
       enabled: true
-      description: "File handling tools"
 ```
 
 ```python
-from mcp_factory import MCPFactory
-
 factory = MCPFactory(workspace_root="./workspace")
 server_id = factory.create_server("file-server", "config.yaml")
 ```
 
 #### 🏗️ Project Mode
-
 ```bash
-# Create complete project structure
-mcp-factory project create my-advanced-server
-
-# Or programmatically
-factory = MCPFactory(workspace_root="./workspace")
-project_path = factory.build_project(
-    "my-advanced-server",
-    {"server": {"description": "Advanced MCP server with full structure"}}
-)
-server_id = factory.create_server("my-advanced-server", project_path)
+mcp-factory project create my-server
 ```
 
 #### 🚀 Direct Server Creation
-
-For simple use cases without the factory:
-
 ```python
 from mcp_factory import ManagedServer
 
@@ -122,11 +95,11 @@ server.run()
 
 ## 🎛️ Operation Modes
 
-| Mode | Best For | When to Use |
+| Mode | Best For | Key Features |
 |------|----------|-------------|
 | **📋 Dictionary** | Enterprise Integration, Testing | Programmatic control, dynamic configuration |
 | **📄 Config File** | DevOps, Team Collaboration | Environment-specific deployment, standardized templates |
-| **🏗️ Project** | Professional Development | Complex applications, long-term maintenance |
+| **🏗️ Project** | Professional Development | Complex applications, full security features |
 
 ## 🛠️ CLI Usage
 
@@ -137,8 +110,12 @@ mcp-factory project create my-project
 # Create shared component
 mcp-factory config component create --type tools --name "auth_tools"
 
-# Run server from config file
+# Quick start temporary server
+mcp-factory server quick
+
+# Run server from config file or project name
 mcp-factory server run config.yaml
+mcp-factory server run my-project
 
 # Run with custom transport
 mcp-factory server run config.yaml --transport http --host 0.0.0.0 --port 8080
@@ -146,6 +123,31 @@ mcp-factory server run config.yaml --transport http --host 0.0.0.0 --port 8080
 # List all servers
 mcp-factory server list
 ```
+
+### 🔐 Authentication Setup
+
+**JWT Authentication (via environment variables)**
+```bash
+export FASTMCP_AUTH_BEARER_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----..."
+export FASTMCP_AUTH_BEARER_ISSUER="https://your-auth-server.com"
+export FASTMCP_AUTH_BEARER_AUDIENCE="your-app-name"
+```
+
+**OAuth2 Authentication (via configuration)**
+```yaml
+auth:
+  provider: "oauth"
+  oauth:
+    issuer_url: "https://your-auth-server.com"
+    client_id: "your-client-id"
+    scopes: ["openid", "mcp:read", "mcp:write", "mcp:admin"]
+```
+
+**Required Token Scopes:**
+- `mcp:read` - readonly management tools
+- `mcp:write` - modify management tools  
+- `mcp:admin` - destructive management tools
+- `mcp:external` - external system tools
 
 ## 🏗️ Architecture
 
@@ -156,45 +158,28 @@ mcp-factory server list
 - **Configuration System** - Flexible YAML configuration management
 - **Project Builder** - Automatic project structure generation
 
-### Project Structure
+### 🔧 Management Tools System
 
-```
-mcp-factory/
-├── mcp_factory/           # Core modules
-│   ├── factory.py         # Factory main class
-│   ├── server.py          # Managed server
-│   ├── config/            # Configuration management
-│   ├── project/           # Project building
-│   ├── mounting/          # Server mounting
-│   └── cli/               # Command line tools
-├── examples/              # Usage examples
-├── tests/                 # Test suite
-└── docs/                  # Documentation
-```
+Our servers automatically register **20+ management tools** from FastMCP native methods with 4-level permission control:
 
-## 📚 Examples
+**Permission Levels:** readonly → modify → destructive → external
 
-Check the [examples/](examples/) directory for more usage examples:
+**Key Tools:** `manage_get_tools`, `manage_add_tool`, `manage_remove_tool`, `manage_mount`, `manage_import_server`, etc.
 
-- [Basic Server](examples/basic_server.py) - Create simple MCP server
-- [Factory Complete Example](examples/factory_complete.py) - Complete workflow using factory
+## 📚 Examples & Testing
+
+Check the [examples/](examples/) directory for complete usage examples:
+- [Basic Server](examples/basic_server.py) - Simple MCP server
+- [Factory Complete](examples/factory_complete.py) - Complete workflow
 - [Server Mounting](examples/mounting_servers.py) - Multi-server mounting
-
-## 🧪 Testing
+- [Management Tools Demo](examples/demo/) - Interactive management tools
 
 ```bash
-# Run all tests
+# Run tests
 pytest
 
 # Generate coverage report
 pytest --cov=mcp_factory
-
-# Type checking
-mypy mcp_factory
-
-# Code formatting
-ruff format .
-ruff check .
 ```
 
 ## 📖 Documentation
@@ -203,14 +188,6 @@ ruff check .
 - [CLI Usage Guide](docs/cli-guide.md)
 - [Architecture Documentation](docs/architecture/)
 
-## 🤝 Contributing
-
-Contributions are welcome! Please check our contribution guidelines.
-
 ## 📄 License
 
-This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
-
----
-
-> **Note**: This is the stable version of MCP Factory (v1.0.0), focusing on core factory functionality with full type safety and modern Python practices. 
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details. 
