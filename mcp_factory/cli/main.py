@@ -612,22 +612,43 @@ def clear(ctx: click.Context, force: bool, keep_configs: bool) -> None:
 
 
 @server.command()
-@click.argument("config_file", type=click.Path(exists=True))
+@click.argument("config_source")
 @click.option("--name", help="Override server name")
 @click.option("--transport", type=click.Choice(["stdio", "http", "sse"]), help="Override transport method")
 @click.option("--host", help="Override host address")
 @click.option("--port", type=int, help="Override port number")
 @click.pass_context
 def run(
-    ctx: click.Context, config_file: str, name: str | None, transport: str | None, host: str | None, port: int | None
+    ctx: click.Context, config_source: str, name: str | None, transport: str | None, host: str | None, port: int | None
 ) -> None:
-    """Run server using FastMCP"""
+    """Run server using FastMCP (supports config file path or project name)"""
     try:
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
-        click.echo(f"🚀 Starting server from config: {config_file}")
+
+        # Determine if config_source is a file path or project name
+        config_path = Path(config_source)
+        if config_path.exists() and config_path.is_file():
+            # It's a file path
+            source = config_source
+            click.echo(f"🚀 Starting server from config file: {config_source}")
+        else:
+            # Try to resolve as project name
+            project_dir = factory.workspace_root / "projects" / config_source
+            if project_dir.exists() and project_dir.is_dir():
+                # It's a project name
+                project_config = project_dir / "config.yaml"
+                if project_config.exists():
+                    source = str(project_config)
+                    click.echo(f"🚀 Starting server from project: {config_source}")
+                else:
+                    error_message(f"Project '{config_source}' found but no config.yaml file")
+                    sys.exit(1)
+            else:
+                error_message(f"Config file or project not found: {config_source}")
+                sys.exit(1)
 
         # Use Factory's run_server method for core logic
-        server_id = factory.run_server(source=config_file, name=name, transport=transport, host=host, port=port)
+        server_id = factory.run_server(source=source, name=name, transport=transport, host=host, port=port)
 
         success_message(f"Server '{server_id}' started successfully!")
 
@@ -635,6 +656,37 @@ def run(
         from .helpers import handle_cli_error
 
         handle_cli_error(e, operation="server_run", verbose=is_verbose(ctx))
+        sys.exit(1)
+
+
+@server.command()
+@click.pass_context
+def quick(ctx: click.Context) -> None:
+    """Quick start temporary server"""
+    try:
+        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
+        info_message("Starting quick server...")
+        # Create a basic quick server using default configuration
+        basic_config = {
+            "server": {
+                "name": "quick-server",
+                "instructions": "Quick start temporary server for testing",
+                "transport": "stdio",
+            }
+        }
+        server_id = factory.create_server("quick-server", basic_config)
+        success_message(f"Quick server created successfully: {server_id}")
+
+        click.echo("\n📋 Quick server information:")
+        click.echo(f"   Server ID: {server_id}")
+        click.echo("   Type: Temporary server")
+        click.echo("   Usage: For testing and development")
+
+    except Exception as e:
+        if is_verbose(ctx):
+            error_message(f"Detailed error: {e!s}")
+        else:
+            error_message("Quick start failed")
         sys.exit(1)
 
 
@@ -770,37 +822,6 @@ def build(ctx: click.Context, config_file: str) -> None:
         from .helpers import handle_cli_error
 
         handle_cli_error(e, operation="project_build", verbose=is_verbose(ctx))
-        sys.exit(1)
-
-
-@project.command()
-@click.pass_context
-def quick(ctx: click.Context) -> None:
-    """Quick start temporary server"""
-    try:
-        factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
-        info_message("Starting quick server...")
-        # Create a basic quick server using default configuration
-        basic_config = {
-            "server": {
-                "name": "quick-server",
-                "instructions": "Quick start temporary server for testing",
-                "transport": "stdio",
-            }
-        }
-        server_id = factory.create_server("quick-server", basic_config)
-        success_message(f"Quick server created successfully: {server_id}")
-
-        click.echo("\n📋 Quick server information:")
-        click.echo(f"   Server ID: {server_id}")
-        click.echo("   Type: Temporary server")
-        click.echo("   Usage: For testing and development")
-
-    except Exception as e:
-        if is_verbose(ctx):
-            error_message(f"Detailed error: {e!s}")
-        else:
-            error_message("Quick start failed")
         sys.exit(1)
 
 

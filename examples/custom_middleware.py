@@ -186,7 +186,7 @@ class CacheMiddleware:
     ) -> None:
         self.cache_ttl = cache_ttl
         self.max_cache_size = max_cache_size
-        self.cacheable_methods = set(cacheable_methods or ["list_tools", "list_resources", "get_resource"])
+        self.cacheable_methods = set(cacheable_methods or ["get_tools", "get_resources", "get_resource"])
         self.cache: dict[str, tuple[Any, float]] = {}  # {cache_key: (response, timestamp)}
         self.config = config
         logger.info(f"CacheMiddleware initialized: ttl={cache_ttl}s, max_size={max_cache_size}")
@@ -297,7 +297,7 @@ def create_enterprise_config() -> dict[str, Any]:
                 "config": {
                     "cache_ttl": 600,  # 10 minutes
                     "max_cache_size": 500,
-                    "cacheable_methods": ["list_tools", "list_resources"],
+                    "cacheable_methods": ["get_tools", "get_resources"],
                 },
                 "enabled": True,
             },

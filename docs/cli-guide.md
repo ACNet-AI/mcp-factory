@@ -52,11 +52,11 @@ $ mcpf config validate test-server.yaml
 $ mcpf config validate test-server.yaml --check-mounts
 ```
 
-### 4. **Quick Start Project**
+### 4. **Quick Start Server**
 
 ```bash
-$ mcpf project quick
-# Interactive project creation wizard
+$ mcpf server quick
+# Quick start temporary server for testing
 
 # Initialize project with specific parameters
 $ mcpf project init --name demo-server --port 8080 --debug --start-server
@@ -65,13 +65,18 @@ $ mcpf project init --name demo-server --port 8080 --debug --start-server
 ⏹️  Press Ctrl+C to stop server
 ```
 
-### 5. **Run Server with Configuration File**
+### 5. **Run Server with Configuration File or Project Name**
 
 ```bash
+# Run server with configuration file
 $ mcpf server run test-server.yaml
 ℹ️ Starting server: test-server
 🌐 Access URL: http://localhost:8888/api/mcp
 ⏹️  Press Ctrl+C to stop server
+
+# Or run server with project name
+$ mcpf server run my-project
+🚀 Starting server from project: my-project
 ```
 
 ### 6. **List All Resources**
@@ -104,8 +109,8 @@ $ mcpf project init --name my-project --description "My project" --auto-discover
 ### **Scenario 1: Quick Start for Beginners**
 
 ```bash
-# 1. Use interactive project creation
-mcpf project quick
+# 1. Use quick server for testing
+mcpf server quick
 
 # 2. Or create with parameters and start immediately
 mcpf project init --name hello-world --start-server
@@ -145,14 +150,14 @@ mcpf server run dev-config.yaml
 | `mcpf config template` | Generate configuration template | `--name`, `--description`, `-o output_file`, `--with-mounts` |
 | `mcpf config validate` | Validate configuration file | `config_file`, `--check-mounts` |
 | `mcpf config list` | List configuration files | (no options) |
-| `mcpf server run` | Run server | `config_file` |
+| `mcpf server run` | Run server | `config_file` or `project_name` |
 | `mcpf server list` | List servers | `--status-filter`, `--format`, `--show-mounts` |
 | `mcpf server status` | Get server status | `server_id`, `--show-mounts` |
 | `mcpf server delete` | Delete server | `server_id`, `--force` |
 | `mcpf server restart` | Restart server | `server_id` |
 | `mcpf project init` | Initialize project | `--name`, `--description`, `--host`, `--port`, `--transport`, `--auth`, `--auto-discovery`, `--debug`, `--start-server` |
 | `mcpf project build` | Build project | `config_file` |
-| `mcpf project quick` | Interactive project creation | (no options) |
+| `mcpf server quick` | Quick start temporary server | (no options) |
 | `mcpf auth help` | Authentication help | (no options) |
 | `mcpf auth check` | Check authentication | `--fastmcp` |
 | `mcpf health` | System health check | `--check-config`, `--check-env` |

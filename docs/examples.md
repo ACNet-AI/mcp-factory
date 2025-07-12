@@ -80,8 +80,8 @@ Complete configuration file examples with different use cases:
 
 #### 1. First Server
 ```bash
-# Interactive project creation
-mcpf project quick
+# Quick start temporary server
+mcpf server quick
 
 # Or using configuration template
 mcpf config template --name my-first-server --description "My first server" -o server.yaml
