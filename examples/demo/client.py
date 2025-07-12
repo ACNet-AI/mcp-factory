@@ -48,7 +48,7 @@ def format_tool_name(name: str) -> str:
 async def test_connection(client: Client) -> bool:
     """Test connection and return whether successful"""
     try:
-        tools = await client.get_tools()
+        tools = await client.list_tools()
         print(f"✅ Connection successful! Found {len(tools)} tools")
         return True
     except Exception as e:
@@ -59,7 +59,7 @@ async def test_connection(client: Client) -> bool:
 
 async def show_tools_overview(client: Client) -> tuple[list[Any], list[Any]]:
     """Show tools overview and return categorized tool lists"""
-    tools = await client.get_tools()
+    tools = await client.list_tools()
 
     # Categorize tools
     management_tools = [tool for tool in tools if tool.name.startswith("manage_")]

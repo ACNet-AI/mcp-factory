@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class ServerMounter:
     """Server Mounter - Responsible for mounting external MCP servers"""
 
-    def __init__(self, main_server: FastMCP, mount_options: dict[str, Any] | None = None):
+    def __init__(self, main_server: FastMCP[Any], mount_options: dict[str, Any] | None = None):
         self.main_server = main_server
         self.mount_options = mount_options or {}
         self.mounted_servers: dict[str, MountedServerInfo] = {}
@@ -52,7 +52,7 @@ class ServerMounter:
         self.restart_delay = self.mount_options.get("restart_delay", 5)
 
         # Health check task
-        self._health_check_task: asyncio.Task | None = None
+        self._health_check_task: asyncio.Task[None] | None = None
 
         # Error handling
         self.error_handler = ErrorHandler("ServerMounter", logger, enable_metrics=True)
@@ -179,7 +179,7 @@ class ServerMounter:
 
             # Test connection - using context manager
             async with server_info.client:
-                await server_info.client.get_tools()  # Test connection
+                await server_info.client.list_tools()  # Test connection
             return True
 
         except (ConnectionError, OSError, TimeoutError, Exception) as e:
@@ -201,7 +201,7 @@ class ServerMounter:
         try:
             # Test connection using context manager
             async with server_info.client:
-                await server_info.client.get_tools()
+                await server_info.client.list_tools()
         except (ConnectionError, OSError, TimeoutError) as e:
             raise MountingError(
                 f"Server connection test failed: {e}", mount_point=server_info.name, operation="test_server_connection"
@@ -217,8 +217,8 @@ class ServerMounter:
         try:
             # Use context manager to get server tools, resources, etc.
             async with server_info.client:
-                tools = await server_info.client.get_tools()
-                resources = await server_info.client.get_resources()
+                tools = await server_info.client.list_tools()
+                resources = await server_info.client.list_resources()
 
                 # Proxy tools
                 for tool in tools:
@@ -339,7 +339,7 @@ class ServerMounter:
                 # Simple health check - try to get tools using context manager
                 if server_info.client is not None:
                     async with server_info.client:
-                        await server_info.client.get_tools()
+                        await server_info.client.list_tools()
                     server_info.last_health_check = time.time()
 
             except (ConnectionError, OSError, TimeoutError, Exception) as e:

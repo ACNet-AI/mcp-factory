@@ -149,8 +149,8 @@ class MountedServerInfo:
         self.name = name
         self.config = config
         self.prefix = prefix
-        self.client: Client | None = None
-        self.process: subprocess.Popen | None = None
+        self.client: Client[Any] | None = None
+        self.process: subprocess.Popen[str] | None = None
         self.status = "stopped"  # stopped, starting, running, failed
         self.last_health_check = 0.0
         self.restart_attempts = 0

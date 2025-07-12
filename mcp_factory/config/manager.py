@@ -290,7 +290,7 @@ def validate_config_file(config_path: str) -> tuple[bool, dict[str, Any], list[s
     return True, normalized_config, []
 
 
-def validate_external_servers_config(config: dict) -> tuple[bool, list[str]]:
+def validate_external_servers_config(config: dict[str, Any]) -> tuple[bool, list[str]]:
     """Validate completeness and security of mcpServers configuration
 
     Args:
@@ -326,7 +326,7 @@ def validate_external_servers_config(config: dict) -> tuple[bool, list[str]]:
     return len(errors) == 0, errors
 
 
-def _has_dependency_cycle(dependencies_map: dict) -> bool:
+def _has_dependency_cycle(dependencies_map: dict[str, Any]) -> bool:
     """Detect cycles in dependency relationships"""
     visited = set()
     rec_stack = set()

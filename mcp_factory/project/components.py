@@ -95,7 +95,7 @@ class ComponentManager:
             return None
 
     @staticmethod
-    def _load_component_functions_from_file(file_path: Path) -> list[tuple[Callable, str, str]]:
+    def _load_component_functions_from_file(file_path: Path) -> list[tuple[Callable[..., Any], str, str]]:
         """Load all functions from a specific component file
 
         Args:
@@ -140,7 +140,7 @@ class ComponentManager:
 
     @staticmethod
     def _register_functions_to_server(
-        server: Any, component_type: str, functions: list[tuple[Callable, str, str]]
+        server: Any, component_type: str, functions: list[tuple[Callable[..., Any], str, str]]
     ) -> int:
         """Register functions to server
 
