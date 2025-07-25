@@ -52,7 +52,7 @@ async def main():
     def greet_user(name: str, language: str = "english") -> str:
         """Greet the user"""
         greetings = {
-            "chinese": f"你好，{name}！欢迎使用 MCP-Factory！",
+            "chinese": f"Hello, {name}! Welcome to MCP-Factory!",
             "english": f"Hello, {name}! Welcome to MCP-Factory!",
             "spanish": f"¡Hola, {name}! ¡Bienvenido a MCP-Factory!",
         }

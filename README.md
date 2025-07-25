@@ -120,6 +120,9 @@ mcp-factory server run my-project
 # Run with custom transport
 mcp-factory server run config.yaml --transport http --host 0.0.0.0 --port 8080
 
+# Publish project to GitHub
+mcp-factory project publish my-project
+
 # List all servers
 mcp-factory server list
 ```

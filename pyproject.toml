@@ -1,6 +1,6 @@
 [project]
 name = "mcp-factory"
-version = "1.0.0"
+version = "1.1.0"
 description = "A lightweight factory framework for creating and managing MCP (Model Context Protocol) servers with simplified configuration and project building capabilities."
 authors = [
   { name = "ACNet-AI", email = "agencollabnet@gmail.com" }
@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "fastmcp==2.10.5",
+  "fastmcp==2.10.6",
   "pydantic>=2.11.0",
   "PyYAML>=6.0",
   "python-dotenv>=1.1.0",

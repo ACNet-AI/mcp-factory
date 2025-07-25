@@ -879,7 +879,7 @@ class TestFactoryProjectOperations:
                 result = factory.build_project("Test-project", config_dict)
 
                 assert result == "project_path"
-                mock_build.assert_called_once_with("Test-project", config_dict, False)
+                mock_build.assert_called_once_with("Test-project", config_dict, False, True)
 
     def test_build_project_without_config(self) -> None:
         """Test building project without configuration"""
@@ -893,7 +893,7 @@ class TestFactoryProjectOperations:
                 result = factory.build_project("Test-project")
 
                 assert result == "project_path"
-                mock_build.assert_called_once_with("Test-project", None, False)
+                mock_build.assert_called_once_with("Test-project", None, False, True)
 
     def test_create_project_and_server_success(self) -> None:
         """Test creating project and server successfully"""

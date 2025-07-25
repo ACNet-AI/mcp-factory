@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import subprocess
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -96,6 +97,7 @@ class Builder:
         name: str,
         user_config: dict[str, Any] | None = None,
         force: bool = False,
+        git_init: bool = True,
     ) -> str:
         """Build MCP server project
 
@@ -103,6 +105,7 @@ class Builder:
             name: Project name
             user_config: User configuration parameters (optional)
             force: Whether to force rebuild (delete existing content)
+            git_init: Whether to initialize git repository (default True)
 
         Returns:
             Created project path
@@ -142,6 +145,10 @@ class Builder:
 
             # Build template files
             self._build_template_files(project_path, name, user_config)
+
+            # Initialize git repository if requested
+            if git_init:
+                self._init_git_repository(project_path, name)
 
             # Output success messages
             self._print_build_success_messages(name, project_path)
@@ -1006,3 +1013,39 @@ class Builder:
 
         for example in USAGE_EXAMPLES:
             print(example.format(project_path))
+
+    def _init_git_repository(self, project_path: Path, project_name: str) -> None:
+        """Initialize a new git repository in the project directory.
+
+        Args:
+            project_path: The path to the project directory.
+            project_name: The name of the project.
+        """
+        logger.info("Initializing git repository for project: %s", project_name)
+        try:
+            # Check if .git directory already exists
+            if (project_path / ".git").exists():
+                logger.warning("Git repository already exists for project: %s", project_name)
+                return
+
+            # Initialize git repository
+            subprocess.run(["git", "init"], cwd=project_path, check=True)
+            logger.info("Git repository initialized successfully for project: %s", project_name)
+
+            # Add all files to git
+            subprocess.run(["git", "add", "."], cwd=project_path, check=True)
+            logger.info("All files added to git for project: %s", project_name)
+
+            # Commit initial changes
+            commit_message = f"Initial commit for project: {project_name}"
+            subprocess.run(["git", "commit", "-m", commit_message], cwd=project_path, check=True)
+            logger.info("Git repository committed successfully for project: %s", project_name)
+
+        except subprocess.CalledProcessError as e:
+            logger.error("Failed to initialize git repository for project '%s': %s", project_name, e)
+            raise ProjectBuildError(f"Failed to initialize git repository for project '{project_name}': {e}") from e
+        except Exception as e:
+            logger.error("An unexpected error occurred during git initialization for project '%s': %s", project_name, e)
+            raise ProjectBuildError(
+                f"An unexpected error occurred during git initialization for project '{project_name}': {e}"
+            ) from e
