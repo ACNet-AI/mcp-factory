@@ -392,8 +392,8 @@ class ProjectPublisher:
                 return {
                     "installed": data.get("installed", False),
                     "installation_id": data.get(
-                                        "installationId"
-            ),  # Note: Backend returns installationId instead of installation_id
+                        "installationId"
+                    ),  # Note: Backend returns installationId instead of installation_id
                     "permissions": data.get("permissions", {}),
                     "account": data.get("account", {}),
                 }
@@ -464,7 +464,11 @@ class ProjectPublisher:
                     pass
 
             # If no configuration found or not installed, return pending status to continue waiting
-            return {"completed": False, "status": "pending", "message": "Waiting for GitHub App installation to complete..."}
+            return {
+                "completed": False,
+                "status": "pending",
+                "message": "Waiting for GitHub App installation to complete...",
+            }
 
         except Exception as e:
             return {"completed": False, "status": "error", "error": str(e)}
