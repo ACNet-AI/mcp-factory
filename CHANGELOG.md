@@ -2,6 +2,18 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.1.1] - 2025-07-25
+
+### 🐛 Bug Fixes
+- **Git Initialization** - Fixed Git repository initialization failures in test environments
+- **Test Stability** - Resolved 41 failing tests related to missing Git user configuration
+- **Code Quality** - Fixed all Ruff formatting and MyPy type checking issues
+
+### 🔧 Improvements
+- **Testing Environment** - Automatic Git user configuration when global settings are missing
+- **CI/CD Stability** - Enhanced test reliability across different environments
+- **Code Standards** - Improved code formatting consistency
+
 ## [1.1.0] - 2025-07-25
 
 ### ✨ New Features
