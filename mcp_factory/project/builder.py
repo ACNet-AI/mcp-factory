@@ -1032,6 +1032,9 @@ class Builder:
             subprocess.run(["git", "init"], cwd=project_path, check=True)
             logger.info("Git repository initialized successfully for project: %s", project_name)
 
+            # Ensure git user configuration exists (required for commits)
+            self._ensure_git_user_config(project_path)
+
             # Add all files to git
             subprocess.run(["git", "add", "."], cwd=project_path, check=True)
             logger.info("All files added to git for project: %s", project_name)
@@ -1049,3 +1052,34 @@ class Builder:
             raise ProjectBuildError(
                 f"An unexpected error occurred during git initialization for project '{project_name}': {e}"
             ) from e
+
+    def _ensure_git_user_config(self, project_path: Path) -> None:
+        """Ensure git user configuration exists for commits.
+
+        Args:
+            project_path: The path to the project directory.
+        """
+        try:
+            # Check if global git user is configured
+            result = subprocess.run(
+                ["git", "config", "--global", "user.name"], cwd=project_path, capture_output=True, text=True
+            )
+
+            if result.returncode != 0 or not result.stdout.strip():
+                # Set default user configuration for this repository
+                subprocess.run(["git", "config", "user.name", "MCP Factory"], cwd=project_path, check=True)
+                logger.info("Set default git user.name for project")
+
+            # Check git user email
+            result = subprocess.run(
+                ["git", "config", "--global", "user.email"], cwd=project_path, capture_output=True, text=True
+            )
+
+            if result.returncode != 0 or not result.stdout.strip():
+                # Set default email configuration for this repository
+                subprocess.run(["git", "config", "user.email", "mcpfactory@example.com"], cwd=project_path, check=True)
+                logger.info("Set default git user.email for project")
+
+        except subprocess.CalledProcessError as e:
+            logger.warning("Failed to configure git user settings: %s", e)
+            # This is not a fatal error, just log it
