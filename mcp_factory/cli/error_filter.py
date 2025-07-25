@@ -199,7 +199,7 @@ class UserFriendlyErrorHandler:
 
     def _process_factory_error(self, error: MCPFactoryError) -> dict[str, Any]:
         """Process MCP Factory specific errors"""
-        result = {
+        result: dict[str, Any] = {
             "user_message": error.message,
             "suggestions": [],
             "docs_link": None,
