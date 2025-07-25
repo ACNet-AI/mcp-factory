@@ -11,6 +11,7 @@ Welcome to MCP Factory documentation! This contains all the information you need
 ### 🔧 User Guide
 - [CLI Usage Guide](cli-guide.md) - Complete command-line tool guide
 - [Configuration Reference](configuration.md) - Detailed configuration file documentation
+- [Publishing Guide](publishing-guide.md) - GitHub project publishing and deployment guide
 - [Examples and Tutorials](examples.md) - Practical example code and tutorials
 
 ### 🛠️ Advanced Features

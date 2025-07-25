@@ -248,6 +248,125 @@ class PublishCLIHelper(BaseCLIHelper):
         self.console.print("After installation, return to terminal and press Enter to continue...", style="dim")
         self.press_to_continue("Press Enter to continue")
 
+    def handle_oauth_authentication(
+        self, publisher: Any, project_name: str, project_path: str, force_update: bool = False
+    ) -> dict[str, Any]:
+        """
+        Handle GitHub App OAuth authentication workflow
+
+        Args:
+            publisher: ProjectPublisher instance
+            project_name: Name of the project
+            project_path: Path to the project directory
+            force_update: Force re-authentication even if config exists
+
+        Returns:
+            dict containing success status, github_username, installation_id, and error info
+        """
+        try:
+            # Step 1: Start GitHub App installation session
+            self.console.print("🚀 Starting GitHub App installation...", style="cyan")
+            install_result = publisher.start_session_based_installation(project_name)
+
+            if not install_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"Failed to start installation: {install_result.get('error', 'Unknown error')}",
+                }
+
+            # Step 2: Get GitHub username (try to extract from project or ask user)
+            github_username = ""
+            try:
+                # Try to extract from project metadata first
+                metadata = publisher.extract_project_metadata(project_path)
+                github_username = metadata.get("github_username", "")
+            except Exception:
+                pass
+
+            if not github_username:
+                github_username = self.text_input("GitHub Username:", "")
+                if not github_username:
+                    return {"success": False, "error": "GitHub username is required"}
+
+            # Step 3: Create installation URL with suggested repository
+            install_url = publisher.create_installation_url_for_user(github_username, project_name)
+            repo_name = f"{github_username}/{project_name}"
+
+            # Step 4: Show installation guide and open browser
+            self.show_installation_guide(install_url, repo_name, project_name)
+
+            import webbrowser
+
+            try:
+                webbrowser.open(install_url)
+                self.console.print("🌐 Browser opened for GitHub App installation", style="green")
+            except Exception as e:
+                self.console.print(f"⚠️ Could not open browser automatically: {e}", style="yellow")
+                self.console.print(f"Please manually open: {install_url}", style="yellow")
+
+            # Step 5: Wait for user to complete installation
+            self.wait_for_installation_completion()
+
+            # Step 6: Check installation status and get installation_id
+            self.console.print("🔍 Checking installation status...", style="cyan")
+
+            # Give user a moment to complete installation
+            import time
+
+            time.sleep(2)
+
+            status = publisher.check_user_installation_status(github_username)
+
+            if status.get("installed"):
+                installations = status.get("installations", [])
+                if installations:
+                    # Use the first (most recent) installation
+                    installation_id = installations[0].get("id")
+                    if installation_id:
+                        self.console.print("✅ GitHub App installation verified!", style="green")
+                        return {
+                            "success": True,
+                            "github_username": github_username,
+                            "installation_id": str(installation_id),
+                            "installation_info": installations[0],
+                        }
+
+                return {"success": False, "error": "Installation found but no valid installation ID available"}
+            else:
+                # Installation not found, but maybe user needs more time
+                retry = self.confirm_action(
+                    "Installation not detected. Would you like to retry checking?", default=True
+                )
+                if retry:
+                    time.sleep(3)
+                    # Retry once
+                    status = publisher.check_user_installation_status(github_username)
+                    if status.get("installed"):
+                        installations = status.get("installations", [])
+                        if installations:
+                            installation_id = installations[0].get("id")
+                            if installation_id:
+                                self.console.print("✅ GitHub App installation verified on retry!", style="green")
+                                return {
+                                    "success": True,
+                                    "github_username": github_username,
+                                    "installation_id": str(installation_id),
+                                    "installation_info": installations[0],
+                                }
+
+                return {
+                    "success": False,
+                    "timeout": True,
+                    "error": "GitHub App installation not detected. Please ensure the app is installed and try again.",
+                }
+
+        except KeyboardInterrupt:
+            self.console.print("\n❌ Installation cancelled by user", style="red")
+            return {"success": False, "user_cancelled": True, "error": "Installation cancelled by user"}
+        except Exception as e:
+            self.console.print(f"\n❌ Error during OAuth authentication: {e}", style="red")
+            return {"success": False, "error": f"Authentication error: {str(e)}"}
+
     def show_publish_success(self, repo_url: str = "", registry_url: str = "") -> None:
         """
         Display publish success message

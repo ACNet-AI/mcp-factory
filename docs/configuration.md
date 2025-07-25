@@ -23,6 +23,10 @@ tools:            # Tools configuration (optional)
 advanced:         # Advanced configuration (optional)
   debug: false
   cors_origins: ["*"]
+  
+publishing:       # Publishing configuration (optional)
+  github_username: "your-username"
+  installation_id: "12345678"
 ```
 
 ## 🎯 Required Configuration
@@ -244,6 +248,88 @@ MCP Factory searches for configuration files in the following order:
 ### Custom Configuration Directory
 
 ```bash
+# Set custom configuration directory
+export MCPF_CONFIG_DIR=~/.my-mcpf-configs
+mcpf run config.yaml
+```
+
+## 📤 Publishing Configuration
+
+### Publishing to GitHub
+
+When using `mcpf project publish`, you can configure publishing options in `pyproject.toml`:
+
+```toml
+[tool.mcp-servers-hub]
+name = "my-awesome-server"
+description = "An awesome MCP server that does amazing things"
+author = "Your Name <your.email@example.com>"
+categories = ["tools", "api", "data"]
+license = "MIT"
+github_username = "your-github-username"
+installation_id = "12345678"  # Automatically filled after GitHub App installation
+private = false  # Set to true for private repositories
+```
+
+### Configuration Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Project name (must be unique) |
+| `description` | string | ✅ | Project description |
+| `author` | string | ✅ | Author name and email |
+| `categories` | array | ❌ | Project categories (tools, api, data, etc.) |
+| `license` | string | ❌ | License type (default: MIT) |
+| `github_username` | string | ✅ | GitHub username |
+| `installation_id` | string | ❌ | GitHub App installation ID (auto-filled) |
+| `private` | boolean | ❌ | Whether to create private repository (default: false) |
+
+### Example Publishing Configuration
+
+```toml
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weather-mcp-server"
+version = "1.0.0"
+description = "A weather information MCP server"
+authors = [{name = "John Doe", email = "john@example.com"}]
+
+[tool.mcp-servers-hub]
+name = "weather-server"
+description = "Provides weather information and forecasts"
+author = "John Doe <john@example.com>"
+categories = ["weather", "api", "tools"]
+license = "MIT"
+github_username = "johndoe"
+private = false
+```
+
+### Authentication Configuration for Publishing
+
+GitHub App authentication is handled automatically, but you can also set environment variables:
+
+```bash
+# Optional: Set GitHub token for fallback authentication
+export GITHUB_TOKEN="your-github-token"
+
+# Optional: Configure proxy for GitHub access
+export HTTPS_PROXY="http://your-proxy:port"
+```
+
+### Validation Before Publishing
+
+```bash
+# Validate project configuration before publishing
+mcpf config validate config.yaml
+
+# Check project readiness for publishing
+mcpf project validate my-project
+```
+
 # Use custom configuration directory
 mcpf --config-dir /path/to/configs run server.yaml
 ```

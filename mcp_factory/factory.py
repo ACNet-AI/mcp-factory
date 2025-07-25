@@ -582,10 +582,12 @@ class MCPFactory:
     # Project Management
     # =========================================================================
 
-    def build_project(self, project_name: str, config_dict: dict[str, Any] | None = None, force: bool = False) -> str:
+    def build_project(
+        self, project_name: str, config_dict: dict[str, Any] | None = None, force: bool = False, git_init: bool = True
+    ) -> str:
         """Build new project"""
         try:
-            return self.builder.build_project(project_name, config_dict, force)
+            return self.builder.build_project(project_name, config_dict, force, git_init)
         except Exception as e:
             self._error_handler.handle_error("Failed to build project", e, {"project_name": project_name})
             raise  # Re-raise exception to maintain type consistency

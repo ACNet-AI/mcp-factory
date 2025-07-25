@@ -113,6 +113,19 @@ mcpf auth my-auth \
 #   provider_id: "my-auth"
 ```
 
+### 📤 Publish Your Project
+
+```bash
+# Publish your MCP server to GitHub
+mcpf project publish my-server
+
+# This will:
+# ✅ Create GitHub repository automatically
+# ✅ Push your code to GitHub  
+# ✅ Register in MCP Servers Hub
+# ✅ Enable community discovery
+```
+
 ### 📚 Learn More
 
 - 📖 [CLI Usage Guide](cli-guide.md) - Master all CLI commands

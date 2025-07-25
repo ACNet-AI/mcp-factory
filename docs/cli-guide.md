@@ -96,12 +96,18 @@ $ mcpf config list
 ### 7. **Project Management**
 
 ```bash
-# Build project from configuration
+# Build project from configuration (now with automatic Git initialization)
 $ mcpf project build config.yaml
 ✅ Project built successfully
+✅ Git repository initialized
 
 # Initialize new project
 $ mcpf project init --name my-project --description "My project" --auto-discovery
+
+# Publish project to GitHub
+$ mcpf project publish my-project
+🚀 Publishing project to GitHub...
+✅ Project published successfully
 ```
 
 ## 🎯 **Real-world Usage Scenarios**
@@ -143,6 +149,23 @@ mcpf config validate dev-config.yaml --check-mounts
 mcpf server run dev-config.yaml
 ```
 
+### **Scenario 4: Project Publishing to GitHub**
+
+```bash
+# 1. Initialize project with Git repository
+mcpf project init --name my-mcp-server --description "My awesome MCP server"
+
+# 2. Build project (Git repository automatically initialized)
+mcpf project build config.yaml
+
+# 3. Publish to GitHub (requires GitHub App installation)
+mcpf project publish my-mcp-server
+# Follow the GitHub App installation prompts if needed
+
+# 4. Verify publication in MCP Servers Hub
+# Check: https://github.com/ACNet-AI/mcp-servers-hub
+```
+
 ## 📋 **Complete Command Reference**
 
 | Command | Purpose | Options |
@@ -156,7 +179,8 @@ mcpf server run dev-config.yaml
 | `mcpf server delete` | Delete server | `server_id`, `--force` |
 | `mcpf server restart` | Restart server | `server_id` |
 | `mcpf project init` | Initialize project | `--name`, `--description`, `--host`, `--port`, `--transport`, `--auth`, `--auto-discovery`, `--debug`, `--start-server` |
-| `mcpf project build` | Build project | `config_file` |
+| `mcpf project build` | Build project | `config_file`, `--git-init` |
+| `mcpf project publish` | Publish project to GitHub | `project_name` or `config_file` |
 | `mcpf server quick` | Quick start temporary server | (no options) |
 | `mcpf auth help` | Authentication help | (no options) |
 | `mcpf auth check` | Check authentication | `--fastmcp` |

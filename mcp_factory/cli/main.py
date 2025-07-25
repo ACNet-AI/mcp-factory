@@ -712,6 +712,7 @@ def project(ctx: click.Context) -> None:
 @click.option("--auto-discovery", is_flag=True, help="Enable auto discovery")
 @click.option("--debug", is_flag=True, help="Enable debug mode")
 @click.option("--start-server", is_flag=True, help="Start server immediately after initialization")
+@click.option("--no-git", is_flag=True, help="Skip git repository initialization")
 @click.pass_context
 def init(
     ctx: click.Context,
@@ -724,6 +725,7 @@ def init(
     auto_discovery: bool,
     debug: bool,
     start_server: bool,
+    no_git: bool,
 ) -> None:
     """📂 Interactive project initialization wizard"""
     try:
@@ -748,6 +750,7 @@ def init(
         click.echo(f"   Authentication: {'✅' if auth else '❌'}")
         click.echo(f"   Auto-discovery: {'✅' if auto_discovery else '❌'}")
         click.echo(f"   Debug mode: {'✅' if debug else '❌'}")
+        click.echo(f"   Git repository: {'❌' if no_git else '✅'}")
 
         # Generate configuration file
         config_data = {
@@ -769,7 +772,7 @@ def init(
             config_data["server"]["debug"] = True
 
         # Build project structure (this will create config.yaml inside the project)
-        project_path = factory.build_project(name, config_data)
+        project_path = factory.build_project(name, config_data, git_init=not no_git)
         success_message(f"Project structure created: {project_path}")
 
         # Use the config file inside the project directory
@@ -847,63 +850,201 @@ def _display_project_info(publisher: Any, project_path_obj: Path) -> None:
         info_message(f"Project description: {metadata.get('description')}")
         info_message(f"Author: {metadata.get('author')}")
 
-        git_status = publisher.check_git_status(project_path_obj)
-        if git_status["valid"]:
-            git_info = git_status["git_info"]
-            info_message(f"GitHub repository: {git_info['full_name']}")
-            if git_status["needs_commit"]:
-                warning_message("Detected uncommitted changes")
-            if git_status["needs_push"]:
-                warning_message("Detected unpushed commits")
-        else:
-            warning_message(f"Unable to detect Git information: {git_status.get('error', 'Unknown error')}")
+        # Check Git status, GitHub App flow allows no remote repository
+        try:
+            # For GitHub App flow, allow missing remote
+            git_status = publisher.check_git_status(project_path_obj, allow_no_remote=True)
+            if git_status["valid"]:
+                git_info = git_status["git_info"]
+                if git_info.get("auto_create_repo"):
+                    info_message("Git repository: Will be created automatically by GitHub App")
+                else:
+                    info_message(f"GitHub repository: {git_info['full_name']}")
+                if git_status["needs_commit"]:
+                    warning_message("Detected uncommitted changes")
+                if git_status["needs_push"]:
+                    warning_message("Detected unpushed commits")
+            else:
+                # Git check failed, but don't show error (possibly GitHub App flow)
+                info_message("Git repository: Will be created automatically")
+        except Exception:
+            # Git check exception, possibly no remote repository (GitHub App flow)
+            info_message("Git repository: Will be created automatically")
     except Exception as e:
         warning_message(f"Unable to extract project metadata: {e}")
 
 
 def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Path) -> dict[str, Any]:
-    """Collect project configuration"""
+    """Collect project configuration (using OAuth authentication)"""
     has_config, existing_config = publisher.check_hub_configuration(project_path_obj)
 
     if not has_config:
+        # Step 1: Collect basic project information (excluding GitHub username)
+        existing_info = {}
+
         try:
             existing_info = publisher.extract_project_metadata(project_path_obj)
-            git_info = publisher.detect_git_info(project_path_obj)
-            existing_info["github_username"] = git_info.get("owner", "")
-        except Exception:
-            existing_info = {}
+        except Exception as e:
+            warning_message(f"Unable to extract project metadata: {e}")
 
-        config = cli_helper.collect_project_configuration(existing_info)
+        # Collect basic configuration (no GitHub username needed)
+        basic_config = cli_helper.collect_project_configuration(existing_info)
 
-        if not publisher.add_hub_configuration(project_path_obj, config):
+        # Step 2: GitHub App installation to get GitHub username and installation_id
+        info_message("🔐 GitHub App installation required for publishing...")
+        oauth_result = cli_helper.handle_oauth_authentication(publisher, basic_config["name"], str(project_path_obj))
+
+        if not oauth_result.get("success"):
+            if oauth_result.get("user_cancelled"):
+                info_message("Publishing cancelled by user")
+                sys.exit(0)
+            elif oauth_result.get("timeout"):
+                warning_message("GitHub App installation timeout. Falling back to manual configuration...")
+                # Fallback to manual GitHub username input
+                github_username = cli_helper.text_input("GitHub Username:", "")
+                installation_id = cli_helper.text_input("Installation ID:", "")
+                oauth_result = {"github_username": github_username, "installation_id": installation_id}
+            else:
+                error_message(f"GitHub App installation failed: {oauth_result.get('error', 'Unknown error')}")
+                sys.exit(1)
+
+        # Step 3: Merge configuration information
+        complete_config = {
+            **basic_config,
+            "github_username": oauth_result.get("github_username", ""),
+            "installation_id": oauth_result.get("installation_id", ""),
+        }
+
+        # Save complete configuration
+        if not publisher.add_hub_configuration(project_path_obj, complete_config):
             cli_helper.show_error_message("Failed to save configuration")
             sys.exit(1)
-        return dict(config) if isinstance(config, dict) else {}
+
+        return complete_config
     else:
+        # Check validity of existing configuration
+        needs_update = False
+        update_reason = ""
+
+        # Check if required fields are missing
+        if not existing_config.get("github_username") or not existing_config.get("installation_id"):
+            needs_update = True
+            update_reason = "Missing required fields"
+        else:
+            # Validate if Installation ID is valid
+            github_username = existing_config.get("github_username")
+            installation_id = existing_config.get("installation_id")
+
+            info_message(f"🔍 Verifying Installation ID {installation_id} for user {github_username}...")
+
+            try:
+                import requests
+
+                response = requests.get(
+                    f"{publisher.github_app_url}/api/github/installation-status",
+                    params={"user": github_username},
+                    timeout=10,
+                )
+
+                if response.status_code == 200:
+                    install_info = response.json()
+                    if install_info.get("installed"):
+                        installations = install_info.get("installations", [])
+                        # Check if current installation_id is in valid list
+                        valid_ids = [install.get("id") for install in installations]
+
+                        if installation_id not in valid_ids:
+                            # App is installed, but ID is invalid - automatically use latest valid ID
+                            if valid_ids:
+                                latest_id = valid_ids[0]  # Use first one (usually the latest)
+                                warning_message(f"⚠️ Installation ID {installation_id} expired")
+                                info_message(f"🔄 Auto-updating to latest ID: {latest_id}")
+
+                                # Update configuration directly, no user action needed
+                                existing_config.update(
+                                    {
+                                        "installation_id": latest_id,
+                                    }
+                                )
+                                publisher.add_hub_configuration(project_path_obj, existing_config)
+                                info_message("✅ Installation ID automatically updated and saved")
+
+                                # Skip OAuth flow, return updated configuration directly
+                                return dict(existing_config)
+                            else:
+                                needs_update = True
+                                update_reason = f"No valid Installation IDs found for user {github_username}"
+                                warning_message(f"⚠️ {update_reason}")
+                        else:
+                            info_message("✅ Installation ID verified successfully")
+                    else:
+                        needs_update = True
+                        update_reason = f"GitHub App not installed for user {github_username}"
+                        warning_message(f"⚠️ {update_reason}")
+                else:
+                    warning_message(f"⚠️ Unable to verify Installation ID (API returned {response.status_code})")
+                    # Continue using existing configuration, don't force update
+
+            except Exception as e:
+                warning_message(f"⚠️ Unable to verify Installation ID: {e}")
+                # In case of network errors, continue using existing configuration
+
+        # If update is needed, get GitHub App information again
+        if needs_update:
+            info_message(f"🔐 Updating GitHub authentication... ({update_reason})")
+            oauth_result = cli_helper.handle_oauth_authentication(
+                publisher, existing_config["name"], str(project_path_obj), force_update=True
+            )
+
+            if oauth_result.get("success"):
+                # Update configuration information
+                existing_config.update(
+                    {
+                        "github_username": oauth_result.get(
+                            "github_username", existing_config.get("github_username", "")
+                        ),
+                        "installation_id": oauth_result.get("installation_id", ""),
+                    }
+                )
+                # Save updated configuration immediately
+                publisher.add_hub_configuration(project_path_obj, existing_config)
+                info_message("✅ Configuration updated and saved")
+
         return dict(existing_config)
 
 
-def _handle_git_operations(publisher: Any, cli_helper: Any, project_path_obj: Path) -> None:
-    """Handle Git status checking and operations"""
-    git_status = publisher.check_git_status(project_path_obj)
+def _handle_git_operations(
+    publisher: Any, cli_helper: Any, project_path_obj: Path, github_app_mode: bool = False
+) -> None:
+    """Handle Git status checking and operations
+
+    Args:
+        publisher: Project publisher instance
+        cli_helper: CLI helper instance
+        project_path_obj: Project path
+        github_app_mode: If True, skip remote repository checks (GitHub App will create repo)
+    """
+    git_status = publisher.check_git_status(project_path_obj, allow_no_remote=github_app_mode)
 
     if not git_status["valid"]:
-        cli_helper.show_error_message(f"Git check failed: {git_status.get('error', 'Unknown')}")
-        sys.exit(1)
+        # Don't exit immediately - let publisher.publish_project handle Git issues with smart fallback
+        cli_helper.show_warning_message(f"Git configuration issue: {git_status.get('error', 'Unknown')}")
+        cli_helper.show_warning_message("Will attempt automatic publishing via GitHub App...")
+        return
 
     # Handle uncommitted changes
     if git_status["needs_commit"]:
         cli_helper.show_warning_message("Detected uncommitted changes")
-        if cli_helper.confirm_git_operations("commit"):
-            if not publisher.commit_changes(project_path_obj):
-                cli_helper.show_error_message("Commit failed, please commit changes manually")
-                sys.exit(1)
-        else:
-            cli_helper.show_error_message("Please commit or stage your changes first")
+        cli_helper.show_info_message("💡 These changes include configuration updates (e.g., updated Installation ID)")
+        cli_helper.show_info_message("✅ Auto-committing configuration updates...")
+        if not publisher.commit_changes(project_path_obj):
+            cli_helper.show_error_message("Commit failed, please commit changes manually")
             sys.exit(1)
+        else:
+            cli_helper.show_success_message("Configuration updates committed successfully")
 
-    # Handle unpushed commits
-    if git_status["needs_push"]:
+    # Handle unpushed commits (only if we have a remote repository)
+    if git_status["needs_push"] and not git_status.get("auto_create_repo", False):
         cli_helper.show_warning_message("Detected unpushed commits")
         if cli_helper.confirm_git_operations("push"):
             if not publisher.push_changes(project_path_obj):
@@ -912,18 +1053,269 @@ def _handle_git_operations(publisher: Any, cli_helper: Any, project_path_obj: Pa
         else:
             cli_helper.show_error_message("Please push your changes to GitHub first")
             sys.exit(1)
+    elif git_status.get("auto_create_repo", False):
+        cli_helper.show_info_message("Remote repository will be created automatically by GitHub App")
 
 
 def _handle_publish_result(
-    result: Any, publisher: Any, cli_helper: Any, project_path_obj: Path, config: dict[str, Any]
+    result: Any,
+    publisher: Any,
+    cli_helper: Any,
+    project_path_obj: Path,
+    config: dict[str, Any],
+    github_app_status: dict[str, Any] | None = None,
 ) -> None:
-    """Handle publishing result"""
+    """Handle publishing result with GitHub App context"""
     if not result.success:
+        # Check for API failure with repository creation issues
+        if result.data and result.data.get("method") == "api_failed":
+            error_type = result.data.get("error_type")
+
+            # Handle repository already exists case (improved detection)
+            if error_type in ["repository_already_exists", "repository_creation_failed"]:
+                github_username = config.get("github_username", "")
+                project_name = config.get("name", "")
+
+                if github_username and project_name:
+                    cli_helper.show_info_message("🔍 Checking if repository already exists...")
+
+                    # Check if repository exists on GitHub
+                    import requests
+
+                    try:
+                        repo_check_response = requests.get(
+                            f"https://api.github.com/repos/{github_username}/{project_name}", timeout=10
+                        )
+
+                        if repo_check_response.status_code == 200:
+                            repo_data = repo_check_response.json()
+                            repo_url = repo_data.get("html_url", "")
+                            clone_url = repo_data.get("clone_url", "")
+
+                            cli_helper.show_info_message(f"✅ Repository already exists: {repo_url}")
+
+                            if cli_helper.confirm_action(
+                                "Set up Git remote and push code to existing repository?", default=True
+                            ):
+                                cli_helper.show_info_message("🔧 Setting up Git remote to existing repository...")
+
+                                try:
+                                    import subprocess
+
+                                    # Set up Git remote
+                                    try:
+                                        subprocess.run(
+                                            ["git", "remote", "get-url", "origin"],
+                                            cwd=project_path_obj,
+                                            capture_output=True,
+                                            text=True,
+                                            check=True,
+                                        )
+                                        # Remote exists, update it
+                                        subprocess.run(
+                                            ["git", "remote", "set-url", "origin", clone_url],
+                                            cwd=project_path_obj,
+                                            check=True,
+                                        )
+                                        cli_helper.show_info_message(f"🔧 Updated Git remote to: {clone_url}")
+                                    except subprocess.CalledProcessError:
+                                        # Remote doesn't exist, add it
+                                        subprocess.run(
+                                            ["git", "remote", "add", "origin", clone_url],
+                                            cwd=project_path_obj,
+                                            check=True,
+                                        )
+                                        cli_helper.show_info_message(f"🔧 Added Git remote: {clone_url}")
+
+                                    # Push code and register to Hub
+                                    cli_helper.show_info_message("ℹ️ Triggering initial registration...")
+                                    if publisher.trigger_initial_registration(project_path_obj, config):
+                                        cli_helper.show_info_message(
+                                            "✅ Code pushed to repository and registered to Hub successfully!"
+                                        )
+                                        cli_helper.show_info_message(
+                                            f"🔗 Your project will appear at https://github.com/{publisher.hub_repo} within minutes"
+                                        )
+                                        cli_helper.show_publish_success(
+                                            repo_url, f"https://github.com/{publisher.hub_repo}"
+                                        )
+                                        return  # Success - exit without showing error
+                                    else:
+                                        cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
+
+                                except subprocess.CalledProcessError as e:
+                                    cli_helper.show_error_message(f"⚠️ Failed to set up Git remote: {e}")
+                            else:
+                                cli_helper.show_info_message("💡 Repository exists but Git remote not configured")
+                                cli_helper.show_info_message(
+                                    f"You can manually add remote: git remote add origin {clone_url}"
+                                )
+                                return  # User chose not to proceed
+
+                        # If repository doesn't exist or we can't access it, fall through to normal error handling
+
+                    except requests.RequestException:
+                        # Network error, fall through to normal error handling
+                        pass
+
+        # Legacy check for older error format (keeping for compatibility)
+        elif "Repository creation failed" in result.message and github_app_status and github_app_status.get("ready"):
+            github_username = config.get("github_username", "")
+            project_name = config.get("name", "")
+
+            if github_username and project_name:
+                cli_helper.show_info_message("🔍 Checking if repository already exists...")
+
+                # Check if repository exists on GitHub
+                import requests
+
+                try:
+                    repo_check_response = requests.get(
+                        f"https://api.github.com/repos/{github_username}/{project_name}", timeout=10
+                    )
+
+                    if repo_check_response.status_code == 200:
+                        repo_data = repo_check_response.json()
+                        repo_url = repo_data.get("html_url", "")
+                        clone_url = repo_data.get("clone_url", "")
+
+                        cli_helper.show_info_message(f"✅ Repository already exists: {repo_url}")
+
+                        if cli_helper.confirm_action(
+                            "Set up Git remote and push code to existing repository?", default=True
+                        ):
+                            cli_helper.show_info_message("🔧 Setting up Git remote to existing repository...")
+
+                            try:
+                                import subprocess
+
+                                # Set up Git remote
+                                try:
+                                    subprocess.run(
+                                        ["git", "remote", "get-url", "origin"],
+                                        cwd=project_path_obj,
+                                        capture_output=True,
+                                        text=True,
+                                        check=True,
+                                    )
+                                    # Remote exists, update it
+                                    subprocess.run(
+                                        ["git", "remote", "set-url", "origin", clone_url],
+                                        cwd=project_path_obj,
+                                        check=True,
+                                    )
+                                    cli_helper.show_info_message(f"🔧 Updated Git remote to: {clone_url}")
+                                except subprocess.CalledProcessError:
+                                    # Remote doesn't exist, add it
+                                    subprocess.run(
+                                        ["git", "remote", "add", "origin", clone_url], cwd=project_path_obj, check=True
+                                    )
+                                    cli_helper.show_info_message(f"🔧 Added Git remote: {clone_url}")
+
+                                # Push code and register to Hub
+                                cli_helper.show_info_message("ℹ️ Triggering initial registration...")
+                                if publisher.trigger_initial_registration(project_path_obj, config):
+                                    cli_helper.show_info_message(
+                                        "✅ Code pushed to repository and registered to Hub successfully!"
+                                    )
+                                    cli_helper.show_info_message(
+                                        f"🔗 Your project will appear at https://github.com/{publisher.hub_repo} within minutes"
+                                    )
+                                    cli_helper.show_publish_success(
+                                        repo_url, f"https://github.com/{publisher.hub_repo}"
+                                    )
+                                    return  # Success - exit without showing error
+                                else:
+                                    cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
+
+                            except subprocess.CalledProcessError as e:
+                                cli_helper.show_error_message(f"⚠️ Failed to set up Git remote: {e}")
+                        else:
+                            cli_helper.show_info_message("💡 Repository exists but Git remote not configured")
+                            cli_helper.show_info_message(
+                                f"You can manually add remote: git remote add origin {clone_url}"
+                            )
+                            return  # User chose not to proceed
+
+                    # If repository doesn't exist or we can't access it, fall through to normal error handling
+
+                except requests.RequestException:
+                    # Network error, fall through to normal error handling
+                    pass
+
+        # Original error handling
         cli_helper.show_error_message(result.message)
+
+        # If GitHub App was installed but API still failed, provide specific guidance
+        if github_app_status and github_app_status.get("ready"):
+            cli_helper.show_warning_message(
+                "GitHub App is installed but automatic publishing failed. "
+                "This might be a temporary issue - you can try again or use manual workflow."
+            )
+
         sys.exit(1)
 
     if result.data.get("method") == "api":
-        cli_helper.show_publish_success(result.data.get("repo_url", ""), result.data.get("registration_url", ""))
+        # Enhanced success message with GitHub App context
+        repo_url = result.data.get("repo_url", "")
+        registration_url = result.data.get("registration_url", "")
+
+        cli_helper.show_publish_success(repo_url, registration_url)
+
+        if github_app_status and github_app_status.get("ready"):
+            cli_helper.show_info_message("✨ One-click publishing via GitHub App completed successfully!")
+
+        # FIXED: Set up Git remote and push code for API publishing
+        cli_helper.show_info_message("ℹ️ Setting up Git remote and pushing code...")
+
+        # Extract clone URL from result
+        clone_url = result.data.get("clone_url")
+
+        # Set up Git remote if we have the clone URL
+        if clone_url:
+            try:
+                import subprocess
+
+                # Check if remote origin already exists
+                try:
+                    subprocess.run(
+                        ["git", "remote", "get-url", "origin"],
+                        cwd=project_path_obj,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    # Remote exists, update it
+                    subprocess.run(["git", "remote", "set-url", "origin", clone_url], cwd=project_path_obj, check=True)
+                    cli_helper.show_info_message(f"🔧 Updated Git remote to: {clone_url}")
+                except subprocess.CalledProcessError:
+                    # Remote doesn't exist, add it
+                    subprocess.run(["git", "remote", "add", "origin", clone_url], cwd=project_path_obj, check=True)
+                    cli_helper.show_info_message(f"🔧 Added Git remote: {clone_url}")
+
+                # Now trigger initial registration (push and Hub registration)
+                cli_helper.show_info_message("ℹ️ Triggering initial registration...")
+                if publisher.trigger_initial_registration(project_path_obj, config):
+                    cli_helper.show_info_message("✅ Code pushed to repository and registered to Hub successfully!")
+                    cli_helper.show_info_message(
+                        f"🔗 Your project will appear at https://github.com/{publisher.hub_repo} within minutes"
+                    )
+                else:
+                    cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
+                    cli_helper.show_info_message(
+                        "💡 Repository created successfully, but you may need to push code manually"
+                    )
+
+            except subprocess.CalledProcessError as e:
+                cli_helper.show_error_message(f"⚠️ Failed to set up Git remote: {e}")
+                cli_helper.show_info_message(
+                    "💡 Repository created successfully, but you may need to set up Git remote manually"
+                )
+        else:
+            cli_helper.show_error_message("⚠️ Could not determine repository clone URL")
+            cli_helper.show_info_message(
+                "💡 Repository created successfully, but you may need to set up Git remote manually"
+            )
     elif result.data.get("method") == "manual":
         _handle_manual_installation(result.data, publisher, cli_helper, project_path_obj, config)
     else:
@@ -956,8 +1348,9 @@ def _handle_manual_installation(
 @project.command()
 @click.argument("project_path", type=click.Path(exists=True), default=".")
 @click.option("--dry-run", is_flag=True, help="Validate project but don't actually publish")
+@click.option("--skip-app-check", is_flag=True, help="Skip GitHub App installation check")
 @click.pass_context
-def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
+def publish(ctx: click.Context, project_path: str, dry_run: bool, skip_app_check: bool) -> None:
     """📤 Publish project to GitHub and register to MCP Servers Hub"""
     try:
         from ..cli.helpers import PublishCLIHelper
@@ -972,17 +1365,87 @@ def publish(ctx: click.Context, project_path: str, dry_run: bool) -> None:
         else:
             info_message("🚀 Publishing project to GitHub and MCP Servers Hub")
 
-            # Collect configuration
+            # Collect configuration using OAuth-first authentication flow
+            info_message("🔐 Using OAuth-first authentication flow...")
             config = _collect_configuration(publisher, cli_helper, project_path_obj)
 
-            # Handle Git operations
-            _handle_git_operations(publisher, cli_helper, project_path_obj)
+            # GitHub App is ready if we have installation_id (from _collect_configuration)
+            github_app_status = {"ready": True} if config.get("installation_id") else {"ready": False}
 
-            # Execute publishing
+            if github_app_status.get("ready"):
+                info_message("✅ GitHub App installation verified via installation_id")
+            else:
+                info_message("🔧 GitHub App ready - automatic repository creation will handle Git setup")
+
+            # Handle Git operations - GitHub App vs Manual workflow
+            if github_app_status and github_app_status.get("ready", False):
+                info_message("🔧 GitHub App ready - automatic repository creation will handle Git setup")
+                # For GitHub App flow, only check local Git repository, skip remote check
+                if not (project_path_obj / ".git").exists():
+                    # If no Git repository, automatically initialize
+                    cli_helper.show_info_message("🔄 Initializing local Git repository...")
+                    if not publisher.init_git_repository(project_path_obj, config["name"]):
+                        cli_helper.show_error_message("Failed to initialize Git repository")
+                        sys.exit(1)
+                    cli_helper.show_success_message("✅ Local Git repository initialized")
+                else:
+                    # Check local Git status (don't check remote)
+                    try:
+                        # Check uncommitted changes
+                        import subprocess
+
+                        status_result = subprocess.run(
+                            ["git", "status", "--porcelain"],
+                            cwd=project_path_obj,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                        has_changes = bool(status_result.stdout.strip())
+
+                        if has_changes:
+                            cli_helper.show_warning_message("Detected uncommitted changes")
+                            cli_helper.show_info_message(
+                                "💡 These changes include configuration updates (e.g., updated Installation ID)"
+                            )
+                            cli_helper.show_info_message("✅ Auto-committing configuration updates...")
+                            if not publisher.commit_changes(project_path_obj):
+                                cli_helper.show_error_message("Commit failed, please commit changes manually")
+                                sys.exit(1)
+                            else:
+                                cli_helper.show_success_message("Configuration updates committed successfully")
+                    except subprocess.CalledProcessError as e:
+                        cli_helper.show_warning_message(f"Git status check failed: {e}")
+            else:
+                # Traditional workflow requires complete Git check
+                _handle_git_operations(publisher, cli_helper, project_path_obj, github_app_mode=False)
+
+            # Execute publishing with retry for session issues
             result = publisher.publish_project(project_path, config)
 
-            # Handle result
-            _handle_publish_result(result, publisher, cli_helper, project_path_obj, config)
+            # Check for session reauth needs and retry once
+            if not result.success and result.data and result.data.get("needs_reauth"):
+                warning_message("🔄 Session expired, retrying with fresh authentication...")
+
+                # Re-run OAuth to get new session
+                oauth_result = cli_helper.handle_oauth_authentication(publisher, config["name"], str(project_path_obj))
+                if oauth_result.get("success"):
+                    # Update config with new session info
+                    config.update(
+                        {
+                            "github_username": oauth_result.get("github_username", config.get("github_username", "")),
+                            "installation_id": oauth_result.get("installation_id", ""),
+                        }
+                    )
+
+                    # Retry publishing with new session
+                    info_message("🔄 Retrying publish with fresh session...")
+                    result = publisher.publish_project(project_path, config)
+                else:
+                    warning_message("⚠️ OAuth retry failed, falling back to manual workflow")
+
+            # Handle result with GitHub App context
+            _handle_publish_result(result, publisher, cli_helper, project_path_obj, config, github_app_status)
 
     except Exception as e:
         error_message(f"Error occurred during publish: {e}")

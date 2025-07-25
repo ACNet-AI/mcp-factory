@@ -219,6 +219,144 @@ advanced:
   cors_headers: ["Content-Type", "Authorization"]
 ```
 
+## 📤 Publishing Issues
+
+### Q: GitHub App installation failed
+
+**Issue**: Cannot install GitHub App or installation process stuck
+
+**Solutions**:
+```bash
+# Check GitHub App status
+curl -I https://github.com/apps/mcp-project-manager
+
+# Verify your GitHub permissions
+# 1. Go to https://github.com/settings/installations
+# 2. Check if you have permission to install Apps
+# 3. Try refreshing the browser and retry
+
+# Use manual publishing as fallback
+mcpf project publish my-project --manual
+```
+
+### Q: Repository creation failed
+
+**Issue**: Error "Repository already exists" or "Failed to create repository"
+
+**Solutions**:
+```bash
+# Check if repository exists
+curl -I https://api.github.com/repos/your-username/project-name
+
+# Use different project name
+mcpf project publish my-project-v2
+
+# Delete existing repository and retry
+# (Be careful - this will delete all data)
+# 1. Go to GitHub repository settings
+# 2. Delete repository
+# 3. Retry publishing
+
+# Force republish (overwrites existing)
+mcpf project publish my-project --force
+```
+
+### Q: Authentication issues during publishing
+
+**Issue**: "Permission denied" or "Invalid credentials" errors
+
+**Solutions**:
+```bash
+# Check GitHub App installation status
+curl "https://mcp-project-manager.vercel.app/api/installation-status?username=your-username"
+
+# Reinstall GitHub App
+# 1. Go to https://github.com/settings/installations
+# 2. Uninstall "MCP Project Manager"
+# 3. Reinstall from: https://github.com/apps/mcp-project-manager/installations/new
+
+# Clear local authentication cache
+rm -f ~/.mcpf/auth-cache.json
+
+# Set GitHub token as fallback
+export GITHUB_TOKEN="your-github-token"
+mcpf project publish my-project
+```
+
+### Q: Project validation failed before publishing
+
+**Issue**: Project doesn't meet publishing requirements
+
+**Solutions**:
+```bash
+# Check project structure
+mcpf project validate my-project
+
+# Common requirements:
+# 1. Must have pyproject.toml file
+# 2. Must have README.md file
+# 3. Must have valid MCP server structure
+# 4. Must have Git repository initialized
+
+# Fix missing files
+cd my-project
+touch README.md
+git init
+git add .
+git commit -m "Initial commit"
+
+# Validate configuration
+mcpf config validate config.yaml
+```
+
+### Q: Network connection issues during publishing
+
+**Issue**: Timeout or connection errors to GitHub services
+
+**Solutions**:
+```bash
+# Check network connectivity
+curl -I https://api.github.com
+curl -I https://mcp-project-manager.vercel.app/api/health
+
+# Use proxy if needed
+export HTTPS_PROXY=http://your-proxy:port
+mcpf project publish my-project
+
+# Increase timeout
+mcpf project publish my-project --timeout 120
+
+# Try manual git operations
+cd my-project
+git remote add origin https://github.com/your-username/project-name.git
+git push -u origin main
+```
+
+### Q: Hub registration failed
+
+**Issue**: Project published to GitHub but not appearing in MCP Servers Hub
+
+**Solutions**:
+```bash
+# Check webhook configuration
+# 1. Go to your GitHub repository settings
+# 2. Check "Webhooks" section
+# 3. Verify webhook URL: https://mcp-project-manager.vercel.app/api/github/webhooks
+
+# Manually trigger registration
+curl -X POST https://mcp-project-manager.vercel.app/api/github/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"repository": {"full_name": "your-username/project-name"}}'
+
+# Check Hub registry manually
+curl -s "https://api.github.com/repos/ACNet-AI/mcp-servers-hub/contents/registry.json" | \
+  jq '.content' | base64 -d | jq '.[] | select(.name == "your-project-name")'
+
+# Wait for webhook processing (can take 1-5 minutes)
+# Check project status
+mcpf project status my-project
+```
+
 ## 📋 Common Debug Commands
 
 ```bash

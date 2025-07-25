@@ -137,7 +137,16 @@ tools:
 
 > 📖 **Production Configuration**: See [Configuration Reference](configuration.md#production-configuration) for complete production settings.
 
-#### 1. Deployment Commands
+#### 1. Build and Publish Project
+```bash
+# Build project with production configuration
+mcpf project build production.yaml
+
+# Publish to GitHub for community access
+mcpf project publish my-production-server
+```
+
+#### 2. Deployment Commands
 ```bash
 # Validate configuration
 mcpf config validate production.yaml
@@ -166,6 +175,55 @@ await main_server.mount("compute", compute_server)
 curl -X POST http://localhost:8080/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"method": "tools/call", "params": {"name": "manage_list_mounted_servers"}}'
+```
+
+### 📤 Project Publishing Scenarios
+
+#### 1. Quick Publishing
+```bash
+# Initialize and publish in one go
+mcpf project init --name weather-server --description "Weather information server"
+mcpf project publish weather-server
+```
+
+#### 2. Complete Publishing Workflow
+```bash
+# 1. Create project
+mcpf project init --name my-api-server --description "Custom API server"
+
+# 2. Build project (with automatic Git initialization)
+mcpf project build config.yaml
+
+# 3. Configure publishing information (edit pyproject.toml)
+# [tool.mcp-servers-hub]
+# name = "my-api-server"
+# description = "Custom API server for data processing"
+# author = "Your Name <email@example.com>"
+# categories = ["api", "tools"]
+
+# 4. Publish to GitHub
+mcpf project publish my-api-server
+
+# 5. Verify publication
+# Check: https://github.com/ACNet-AI/mcp-servers-hub
+```
+
+#### 3. Publishing with Custom Configuration
+```python
+from mcp_factory import MCPFactory
+
+# Create factory and project
+factory = MCPFactory()
+project_config = {
+    "name": "data-processor",
+    "description": "Advanced data processing server",
+    "author": "Data Team",
+    "categories": ["data", "processing", "analytics"]
+}
+
+# Build and publish
+project_path = factory.build_project("data-processor", project_config)
+factory.publish_project(project_path, github_username="your-username")
 ```
 
 ## 🧪 Testing and Validation
@@ -199,6 +257,7 @@ mcpf config validate config.yaml --check-mounts
 
 - [Getting Started Guide](getting-started.md) - Step-by-step setup instructions
 - [Configuration Reference](configuration.md) - Complete configuration documentation
+- [Publishing Guide](publishing-guide.md) - GitHub project publishing and deployment guide
 - [CLI Guide](cli-guide.md) - Command-line tool usage
 - [Architecture Overview](architecture/README.md) - System architecture documentation
 
@@ -214,6 +273,7 @@ mcpf config validate config.yaml --check-mounts
 | `mounting_servers.py` | 🟠 Medium | CLI + advanced features | Production applications |
 | CLI Quick Start | 🟢 Simple | One-click startup | Quick testing |
 | Configuration File Mode | 🟡 Normal | Structured configuration | Formal development |
+| Publishing Workflow | 🟡 Normal | GitHub integration + Hub registration | Open source sharing |
 
 ## 🔗 Related Resources
 
