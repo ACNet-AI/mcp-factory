@@ -58,8 +58,12 @@ def create_http_adapter(base_url: str, enhanced: bool = True, **kwargs):
         return HttpApiAdapter(source_info)
 
 
-def create_multi_source_adapter():
+def create_multi_adapter():
     """Create multi-source adapter"""
+    return MultiSourceAdapter()
+
+def create_multi_source_adapter():
+    """Create multi-source adapter (alias)"""
     return MultiSourceAdapter()
 
 
@@ -85,5 +89,6 @@ __all__ = [
     # Convenience functions
     "create_python_adapter",
     "create_http_adapter",
+    "create_multi_adapter",
     "create_multi_source_adapter",
 ]
