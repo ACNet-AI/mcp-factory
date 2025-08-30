@@ -226,25 +226,24 @@ class ErrorHandler:
             raise ServerError(
                 error_message, server_id=context.get("server_id"), operation=operation, details=context
             ) from error
-        elif "config" in operation.lower() or "config_path" in context:
+        if "config" in operation.lower() or "config_path" in context:
             raise ConfigurationError(
                 error_message, config_path=context.get("config_path"), operation=operation, details=context
             ) from error
-        elif "project" in operation.lower() or "project_path" in context:
+        if "project" in operation.lower() or "project_path" in context:
             raise ProjectError(
                 error_message, project_path=context.get("project_path"), operation=operation, details=context
             ) from error
-        elif "mount" in operation.lower() or "mount_point" in context:
+        if "mount" in operation.lower() or "mount_point" in context:
             raise MountingError(
                 error_message, mount_point=context.get("mount_point"), operation=operation, details=context
             ) from error
-        elif "build" in operation.lower() or "build_target" in context:
+        if "build" in operation.lower() or "build_target" in context:
             raise BuildError(
                 error_message, build_target=context.get("build_target"), operation=operation, details=context
             ) from error
-        else:
-            # Default to generic MCPFactoryError
-            raise MCPFactoryError(message=error_message, operation=operation, details=context) from error
+        # Default to generic MCPFactoryError
+        raise MCPFactoryError(message=error_message, operation=operation, details=context) from error
 
     def get_error_count(self) -> int:
         """Get error count"""

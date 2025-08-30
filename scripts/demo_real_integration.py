@@ -17,7 +17,6 @@ from pathlib import Path
 import httpx
 import yaml
 
-# ruff: noqa: E402
 # Add project root directory to path
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -206,12 +205,11 @@ class MCPEcosystemDemo:
                 if missing_fields:
                     print(f"❌ Missing required fields: {missing_fields}")
                     return {"valid": False, "errors": missing_fields, "data": hub_data}
-                else:
-                    print("✅ Project data complies with Hub registration schema")
-                    print(f"   🏷️ Valid tags: {', '.join(hub_data['tags'])}")
-                    print(f"   🐍 Python version: {hub_data['python_version']}")
-                    print(f"   📜 License: {hub_data['license']}")
-                    return {"valid": True, "errors": [], "data": hub_data}
+                print("✅ Project data complies with Hub registration schema")
+                print(f"   🏷️ Valid tags: {', '.join(hub_data['tags'])}")
+                print(f"   🐍 Python version: {hub_data['python_version']}")
+                print(f"   📜 License: {hub_data['license']}")
+                return {"valid": True, "errors": [], "data": hub_data}
 
             except Exception as e:
                 print(f"⚠️ Schema validation error: {e}")
@@ -246,13 +244,11 @@ class MCPEcosystemDemo:
                         print(f"   🔗 Repository: {result.get('repository', 'N/A')}")
                         print(f"   💬 Message: {result.get('message', 'N/A')}")
                         return {"success": True, "data": result}
-                    else:
-                        print(f"❌ API call failed (status code: {publish_response.status_code})")
-                        print(f"   Error: {result.get('error', 'Unknown error')}")
-                        return {"success": False, "error": result.get("error", "Unknown error")}
-                else:
-                    print(f"❌ API server health check failed (status code: {health_response.status_code})")
-                    return {"success": False, "error": "API server unhealthy"}
+                    print(f"❌ API call failed (status code: {publish_response.status_code})")
+                    print(f"   Error: {result.get('error', 'Unknown error')}")
+                    return {"success": False, "error": result.get("error", "Unknown error")}
+                print(f"❌ API server health check failed (status code: {health_response.status_code})")
+                return {"success": False, "error": "API server unhealthy"}
 
         except httpx.ConnectError:
             print("⚠️ Unable to connect to API server (possibly not started)")

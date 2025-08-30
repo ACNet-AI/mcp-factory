@@ -598,14 +598,10 @@ class ManagedServer(FastMCP[Any]):
                 "configuration": {
                     "expose_management_tools": self.expose_management_tools,
                     "enable_permission_check": self.enable_permission_check,
-                    "management_tool_tags": list(self.management_tool_tags)
+                    "management_tool_tags": list(self.management_tool_tags),
                 },
-                "statistics": {
-                    "total_management_tools": 0,
-                    "enabled_tools": 0,
-                    "permission_levels": {}
-                },
-                "error": str(e)
+                "statistics": {"total_management_tools": 0, "enabled_tools": 0, "permission_levels": {}},
+                "error": str(e),
             }
 
     def clear_management_tools(self) -> str:
@@ -660,13 +656,9 @@ class ManagedServer(FastMCP[Any]):
                 "configuration": {
                     "expose_management_tools": self.expose_management_tools,
                     "enable_permission_check": self.enable_permission_check,
-                    "management_tool_tags": list(self.management_tool_tags)
+                    "management_tool_tags": list(self.management_tool_tags),
                 },
-                "statistics": {
-                    "total_management_tools": 0,
-                    "enabled_tools": 0,
-                    "permission_levels": {}
-                }
+                "statistics": {"total_management_tools": 0, "enabled_tools": 0, "permission_levels": {}},
             }
 
         tools = self._tool_manager._tools
@@ -714,7 +706,7 @@ class ManagedServer(FastMCP[Any]):
                 "description": description,
                 "permission_level": permission_level,
                 "enabled": enabled,
-                "annotations": dict(annotations) if isinstance(annotations, dict) else {}
+                "annotations": dict(annotations) if isinstance(annotations, dict) else {},
             }
             tool_info_list.append(tool_info)
 
@@ -723,13 +715,13 @@ class ManagedServer(FastMCP[Any]):
             "configuration": {
                 "expose_management_tools": self.expose_management_tools,
                 "enable_permission_check": self.enable_permission_check,
-                "management_tool_tags": list(self.management_tool_tags)
+                "management_tool_tags": list(self.management_tool_tags),
             },
             "statistics": {
                 "total_management_tools": len(management_tools),
                 "enabled_tools": enabled_count,
-                "permission_levels": permission_levels
-            }
+                "permission_levels": permission_levels,
+            },
         }
 
     def _clear_management_tools_impl(self) -> str:

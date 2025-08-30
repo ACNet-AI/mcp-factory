@@ -180,8 +180,10 @@ class TestCurrentManagedServerAPI:
         server = ManagedServer(name="test-server", instructions="Test instructions", expose_management_tools=True)
 
         info = server.get_management_tools_info()
-        assert isinstance(info, str)
-        assert len(info) > 0
+        assert isinstance(info, dict)
+        assert "management_tools" in info
+        assert "configuration" in info
+        assert "statistics" in info
 
 
 class TestConfigIntegration:

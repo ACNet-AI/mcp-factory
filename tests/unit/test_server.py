@@ -82,8 +82,10 @@ class TestManagedServerBasics:
 
         info = server.get_management_tools_info()
 
-        assert isinstance(info, str)
-        assert "Management Tools" in info
+        assert isinstance(info, dict)
+        assert "management_tools" in info
+        assert "configuration" in info
+        assert "statistics" in info
 
     def test_recreate_management_tools(self):
         """Test recreating management tools"""
@@ -268,7 +270,9 @@ class TestEdgeCases:
 
         # When not exposing management tools, some operations should have reasonable default behavior
         info = server.get_management_tools_info()
-        assert isinstance(info, str)
+        assert isinstance(info, dict)
+        assert "management_tools" in info
+        assert "configuration" in info
 
     def test_initialization_with_complex_config(self):
         """Test initialization with complex configuration"""
@@ -291,7 +295,8 @@ class TestManagementToolsAdvanced:
         server = ManagedServer(name="test-server", expose_management_tools=False)
 
         info = server.get_management_tools_info()
-        assert "Tool manager not found" in info or "No management tools currently registered" in info
+        assert isinstance(info, dict)
+        assert info["statistics"]["total_management_tools"] == 0
 
     def test_get_management_tools_info_with_annotations(self):
         """Test getting management tools info with annotation information"""
@@ -309,8 +314,11 @@ class TestManagementToolsAdvanced:
         server._tool_manager._tools = {"manage_test_tool": mock_tool}
 
         info = server.get_management_tools_info()
-        assert "Test Tool" in info
-        assert "🔒" in info  # Destructive icon
+        assert isinstance(info, dict)
+        assert len(info["management_tools"]) == 1
+        tool_info = info["management_tools"][0]
+        assert tool_info["name"] == "manage_test_tool"
+        assert tool_info["permission_level"] == "destructive"
 
     def test_get_management_tools_info_with_dict_annotations(self):
         """Test getting management tools info with dictionary format annotations"""
@@ -325,8 +333,11 @@ class TestManagementToolsAdvanced:
         server._tool_manager._tools = {"manage_readonly_tool": mock_tool}
 
         info = server.get_management_tools_info()
-        assert "Read Only Tool" in info
-        assert "👁️" in info  # Read-only icon
+        assert isinstance(info, dict)
+        assert len(info["management_tools"]) == 1
+        tool_info = info["management_tools"][0]
+        assert tool_info["name"] == "manage_readonly_tool"
+        assert tool_info["permission_level"] == "readonly"
 
     def test_clear_management_tools_with_exception(self):
         """Test exception occurrence when clearing management tools"""
@@ -454,14 +465,15 @@ class TestParameterGeneration:
         params = server._generate_parameters_from_signature(sig, "test_func")
 
         assert isinstance(params, dict)
-        assert "param1" in params
-        assert "param2" in params
-        assert "param3" in params
+        assert "properties" in params
+        assert "param1" in params["properties"]
+        assert "param2" in params["properties"]
+        assert "param3" in params["properties"]
 
         # Verify type mapping
-        assert params["param1"]["type"] == "string"
-        assert params["param2"]["type"] == "integer"
-        assert params["param3"]["type"] == "boolean"
+        assert params["properties"]["param1"]["type"] == "string"
+        assert params["properties"]["param2"]["type"] == "integer"
+        assert params["properties"]["param3"]["type"] == "boolean"
 
     def test_generate_parameters_with_complex_types(self):
         """Test parameter generation for complex types"""
@@ -474,9 +486,9 @@ class TestParameterGeneration:
         params = server._generate_parameters_from_signature(sig, "test_func")
 
         # Fixed: correct type mapping
-        assert params["param1"]["type"] == "array"
-        assert params["param2"]["type"] == "object"
-        assert params["param3"]["type"] == "string"
+        assert params["properties"]["param1"]["type"] == "array"
+        assert params["properties"]["param2"]["type"] == "object"
+        assert params["properties"]["param3"]["type"] == "string"
 
     def test_create_method_wrapper_with_params_success(self):
         """Test successful creation of method wrapper with parameters"""
@@ -504,7 +516,9 @@ class TestParameterGeneration:
         wrapper, params = server._create_method_wrapper_with_params("nonexistent_method", config, "readonly")
 
         assert callable(wrapper)
-        assert params == {}
+        assert isinstance(params, dict)
+        assert "properties" in params
+        assert params["properties"] == {}
 
 
 class TestInternalMethods:
@@ -631,11 +645,12 @@ class TestServerAdvancedFeatures:
         wrapper_func, schema = server._create_method_wrapper_with_params("complex_method", config, "modify")
 
         assert callable(wrapper_func)
-        # Parameters returned directly as dictionary, not containing properties key
+        # Parameters returned as schema with properties structure
         assert isinstance(schema, dict)
-        assert "param1" in schema
-        assert "param2" in schema
-        assert "param3" in schema
+        assert "properties" in schema
+        assert "param1" in schema["properties"]
+        assert "param2" in schema["properties"]
+        assert "param3" in schema["properties"]
 
     def test_generate_parameters_from_signature_edge_cases(self) -> None:
         """Test edge cases for parameter signature generation"""
@@ -659,17 +674,18 @@ class TestServerAdvancedFeatures:
         sig = inspect.signature(method_with_various_types)
         schema = server._generate_parameters_from_signature(sig, "test_method")
 
-        # Parameters returned directly as dictionary, not containing properties key
+        # Parameters returned as schema with properties structure
         assert isinstance(schema, dict)
+        assert "properties" in schema
 
         # Verify type mapping
-        assert schema["str_param"]["type"] == "string"
-        assert schema["int_param"]["type"] == "integer"
-        assert schema["bool_param"]["type"] == "boolean"
-        assert schema["float_param"]["type"] == "number"
-        assert schema["list_param"]["type"] == "array"  # Fixed: correctly mapped to array
-        assert schema["dict_param"]["type"] == "object"  # Fixed: correctly mapped to object
-        assert schema["any_param"]["type"] == "string"  # No annotation defaults to string
+        assert schema["properties"]["str_param"]["type"] == "string"
+        assert schema["properties"]["int_param"]["type"] == "integer"
+        assert schema["properties"]["bool_param"]["type"] == "boolean"
+        assert schema["properties"]["float_param"]["type"] == "number"
+        assert schema["properties"]["list_param"]["type"] == "array"  # Fixed: correctly mapped to array
+        assert schema["properties"]["dict_param"]["type"] == "object"  # Fixed: correctly mapped to object
+        assert schema["properties"]["any_param"]["type"] == "string"  # No annotation defaults to string
 
     def test_annotation_templates_coverage(self) -> None:
         """Test complete coverage of annotation templates"""
@@ -923,10 +939,12 @@ class TestServerToolManagement:
 
         info = server.get_management_tools_info()
 
-        assert isinstance(info, str)
-        assert "Management Tools" in info
+        assert isinstance(info, dict)
+        assert "management_tools" in info
+        assert "configuration" in info
+        assert "statistics" in info
         # Should contain tool count information
-        assert "" in info
+        assert info["statistics"]["total_management_tools"] > 0
 
     def test_get_management_tools_info_no_tools(self):
         """Test getting information when no management tools exist"""
@@ -934,7 +952,9 @@ class TestServerToolManagement:
 
         info = server.get_management_tools_info()
 
-        assert isinstance(info, str)
+        assert isinstance(info, dict)
+        assert "management_tools" in info
+        assert "configuration" in info
 
     def test_internal_tool_management_methods(self):
         """Test internal tool management methods"""

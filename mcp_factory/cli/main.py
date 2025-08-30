@@ -1044,35 +1044,36 @@ def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Pa
             sys.exit(1)
 
         return project_config
-    else:
-        # Project has existing configuration
-        github_username = existing_config.get("github_username")
+    # Project has existing configuration
+    github_username = existing_config.get("github_username")
 
-        # Check if we have installation_id in auth cache
-        installation_id = publisher._get_installation_id(github_username)
+    # Check if we have installation_id in auth cache
+    installation_id = publisher._get_installation_id(github_username)
 
-        if not installation_id:
-            info_message("🔐 No installation found in auth cache, GitHub App installation required...")
-            oauth_result = cli_helper.handle_oauth_authentication(publisher, existing_config.get("name", ""), str(project_path_obj))
+    if not installation_id:
+        info_message("🔐 No installation found in auth cache, GitHub App installation required...")
+        oauth_result = cli_helper.handle_oauth_authentication(
+            publisher, existing_config.get("name", ""), str(project_path_obj)
+        )
 
-            if oauth_result.get("success"):
-                # Save installation_id to auth cache
-                if oauth_result.get("installation_id") and oauth_result.get("github_username"):
-                    publisher._save_installation_id(oauth_result["github_username"], oauth_result["installation_id"])
-                    info_message("✅ Installation saved to auth cache")
+        if oauth_result.get("success"):
+            # Save installation_id to auth cache
+            if oauth_result.get("installation_id") and oauth_result.get("github_username"):
+                publisher._save_installation_id(oauth_result["github_username"], oauth_result["installation_id"])
+                info_message("✅ Installation saved to auth cache")
 
-                # Update project config if github_username changed
-                if oauth_result.get("github_username") != github_username:
-                    existing_config["github_username"] = oauth_result.get("github_username", github_username)
-                    publisher.add_hub_configuration(project_path_obj, existing_config)
-                    info_message("✅ Project configuration updated")
-            else:
-                error_message("GitHub App installation failed")
-                sys.exit(1)
+            # Update project config if github_username changed
+            if oauth_result.get("github_username") != github_username:
+                existing_config["github_username"] = oauth_result.get("github_username", github_username)
+                publisher.add_hub_configuration(project_path_obj, existing_config)
+                info_message("✅ Project configuration updated")
         else:
-            info_message(f"✅ Using installation from auth cache for {github_username}")
+            error_message("GitHub App installation failed")
+            sys.exit(1)
+    else:
+        info_message(f"✅ Using installation from auth cache for {github_username}")
 
-        return dict(existing_config)
+    return dict(existing_config)
 
 
 def _handle_git_operations(
@@ -1202,8 +1203,7 @@ def _handle_publish_result(
                                             repo_url, f"https://github.com/{publisher.hub_repo}"
                                         )
                                         return  # Success - exit without showing error
-                                    else:
-                                        cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
+                                    cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
 
                                 except subprocess.CalledProcessError as e:
                                     cli_helper.show_error_message(f"⚠️ Failed to set up Git remote: {e}")
@@ -1287,8 +1287,7 @@ def _handle_publish_result(
                                         repo_url, f"https://github.com/{publisher.hub_repo}"
                                     )
                                     return  # Success - exit without showing error
-                                else:
-                                    cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
+                                cli_helper.show_error_message("⚠️ Failed to push code or register to Hub")
 
                             except subprocess.CalledProcessError as e:
                                 cli_helper.show_error_message(f"⚠️ Failed to set up Git remote: {e}")

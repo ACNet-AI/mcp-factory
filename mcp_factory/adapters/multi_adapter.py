@@ -517,7 +517,7 @@ class AdapterFactory:
 
         if source_type == "python_class":
             return PythonClassAdapter(source_info)
-        elif source_type == "http_api":
+        if source_type == "http_api":
             # Check if enhanced HTTP adapter should be used
             use_enhanced = source_info.config.get("use_enhanced", True)
             if use_enhanced:
@@ -540,20 +540,19 @@ class AdapterFactory:
         """Auto-detect source type"""
         if source_path.startswith(("http://", "https://")):
             return "http_api"
-        elif "." in source_path and not source_path.startswith("/"):
+        if "." in source_path and not source_path.startswith("/"):
             # Looks like Python module path
             return "python_class"
-        else:
-            return "cli"
+        return "cli"
 
 
 class MultiSourceAdapter:
     """Multi-source adapter main class"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.adapters: list[BaseAdapter] = []
 
-    def add_source(self, source_type: str, source_path: str, config: dict[str, Any] = None) -> None:
+    def add_source(self, source_type: str, source_path: str, config: dict[str, Any] | None = None) -> None:
         """Add input source"""
         source_info = SourceInfo(source_type=source_type, source_path=source_path, config=config or {})
 
@@ -562,7 +561,7 @@ class MultiSourceAdapter:
 
     def discover_all_capabilities(self) -> dict[str, list[dict[str, Any]]]:
         """Discover all system capabilities"""
-        all_capabilities = {}
+        all_capabilities: dict[str, list[dict[str, Any]]] = {}
 
         for adapter in self.adapters:
             source_type = adapter.source_info.source_type
@@ -575,7 +574,7 @@ class MultiSourceAdapter:
         return all_capabilities
 
     def generate_tools_for_project(
-        self, project_path: str, selected_capabilities: list[dict[str, Any]] = None
+        self, project_path: str, selected_capabilities: list[dict[str, Any]] | None = None
     ) -> list[str]:
         """For projectGenerate MCP tool"""
         generated_files = []
@@ -589,7 +588,7 @@ class MultiSourceAdapter:
                 selected_capabilities.extend(caps)
 
         # Process grouped by adapter
-        adapter_caps = {}
+        adapter_caps: dict[BaseAdapter, list[dict[str, Any]]] = {}
         for cap in selected_capabilities:
             for adapter in self.adapters:
                 cap_type = cap["type"].replace("_endpoint", "").replace("_command", "").replace("_method", "")

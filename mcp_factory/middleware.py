@@ -121,7 +121,7 @@ def _create_builtin_middleware(middleware_type: str, config: dict[str, Any]) -> 
 
             return TimingMiddleware(logger=config.get("logger"), log_level=config.get("log_level", 20))
 
-        elif middleware_type == "logging":
+        if middleware_type == "logging":
             from fastmcp.server.middleware.logging import LoggingMiddleware
 
             return LoggingMiddleware(
@@ -131,7 +131,7 @@ def _create_builtin_middleware(middleware_type: str, config: dict[str, Any]) -> 
                 max_payload_length=config.get("max_payload_length", 1000),
             )
 
-        elif middleware_type == "rate_limiting":
+        if middleware_type == "rate_limiting":
             from fastmcp.server.middleware.rate_limiting import RateLimitingMiddleware
 
             return RateLimitingMiddleware(
@@ -141,7 +141,7 @@ def _create_builtin_middleware(middleware_type: str, config: dict[str, Any]) -> 
                 global_limit=config.get("global_limit", False),
             )
 
-        elif middleware_type == "error_handling":
+        if middleware_type == "error_handling":
             from fastmcp.server.middleware.error_handling import ErrorHandlingMiddleware
 
             return ErrorHandlingMiddleware(
@@ -151,9 +151,8 @@ def _create_builtin_middleware(middleware_type: str, config: dict[str, Any]) -> 
                 transform_errors=config.get("transform_errors", True),
             )
 
-        else:
-            logger.error("Unknown builtin middleware type: %s", middleware_type)
-            return None
+        logger.error("Unknown builtin middleware type: %s", middleware_type)
+        return None
 
     except ImportError as e:
         logger.error("Failed to import FastMCP middleware '%s': %s", middleware_type, e)

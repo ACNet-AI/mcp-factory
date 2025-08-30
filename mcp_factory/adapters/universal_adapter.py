@@ -431,7 +431,7 @@ class UniversalMCPAdapter:
 
         return generated_files
 
-    def _update_tools_init(self, project_path: str, tool_name: str):
+    def _update_tools_init(self, project_path: str, tool_name: str) -> None:
         """Update tools module __init__.pyfiles"""
         init_file = Path(project_path) / "tools" / "__init__.py"
 
@@ -484,6 +484,7 @@ def create_universal_adapter(
     Returns:
         Configured adapter instance
     """
+    strategy: AdapterStrategy
     if strategy_type == "singleton":
         if instance_creation_code is None:
             instance_creation_code = f"{target_class.__name__}()"

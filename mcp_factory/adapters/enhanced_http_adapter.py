@@ -23,8 +23,8 @@ class EnhancedHttpApiAdapter(BaseAdapter):
     def __init__(self, source_info: SourceInfo):
         super().__init__(source_info)
         self.use_fastmcp = self._should_use_fastmcp()
-        self.client = None
-        self.fastmcp_instance = None
+        self.client: httpx.AsyncClient | None = None
+        self.fastmcp_instance: Any | None = None
 
     def _should_use_fastmcp(self) -> bool:
         """Decide whether to use FastMCP engine"""
@@ -35,11 +35,11 @@ class EnhancedHttpApiAdapter(BaseAdapter):
         engine = self.source_info.config.get("engine", "auto")
         if engine == "fastmcp":
             return True
-        elif engine == "native":
+        if engine == "native":
             return False
-        else:  # auto
-            # Auto decision: prefer FastMCP if OpenAPI spec is available
-            return "openapi_spec" in self.source_info.config
+        # auto
+        # Auto decision: prefer FastMCP if OpenAPI spec is available
+        return "openapi_spec" in self.source_info.config
 
     async def _initialize_fastmcp(self) -> FastMCP | None:
         """Initialize FastMCP instance"""
@@ -70,6 +70,9 @@ class EnhancedHttpApiAdapter(BaseAdapter):
 
     async def _discover_openapi_spec(self) -> dict[str, Any] | None:
         """Auto-discover OpenAPI specification"""
+        if not self.client:
+            return None
+
         openapi_urls = [
             f"{self.source_info.source_path}/openapi.json",
             f"{self.source_info.source_path}/docs/openapi.json",
@@ -81,7 +84,8 @@ class EnhancedHttpApiAdapter(BaseAdapter):
             try:
                 response = await self.client.get(url)
                 if response.status_code == 200:
-                    return response.json()
+                    json_data = response.json()
+                    return json_data if isinstance(json_data, dict) else None
             except Exception:
                 continue
         return None
@@ -90,8 +94,7 @@ class EnhancedHttpApiAdapter(BaseAdapter):
         """Discover API capabilities"""
         if self.use_fastmcp and FASTMCP_AVAILABLE:
             return asyncio.run(self._discover_with_fastmcp())
-        else:
-            return self._discover_with_native()
+        return self._discover_with_native()
 
     async def _discover_with_fastmcp(self) -> list[dict[str, Any]]:
         """Discover capabilities using FastMCP"""
@@ -114,7 +117,7 @@ class EnhancedHttpApiAdapter(BaseAdapter):
                 }
 
                 # Extract output schema from FastMCP tool if available
-                if hasattr(tool, 'output_schema') and tool.output_schema:
+                if hasattr(tool, "output_schema") and tool.output_schema:
                     capability["output_schema"] = tool.output_schema
 
                 capabilities.append(capability)
@@ -166,7 +169,7 @@ class EnhancedHttpApiAdapter(BaseAdapter):
 
         return capabilities
 
-    def _extract_fastmcp_parameters(self, tool) -> list[dict[str, Any]]:
+    def _extract_fastmcp_parameters(self, tool: Any) -> list[dict[str, Any]]:
         """Extract parameter information from FastMCP tool"""
         parameters = []
 
@@ -313,8 +316,7 @@ class EnhancedHttpApiAdapter(BaseAdapter):
         """Generate MCP tool code"""
         if capability["type"] == "fastmcp_tool":
             return self._generate_fastmcp_wrapper(capability)
-        else:
-            return self._generate_standard_tool(capability)
+        return self._generate_standard_tool(capability)
 
     def _generate_fastmcp_wrapper(self, capability: dict[str, Any]) -> str:
         """Generate wrapper for FastMCP tool"""
@@ -382,7 +384,7 @@ def {tool_name}_sync({param_str}) -> Dict[str, Any]:
     def _generate_standard_tool(self, capability: dict[str, Any]) -> str:
         """Generate standard HTTP tool (original implementation)"""
         return self._generate_standard_tool_template(
-            name=capability["name"],
+            tool_name=capability["name"],
             parameters=capability["parameters"],
             description=capability["description"],
             implementation_code=self._generate_http_request_code(capability),

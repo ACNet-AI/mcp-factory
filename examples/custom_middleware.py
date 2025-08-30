@@ -105,10 +105,9 @@ class AuditMiddleware:
                 key: "***REDACTED***" if key.lower() in self.sensitive_fields else self._sanitize_data(value)
                 for key, value in data.items()
             }
-        elif isinstance(data, list):
+        if isinstance(data, list):
             return [self._sanitize_data(item) for item in data]
-        else:
-            return data
+        return data
 
     async def __call__(self, request: Any, call_next: Any) -> Any:
         """Record audit information"""
@@ -237,9 +236,8 @@ class CacheMiddleware:
             if self._is_cache_valid(timestamp):
                 logger.debug(f"Cache hit for {method}")
                 return cached_response
-            else:
-                # Remove expired cache item
-                del self.cache[cache_key]
+            # Remove expired cache item
+            del self.cache[cache_key]
 
         # Execute request
         response = await call_next(request)

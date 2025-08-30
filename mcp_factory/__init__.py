@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 
 # Import adapters module, but don't expose directly in __all__,
 # users access via mcp_factory.adapters.xxx

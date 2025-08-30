@@ -19,8 +19,8 @@ __all__ = [
     "Builder",
     "ComponentManager",
     "ProjectBuildError",
-    "ProjectValidator",
-    "ValidationError",
     "ProjectPublisher",
+    "ProjectValidator",
     "PublishError",
+    "ValidationError",
 ]

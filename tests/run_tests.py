@@ -61,7 +61,7 @@ def main() -> None:
     logger.info("")
 
     try:
-        result = subprocess.run(cmd, check=False, timeout=300)  # noqa: S603
+        result = subprocess.run(cmd, check=False, timeout=300)
 
         if result.returncode == 0:
             logger.info("\n✅ All tests passed!")

@@ -296,7 +296,7 @@ class MCPFactory:
             elif workspace_root == "./workspace" and current_dir.name.endswith("workspace"):
                 # If we're already in a workspace directory, use current directory
                 logger.debug("Already in workspace directory, using current directory")
-                self.workspace_root = Path(".")
+                self.workspace_root = Path()
 
             self.workspace_root.mkdir(parents=True, exist_ok=True)
             self.builder = Builder(str(self.workspace_root))
@@ -715,11 +715,10 @@ class MCPFactory:
 
             if source_path.is_file():
                 return ("config_file", str(source_path))
-            elif source_path.is_dir():
+            if source_path.is_dir():
                 return ("project_dir", str(source_path))
-            else:
-                # Fallback for special file types
-                return ("config_file", str(source_path))
+            # Fallback for special file types
+            return ("config_file", str(source_path))
 
         except Exception as e:
             logger.warning("Failed to determine source type for %s: %s", source, e)

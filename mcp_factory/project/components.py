@@ -122,9 +122,8 @@ class ComponentManager:
         if resolved_path.exists():
             logger.debug("Found component file: %s", resolved_path)
             return resolved_path
-        else:
-            logger.warning("Component file not found: %s", resolved_path)
-            return None
+        logger.warning("Component file not found: %s", resolved_path)
+        return None
 
     @staticmethod
     def _load_component_functions_from_file(file_path: Path) -> list[tuple[Callable[..., Any], str, str]]:
@@ -205,6 +204,7 @@ class ComponentManager:
                     # FastMCP requires uri as first parameter for resources
                     # Check if function has parameters to determine if it's a template resource
                     import inspect
+
                     sig = inspect.signature(func)
                     if len(sig.parameters) > 0:
                         # Template resource with parameters - use actual parameter names
@@ -292,7 +292,7 @@ class ComponentManager:
 
             # Generate module name from relative path
             relative_path = py_file.relative_to(component_dir)
-            if relative_path.parent == Path("."):
+            if relative_path.parent == Path():
                 # Top-level file: use simple name
                 module_name = py_file.stem
             else:

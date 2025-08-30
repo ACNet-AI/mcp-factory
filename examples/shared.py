@@ -150,14 +150,14 @@ def validate_example_environment() -> dict[str, bool]:
 
     # Check necessary Python packages
     try:
-        import mcp_factory  # noqa: F401
+        import mcp_factory
 
         results["mcp_factory_available"] = True
     except ImportError:
         results["mcp_factory_available"] = False
 
     try:
-        import yaml  # noqa: F401
+        import yaml
 
         results["yaml_available"] = True
     except ImportError:

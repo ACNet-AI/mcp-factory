@@ -51,7 +51,12 @@ def demo_http_api_adapter():
         source_path="https://httpbin.org",  # Public test API
         config={
             "endpoints": [
-                {"name": "get_user_agent", "method": "GET", "path": "/user-agent", "description": "Get user agent information"},
+                {
+                    "name": "get_user_agent",
+                    "method": "GET",
+                    "path": "/user-agent",
+                    "description": "Get user agent information",
+                },
                 {
                     "name": "post_data",
                     "method": "POST",
@@ -174,7 +179,9 @@ def demo_mixed_sources():
                 {
                     "name": "git_status",
                     "command": "git",
-                    "arguments": [{"name": "command", "type": "string", "required": True, "description": "Git command"}],
+                    "arguments": [
+                        {"name": "command", "type": "string", "required": True, "description": "Git command"}
+                    ],
                     "description": "Execute Git command",
                 }
             ]

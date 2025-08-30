@@ -203,7 +203,7 @@ class PublishCLIHelper(BaseCLIHelper):
         """
         if operation == "commit":
             return self.confirm_action("Uncommitted changes detected, auto-commit?", default=False)
-        elif operation == "push":
+        if operation == "push":
             return self.confirm_action("Unpushed commits detected, auto-push to GitHub?", default=False)
         return False
 
@@ -332,40 +332,39 @@ class PublishCLIHelper(BaseCLIHelper):
                         }
 
                 return {"success": False, "error": "Installation found but no valid installation ID available"}
-            else:
-                # Installation not found, but maybe user needs more time
-                retry = self.confirm_action(
-                    "Installation not detected. Would you like to retry checking?", default=True
-                )
-                if retry:
-                    time.sleep(3)
-                    # Retry once
-                    status = publisher.check_user_installation_status(github_username)
-                    if status.get("installed"):
-                        installations = status.get("installations", [])
-                        if installations:
-                            installation_id = installations[0].get("id")
-                            if installation_id:
-                                self.console.print("✅ GitHub App installation verified on retry!", style="green")
-                                return {
-                                    "success": True,
-                                    "github_username": github_username,
-                                    "installation_id": str(installation_id),
-                                    "installation_info": installations[0],
-                                }
+            # Installation not found, but maybe user needs more time
+            retry = self.confirm_action(
+                "Installation not detected. Would you like to retry checking?", default=True
+            )
+            if retry:
+                time.sleep(3)
+                # Retry once
+                status = publisher.check_user_installation_status(github_username)
+                if status.get("installed"):
+                    installations = status.get("installations", [])
+                    if installations:
+                        installation_id = installations[0].get("id")
+                        if installation_id:
+                            self.console.print("✅ GitHub App installation verified on retry!", style="green")
+                            return {
+                                "success": True,
+                                "github_username": github_username,
+                                "installation_id": str(installation_id),
+                                "installation_info": installations[0],
+                            }
 
-                return {
-                    "success": False,
-                    "timeout": True,
-                    "error": "GitHub App installation not detected. Please ensure the app is installed and try again.",
-                }
+            return {
+                "success": False,
+                "timeout": True,
+                "error": "GitHub App installation not detected. Please ensure the app is installed and try again.",
+            }
 
         except KeyboardInterrupt:
             self.console.print("\n❌ Installation cancelled by user", style="red")
             return {"success": False, "user_cancelled": True, "error": "Installation cancelled by user"}
         except Exception as e:
             self.console.print(f"\n❌ Error during OAuth authentication: {e}", style="red")
-            return {"success": False, "error": f"Authentication error: {str(e)}"}
+            return {"success": False, "error": f"Authentication error: {e!s}"}
 
     def show_publish_success(self, repo_url: str = "", registry_url: str = "") -> None:
         """
@@ -463,7 +462,7 @@ class ConfigCLIHelper(BaseCLIHelper):
                             issues.remove(issue)
             else:
                 # Check current directory for config files
-                config_files = list(Path(".").glob("*.yaml")) + list(Path(".").glob("*.yml"))
+                config_files = list(Path().glob("*.yaml")) + list(Path().glob("*.yml"))
                 if not config_files:
                     issue = {
                         "type": "no_config_found",
@@ -821,7 +820,7 @@ class ServerNameResolver(BaseCLIHelper):
             if len(exact_name_matches) == 1:
                 server_id = exact_name_matches[0]["id"]
                 return str(server_id) if server_id is not None else None
-            elif len(exact_name_matches) > 1:
+            if len(exact_name_matches) > 1:
                 # Handle name conflicts
                 return self._handle_name_conflicts(exact_name_matches, name_or_id)
 
@@ -831,7 +830,7 @@ class ServerNameResolver(BaseCLIHelper):
                 self.show_info_message(f"Found fuzzy match: {fuzzy_matches[0]['name']}")
                 server_id = fuzzy_matches[0]["id"]
                 return str(server_id) if server_id is not None else None
-            elif len(fuzzy_matches) > 1:
+            if len(fuzzy_matches) > 1:
                 # Interactive selection
                 return self._interactive_server_selection(fuzzy_matches, name_or_id)
 

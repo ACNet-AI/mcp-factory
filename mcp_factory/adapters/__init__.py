@@ -9,6 +9,8 @@ This module provides various adapters for converting different types of system c
 """
 
 # Import core adapter classes
+from typing import Any
+
 from .multi_adapter import (
     AdapterFactory,
     BaseAdapter,
@@ -27,8 +29,8 @@ try:
 except ImportError:
     _enhanced_available = False
     # For backward compatibility, create placeholders
-    EnhancedHttpApiAdapter = None
-    create_enhanced_http_adapter = None
+    EnhancedHttpApiAdapter = None  # type: ignore
+    create_enhanced_http_adapter = None  # type: ignore
     FASTMCP_AVAILABLE = False
 
 # Import universal adapter creation functions
@@ -36,33 +38,39 @@ from .universal_adapter import FreshInstanceStrategy, SingletonStrategy, StaticM
 
 
 # Convenience functions
-def create_python_adapter(class_path: str, strategy: str = "singleton"):
+def create_python_adapter(class_path: str, strategy: str = "singleton") -> UniversalMCPAdapter:
     """Create Python class adapter"""
     from .universal_adapter import FreshInstanceStrategy, SingletonStrategy, StaticMethodStrategy, UniversalMCPAdapter
 
     strategy_map = {"singleton": SingletonStrategy, "fresh": FreshInstanceStrategy, "static": StaticMethodStrategy}
 
     strategy_class = strategy_map.get(strategy, SingletonStrategy)
-    return UniversalMCPAdapter(class_path, strategy_class())
+    # Import the class dynamically
+    module_path, class_name = class_path.rsplit(".", 1)
+    import importlib
+
+    module = importlib.import_module(module_path)
+    target_class = getattr(module, class_name)
+    return UniversalMCPAdapter(target_class, strategy_class())
 
 
-def create_http_adapter(base_url: str, enhanced: bool = True, **kwargs):
+def create_http_adapter(base_url: str, enhanced: bool = True, **kwargs: Any) -> BaseAdapter:
     """Create HTTP API adapter"""
     if enhanced and _enhanced_available:
         return create_enhanced_http_adapter(base_url, **kwargs)
-    else:
-        # Fall back to standard implementation
-        from .multi_adapter import HttpApiAdapter, SourceInfo
+    # Fall back to standard implementation
+    from .multi_adapter import HttpApiAdapter, SourceInfo
 
-        source_info = SourceInfo(source_type="http_api", source_path=base_url, config=kwargs)
-        return HttpApiAdapter(source_info)
+    source_info = SourceInfo(source_type="http_api", source_path=base_url, config=kwargs)
+    return HttpApiAdapter(source_info)
 
 
-def create_multi_adapter():
+def create_multi_adapter() -> MultiSourceAdapter:
     """Create multi-source adapter"""
     return MultiSourceAdapter()
 
-def create_multi_source_adapter():
+
+def create_multi_source_adapter() -> MultiSourceAdapter:
     """Create multi-source adapter (alias)"""
     return MultiSourceAdapter()
 

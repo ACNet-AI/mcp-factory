@@ -75,14 +75,15 @@ class ProjectPublisher:
 
         try:
             with open(self.auth_cache_file) as f:
-                return json.load(f)
+                cache_data: dict[str, Any] = json.load(f)
+                return cache_data
         except Exception:
             return {}
 
     def _save_auth_cache(self, cache: dict[str, Any]) -> None:
         """Save authentication cache to disk"""
         try:
-            with open(self.auth_cache_file, 'w') as f:
+            with open(self.auth_cache_file, "w") as f:
                 json.dump(cache, f, indent=2)
             # Set restrictive permissions (contains sensitive data)
             self.auth_cache_file.chmod(0o600)
@@ -92,7 +93,8 @@ class ProjectPublisher:
     def _get_installation_id(self, github_username: str) -> str | None:
         """Get installation_id from cache for a GitHub username"""
         cache = self._load_auth_cache()
-        return cache.get("installations", {}).get(github_username)
+        installations: dict[str, str] = cache.get("installations", {})
+        return installations.get(github_username)
 
     def _save_installation_id(self, github_username: str, installation_id: str) -> None:
         """Save installation_id to cache"""
@@ -158,10 +160,16 @@ class ProjectPublisher:
 
             # 2. Get installation_id from auth cache
             github_username = metadata.get("github_username")
+            if not github_username or not isinstance(github_username, str):
+                return PublishResult(
+                    False, "GitHub username not found in metadata. Please configure GitHub authentication."
+                )
             installation_id = self._get_installation_id(github_username)
 
             if not installation_id:
-                return PublishResult(False, f"No installation found for user {github_username}. GitHub App installation required.")
+                return PublishResult(
+                    False, f"No installation found for user {github_username}. GitHub App installation required."
+                )
 
             # 3. Add installation_id to metadata for the API call (but don't save to project)
             api_metadata = metadata.copy()
@@ -171,7 +179,7 @@ class ProjectPublisher:
             return self._try_installation_api_publish(project_path, api_metadata)
 
         except Exception as e:
-            return PublishResult(False, f"API publishing failed: {str(e)}")
+            return PublishResult(False, f"API publishing failed: {e!s}")
 
     def _prepare_manual_publish(self, project_path: Path, metadata: dict[str, Any]) -> PublishResult:
         """Prepare manual publishing workflow with enhanced guidance"""
@@ -202,15 +210,14 @@ class ProjectPublisher:
                     "Git repository not initialized. Please run 'git init && git add . && git commit -m \"Initial commit\"' "
                     "in your project directory first.",
                 )
-            elif "No remote origin configured" in error_msg:
+            if "No remote origin configured" in error_msg:
                 return PublishResult(
                     False,
                     "Git repository exists but no GitHub remote configured. Please either:\n"
                     "1. Create a repository on GitHub first, then add remote: 'git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git'\n"
                     "2. Or use the manual publishing wizard to create repository automatically",
                 )
-            else:
-                return PublishResult(False, f"Git configuration issue: {error_msg}")
+            return PublishResult(False, f"Git configuration issue: {error_msg}")
 
         except OSError as e:
             return PublishResult(False, f"File system error: {e}")
@@ -446,9 +453,8 @@ class ProjectPublisher:
                     "permissions": data.get("permissions", {}),
                     "account": data.get("account", {}),
                 }
-            else:
-                # If status check fails, assume not installed
-                return {"installed": False}
+            # If status check fails, assume not installed
+            return {"installed": False}
 
         except (ConnectionError, requests.RequestException, TimeoutError, ValueError):
             # If we can't check status, assume not installed to be safe
@@ -475,7 +481,7 @@ class ProjectPublisher:
             }
 
         except Exception as e:
-            return {"success": False, "error": f"Failed to start session-based installation: {str(e)}"}
+            return {"success": False, "error": f"Failed to start session-based installation: {e!s}"}
 
     def check_installation_status_by_session(self, session_id: str) -> dict[str, Any]:
         """Check session-based GitHub App installation status - using existing configuration and API"""
@@ -536,8 +542,7 @@ class ProjectPublisher:
                     "installations": data.get("installations", []),
                     "user_info": {"username": github_username},
                 }
-            else:
-                return {"installed": False, "error": f"HTTP {response.status_code}"}
+            return {"installed": False, "error": f"HTTP {response.status_code}"}
 
         except Exception as e:
             return {"installed": False, "error": str(e)}
@@ -581,7 +586,9 @@ class ProjectPublisher:
                 "author": metadata.get("author", ""),
                 "categories": metadata.get("categories", ["tools"]),
                 "private": metadata.get("private", False),  # Added private field support
-                "owner": metadata.get("github_username"),  # Always pass owner, let backend handle account type detection
+                "owner": metadata.get(
+                    "github_username"
+                ),  # Always pass owner, let backend handle account type detection
             }
 
             # Use installation-id header for authentication
@@ -609,45 +616,43 @@ class ProjectPublisher:
                             "registration_url": "https://github.com/mcp-factory/mcp-servers-hub",
                         },
                     )
-                else:
-                    error_msg = result.get("error", "Unknown error")
-                    details = result.get("details", "")
-                    full_error = f"{error_msg}. {details}" if details else error_msg
-                    return PublishResult(False, f"GitHub App API failed: {full_error}")
-            else:
-                # Improved error handling following Backend team's example
-                try:
-                    error_result = response.json()
-                    error_msg = error_result.get("error", "Unknown error")
-                    details = error_result.get("details", "")
-                    solutions = error_result.get("solutions", [])
+                error_msg = result.get("error", "Unknown error")
+                details = result.get("details", "")
+                full_error = f"{error_msg}. {details}" if details else error_msg
+                return PublishResult(False, f"GitHub App API failed: {full_error}")
+            # Improved error handling following Backend team's example
+            try:
+                error_result = response.json()
+                error_msg = error_result.get("error", "Unknown error")
+                details = error_result.get("details", "")
+                solutions = error_result.get("solutions", [])
 
-                    full_error = f"{error_msg}"
-                    if details:
-                        full_error += f". {details}"
-                    if solutions:
-                        full_error += f". Suggestions: {'; '.join(solutions)}"
+                full_error = f"{error_msg}"
+                if details:
+                    full_error += f". {details}"
+                if solutions:
+                    full_error += f". Suggestions: {'; '.join(solutions)}"
 
-                    # Enhanced error type detection following Backend example
-                    error_type = "other"
-                    if details and "already exists" in details.lower():
-                        error_type = "repository_already_exists"
-                    elif "Repository creation failed" in error_msg:
-                        error_type = "repository_creation_failed"
+                # Enhanced error type detection following Backend example
+                error_type = "other"
+                if details and "already exists" in details.lower():
+                    error_type = "repository_already_exists"
+                elif "Repository creation failed" in error_msg:
+                    error_type = "repository_creation_failed"
 
-                    result_data = {"method": "api_failed", "error_type": error_type, "original_error": error_result}
+                result_data = {"method": "api_failed", "error_type": error_type, "original_error": error_result}
 
-                    return PublishResult(False, f"GitHub App API failed: {full_error}", result_data)
-                except Exception:
-                    error_text = response.text[:200] if response.text else "No response"
-                    return PublishResult(
-                        False, f"GitHub App API call failed (HTTP {response.status_code}): {error_text}"
-                    )
+                return PublishResult(False, f"GitHub App API failed: {full_error}", result_data)
+            except Exception:
+                error_text = response.text[:200] if response.text else "No response"
+                return PublishResult(
+                    False, f"GitHub App API call failed (HTTP {response.status_code}): {error_text}"
+                )
 
         except (ConnectionError, requests.RequestException, TimeoutError) as e:
             return PublishResult(False, f"GitHub App connection failed: {e}")
         except Exception as e:
-            return PublishResult(False, f"Installation API publishing failed: {str(e)}")
+            return PublishResult(False, f"Installation API publishing failed: {e!s}")
 
     def _send_publish_request(self, project_info: dict[str, Any]) -> dict[str, Any]:
         """Send publish request with unified installation-id authentication"""
@@ -681,20 +686,18 @@ class ProjectPublisher:
                     # Add HTTP status context to error message
                     if response.status_code == 400:
                         return {"success": False, "error": f"Bad request: {error_detail}"}
-                    elif response.status_code == 401:
+                    if response.status_code == 401:
                         return {"success": False, "error": f"Authentication failed: {error_detail}"}
-                    elif response.status_code == 403:
+                    if response.status_code == 403:
                         return {"success": False, "error": f"Permission denied: {error_detail}"}
-                    elif response.status_code == 404:
+                    if response.status_code == 404:
                         return {"success": False, "error": f"Service not found: {error_detail}"}
-                    elif response.status_code == 429:
+                    if response.status_code == 429:
                         return {"success": False, "error": f"Rate limit exceeded: {error_detail}"}
-                    elif response.status_code >= 500:
+                    if response.status_code >= 500:
                         return {"success": False, "error": f"Server error: {error_detail}"}
-                    else:
-                        return {"success": False, "error": error_detail}
-                else:
-                    return {"success": False, "error": f"Invalid error response format (HTTP {response.status_code})"}
+                    return {"success": False, "error": error_detail}
+                return {"success": False, "error": f"Invalid error response format (HTTP {response.status_code})"}
 
             except ValueError:
                 # Non-JSON error response
@@ -705,9 +708,9 @@ class ProjectPublisher:
         except requests.ConnectionError:
             return {"success": False, "error": "Connection failed - Unable to reach GitHub App service"}
         except requests.RequestException as e:
-            return {"success": False, "error": f"Request failed: {str(e)}"}
+            return {"success": False, "error": f"Request failed: {e!s}"}
         except Exception as e:
-            return {"success": False, "error": f"Unexpected error during API call: {str(e)}"}
+            return {"success": False, "error": f"Unexpected error during API call: {e!s}"}
 
     def detect_git_info(self, project_path: Path) -> dict[str, Any]:
         """Detect Git repository information"""
@@ -853,11 +856,10 @@ class ProjectPublisher:
             # New format: license = { text = "MIT" }
             text_value = license_info.get("text", "MIT")
             return str(text_value) if text_value is not None else "MIT"
-        elif isinstance(license_info, str):
+        if isinstance(license_info, str):
             # Simple format: license = "MIT"
             return license_info
-        else:
-            return "MIT"
+        return "MIT"
 
     def _detect_language(self, project_path: Path) -> str:
         """Validate project language - ensure it's a Python project created by mcp-factory"""
@@ -868,9 +870,9 @@ class ProjectPublisher:
         # Check if misused on non-Python projects
         if (project_path / "package.json").exists():
             raise PublishError("Cannot publish JavaScript project - mcp-factory only supports Python MCP servers")
-        elif (project_path / "Cargo.toml").exists():
+        if (project_path / "Cargo.toml").exists():
             raise PublishError("Cannot publish Rust project - mcp-factory only supports Python MCP servers")
-        elif (project_path / "go.mod").exists():
+        if (project_path / "go.mod").exists():
             raise PublishError("Cannot publish Go project - mcp-factory only supports Python MCP servers")
 
         return "python"
