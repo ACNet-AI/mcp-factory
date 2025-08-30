@@ -669,7 +669,7 @@ class ManagedServer(FastMCP[Any]):
         # Build structured tool information
         tool_info_list = []
         enabled_count = 0
-        permission_levels = {}
+        permission_levels: dict[str, int] = {}
 
         for tool_name, tool in management_tools.items():
             description = getattr(tool, "description", "No description")

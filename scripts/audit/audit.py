@@ -22,7 +22,7 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
 # Local import - placed after path setup
-from dependency_checker import DependencyChecker  # type: ignore[import-untyped]
+from dependency_checker import DependencyChecker  # type: ignore[import-untyped] # noqa: E402
 
 
 class AuditRunner:

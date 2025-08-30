@@ -645,9 +645,7 @@ class ProjectPublisher:
                 return PublishResult(False, f"GitHub App API failed: {full_error}", result_data)
             except Exception:
                 error_text = response.text[:200] if response.text else "No response"
-                return PublishResult(
-                    False, f"GitHub App API call failed (HTTP {response.status_code}): {error_text}"
-                )
+                return PublishResult(False, f"GitHub App API call failed (HTTP {response.status_code}): {error_text}")
 
         except (ConnectionError, requests.RequestException, TimeoutError) as e:
             return PublishResult(False, f"GitHub App connection failed: {e}")

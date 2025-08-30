@@ -150,16 +150,18 @@ def validate_example_environment() -> dict[str, bool]:
 
     # Check necessary Python packages
     try:
-        import mcp_factory
+        import importlib.util
 
-        results["mcp_factory_available"] = True
+        spec = importlib.util.find_spec("mcp_factory")
+        results["mcp_factory_available"] = spec is not None
     except ImportError:
         results["mcp_factory_available"] = False
 
     try:
-        import yaml
+        import importlib.util
 
-        results["yaml_available"] = True
+        spec = importlib.util.find_spec("yaml")
+        results["yaml_available"] = spec is not None
     except ImportError:
         results["yaml_available"] = False
 

@@ -333,9 +333,7 @@ class PublishCLIHelper(BaseCLIHelper):
 
                 return {"success": False, "error": "Installation found but no valid installation ID available"}
             # Installation not found, but maybe user needs more time
-            retry = self.confirm_action(
-                "Installation not detected. Would you like to retry checking?", default=True
-            )
+            retry = self.confirm_action("Installation not detected. Would you like to retry checking?", default=True)
             if retry:
                 time.sleep(3)
                 # Retry once
