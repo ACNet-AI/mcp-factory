@@ -29,6 +29,7 @@ class BasicTemplate:
             "pyproject.toml": "Python project configuration",
             "server.py": "Server entry file",
             "README.md": "Project documentation",
+            "AGENTS.md": "AI agent development guidelines",
             "CHANGELOG.md": "Version change log",
             ".env": "Environment variables configuration file",
             ".gitignore": "Git ignore file",
@@ -39,8 +40,9 @@ class BasicTemplate:
 
     def get_server_template(self) -> str:
         """Return server entry file template - core Builder usage"""
-        return textwrap.dedent(
-            '''
+        return (
+            textwrap.dedent(
+                '''
             #!/usr/bin/env python3
             """
             {description}
@@ -53,9 +55,12 @@ class BasicTemplate:
             """
 
             import sys
-            import yaml
             from pathlib import Path
+
+            import yaml
+
             from mcp_factory.server import ManagedServer
+
 
             class ConfigurationError(Exception):
                 \"\"\"Configuration error\"\"\"
@@ -65,7 +70,7 @@ class BasicTemplate:
                 """Load and validate configuration"""
                 config_path = Path(__file__).parent / "config.yaml"
                 try:
-                    with open(config_path, 'r', encoding='utf-8') as f:
+                    with open(config_path, encoding='utf-8') as f:
                         config = yaml.safe_load(f)
 
                     # Validate required configuration
@@ -88,12 +93,13 @@ class BasicTemplate:
             def create_server(config):
                 """Create and configure the ManagedServer"""
                 server_config = config['server']
+                management_config = config.get('management', {{}})
 
                 # Create server with basic configuration first
                 server_params = {{
                     'name': server_config['name'],
                     'instructions': server_config.get('instructions', ''),
-                    'expose_management_tools': server_config.get('expose_management_tools', True)
+                    'expose_management_tools': management_config.get('expose_management_tools', True)
                 }}
 
                 # Load middleware from configuration
@@ -120,7 +126,7 @@ class BasicTemplate:
                         lifespan = registry.create_lifespan({{"auto_start": True}})
                         if lifespan:
                             server._lifespan = lifespan
-                            print(f"🔗 External servers configured")
+                            print("🔗 External servers configured")
                     except ImportError:
                         print("⚠️  ServerRegistry not available, skipping external servers")
                     except Exception as e:
@@ -136,13 +142,69 @@ class BasicTemplate:
                 try:
                     from mcp_factory.project.components import ComponentManager
                     project_path = Path(__file__).parent
+
+                    # Check if auto-discovery is enabled
+                    config = getattr(server, "_config", {{}})
+                    auto_discovery_config = config.get("components", {{}}).get("auto_discovery", {{}})
+
+                    if auto_discovery_config.get("enabled", False):
+                        # Auto-discover components and update server config
+                        print("🔍 Auto-discovering project components...")
+                        discovered_components = ComponentManager.discover_project_components(project_path)
+
+                        if discovered_components:
+                            # Smart merge: keep manual configuration, add newly discovered components
+                            if "components" not in config:
+                                config["components"] = {{}}
+
+                            config_updated = False
+                            for comp_type, discovered_items in discovered_components.items():
+                                existing_items = config["components"].get(comp_type, [])
+                                existing_modules = {{item.get("module") for item in existing_items}}
+
+                                # Ensure all existing components have enabled attribute
+                                for existing_item in existing_items:
+                                    if "enabled" not in existing_item:
+                                        existing_item["enabled"] = True
+                                        config_updated = True
+
+                                # Only add non-existing components, deduplicate based on module path
+                                for discovered_item in discovered_items:
+                                    if discovered_item.get("module") not in existing_modules:
+                                        # Newly discovered components are enabled by default
+                                        discovered_item["enabled"] = True
+                                        existing_items.append(discovered_item)
+                                        config_updated = True
+
+                                config["components"][comp_type] = existing_items
+
+                            server._config = config
+
+                            # No longer write back to config file, maintain static and clean configuration
+                            # auto_discovery discovers components at runtime, used directly in memory
+                            print("💾 Components registered in memory only, config file remains static")
+
+                            total_discovered = sum(len(comps) for comps in discovered_components.values())
+                            print(f"📦 Discovered {{total_discovered}} components: {{', '.join(f'{{len(comps)}} {{name}}' for name, comps in discovered_components.items())}}")
+                        else:
+                            print("📂 No components found in project directories")
+
+                    # Register components (both declared and discovered)
                     ComponentManager.register_components(server, project_path)
-                    print(f"✅ Components registered successfully")
+                    print("✅ Components registered successfully")
+
                 except ImportError:
                     print("⚠️  ComponentManager not available, skipping auto-discovery")
                 except Exception as e:
                     print(f"⚠️  Component registration failed: {{e}}")
                     print("💡 You can still add tools manually using @server.tool()")
+
+            # Optional: Add your custom tools here
+            # Example:
+            # @server.tool()
+            # def my_custom_tool(input_data: str) -> str:
+            #     \"\"\"Your custom tool description\"\"\"
+            #     return f"Processed: {{input_data}}"
 
             def main():
                 """Main entry point"""
@@ -164,7 +226,18 @@ class BasicTemplate:
                 print("🔄 Starting server (Press Ctrl+C to stop)...")
 
                 try:
-                    server.run()
+                    # Get transport configuration
+                    transport_config = config.get('transport', {{}})
+                    transport = transport_config.get('transport', 'stdio')
+
+                    if transport in ['sse', 'streamable-http']:
+                        host = transport_config.get('host', '127.0.0.1')
+                        port = transport_config.get('port', 8000)
+                        print(f"🌐 Server will start on: {{transport}}://{{host}}:{{port}}")
+                        server.run(transport=transport, host=host, port=port)
+                    else:
+                        print(f"🔗 Server will start with: {{transport}} transport")
+                        server.run(transport=transport)
                 except KeyboardInterrupt:
                     print("\\n👋 Server stopped by user")
                 except Exception as e:
@@ -174,7 +247,9 @@ class BasicTemplate:
             if __name__ == "__main__":
                 main()
         '''
-        ).strip()
+            ).strip()
+            + "\n"
+        )
 
     def get_pyproject_template(self) -> str:
         """Return pyproject.toml template"""
@@ -195,6 +270,15 @@ class BasicTemplate:
                 "pydantic>=2.0.0",
                 "pyyaml>=6.0.0"
             ]
+
+
+
+            [tool.setuptools]
+            py-modules = []
+
+            [tool.setuptools.packages.find]
+            where = ["."]
+            include = []
 
             [project.optional-dependencies]
             dev = [
@@ -226,10 +310,26 @@ class BasicTemplate:
 
             ```bash
             # Install dependencies
-            pip install -e .
+            uv sync
 
             # Start server
-            python server.py
+            uv run python server.py
+            ```
+
+            ## Configuration
+
+            Add to your Claude Desktop config (`claude_desktop_config.json`):
+
+            ```json
+            {{
+              "mcpServers": {{
+                "{name}": {{
+                  "command": "uv",
+                  "args": ["run", "python", "server.py"],
+                  "cwd": "/path/to/{name}"
+                }}
+              }}
+            }}
             ```
 
             ## Project Structure
@@ -258,6 +358,10 @@ class BasicTemplate:
                 \"\"\"Tool description\"\"\"
                 return f"Result: {{{{arg}}}}"
             ```
+
+            ## Advanced Usage
+
+            For advanced features and examples, see the [examples directory](../examples/) in the mcp-factory repository.
 
             ---
 
@@ -399,5 +503,95 @@ class BasicTemplate:
             config.local.yaml
             .env.production
             .env.staging
+        """
+        ).strip()
+
+    def get_agents_template(self) -> str:
+        """Return AGENTS.md template"""
+        return textwrap.dedent(
+            """
+            # Project Overview
+            {description}
+
+            This is an MCP (Model Context Protocol) server built with mcp-factory. It provides tools, resources, and prompts accessible via the MCP protocol.
+
+            ## Server Configuration
+            **Claude Desktop Configuration (`claude_desktop_config.json`):**
+            ```json
+            {{
+              "mcpServers": {{
+                "{name}": {{
+                  "command": "uv",
+                  "args": ["run", "python", "server.py"],
+                  "cwd": "/path/to/{name}"
+                }}
+              }}
+            }}
+            ```
+
+            **Direct Connection:**
+            ```bash
+            # Navigate to project directory first
+            cd /path/to/{name}
+            uv run python server.py
+            ```
+
+            > **Note**: For alternative configuration methods (different environments, authentication, etc.),
+            > see the [MCP Configuration Guide](https://github.com/modelcontextprotocol/docs) or consult
+            > your MCP client documentation.
+
+            ## Build and Test Commands
+            ```bash
+            # Install dependencies
+            uv sync
+
+            # Run the server (always from mcp-factory root)
+            cd /path/to/mcp-factory
+            uv run python workspace/projects/{name}/server.py
+
+            # Test the server using mcp-inspector-server tools
+            # Call inspect_mcp_server with server_command parameter
+            # Call comprehensive_server_test for full validation
+            # Use call_mcp_tool to test individual functions
+            ```
+
+            ## Code Style Guidelines
+            - Use `uv run ruff format .` to format code (from project directory)
+            - Run `uv run ruff check .` before committing
+            - Use type hints: functions return `dict[str, Any]` for tools
+            - Add docstrings to all functions (required for MCP registration)
+            - Use direct function parameters, not Pydantic models
+
+            ## Testing Instructions
+            - Use mcp-inspector-server tools for all testing
+            - Call `inspect_mcp_server` to verify server connectivity
+            - Use `comprehensive_server_test` for complete validation
+            - Test individual tools with `call_mcp_tool`
+            - Run `uv run ruff check .` to catch linting issues
+            - Always verify server starts from mcp-factory root directory
+
+            ## Security Considerations
+            - Validate all input parameters in tools
+            - Be cautious with file system access in tools
+            - Don't expose sensitive data through resources
+            - Use appropriate error handling to avoid information leakage
+
+            ## Component Management
+            This project supports dynamic component discovery and registration:
+
+            **Adding Components:**
+            - Tools: Create `.py` files in `tools/` directory with functions decorated with `@tool`
+            - Resources: Create `.py` files in `resources/` directory with functions decorated with `@resource`
+            - Prompts: Create `.py` files in `prompts/` directory with functions decorated with `@prompt`
+
+            **Component Discovery:**
+            - Components are automatically discovered and registered in `config.yaml`
+            - Use descriptive function names and comprehensive docstrings
+            - Ensure all parameters are JSON-serializable for MCP compatibility
+
+            ## Development Notes
+            - **Path requirements**: Always run server from mcp-factory root directory
+            - **Schema requirements**: Use `dict[str, Any]` returns, ensure JSON-serializable parameters
+            - **Component discovery**: Components are automatically found and registered in `config.yaml`
         """
         ).strip()

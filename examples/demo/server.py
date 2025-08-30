@@ -108,8 +108,8 @@ def main() -> None:
     print(f"📝 Configuration file: {config_path}")
 
     # Check port
-    host = CONFIG["server"]["host"]
-    port = CONFIG["server"]["port"]
+    host = CONFIG["transport"]["host"]
+    port = CONFIG["transport"]["port"]
 
     if is_port_in_use(host, port):
         print(f"❌ Error: Port {port} is already in use")
@@ -150,9 +150,9 @@ def main() -> None:
     # Start server
     try:
         server.run(
-            transport=CONFIG["server"]["transport"],
-            host=CONFIG["server"]["host"],
-            port=CONFIG["server"]["port"],
+            transport=CONFIG["transport"]["transport"],
+            host=CONFIG["transport"]["host"],
+            port=CONFIG["transport"]["port"],
             streamable_http_path=path,
         )
     except KeyboardInterrupt:

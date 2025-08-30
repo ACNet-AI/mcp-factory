@@ -1,0 +1,317 @@
+# 多源适配器配置示例
+# 展示如何通过配置文件定义要适配的多种源系统
+
+# 项目基本信息
+project:
+  name: "comprehensive-mcp-server"
+  description: "基于多源适配的综合MCP服务器"
+  version: "1.0.0"
+
+# 源系统定义
+sources:
+  # Python类源 - 适配现有的Python库/框架
+  - type: "python_class"
+    name: "mcp_factory"
+    source_path: "mcp_factory.MCPFactory"
+    config:
+      strategy: "singleton"
+      instance_creation: "MCPFactory('./workspace')"
+      methods_filter:
+        - "create_server"
+        - "build_project" 
+        - "list_servers"
+        - "start_server"
+        - "stop_server"
+      exclude_methods:
+        - "_private_method"
+        - "__internal__"
+
+  # HTTP API源 - 适配现有的Web API
+  - type: "http_api"
+    name: "github_api"
+    source_path: "https://api.github.com"
+    config:
+      auth:
+        type: "bearer"
+        token_env: "GITHUB_TOKEN"  # 从环境变量获取
+      endpoints:
+        - name: "get_user"
+          method: "GET"
+          path: "/users/{username}"
+          parameters:
+            - name: "username"
+              type: "string"
+              required: true
+              location: "path"
+              description: "GitHub用户名"
+          description: "获取GitHub用户信息"
+          
+        - name: "list_user_repos"
+          method: "GET"
+          path: "/users/{username}/repos"
+          parameters:
+            - name: "username"
+              type: "string"
+              required: true
+              location: "path"
+            - name: "type"
+              type: "string"
+              required: false
+              location: "query"
+              default: "all"
+              enum: ["all", "owner", "member"]
+            - name: "sort"
+              type: "string"
+              required: false
+              location: "query"
+              default: "created"
+              enum: ["created", "updated", "pushed", "full_name"]
+          description: "列出用户的代码仓库"
+
+        - name: "create_issue"
+          method: "POST"
+          path: "/repos/{owner}/{repo}/issues"
+          parameters:
+            - name: "owner"
+              type: "string"
+              required: true
+              location: "path"
+            - name: "repo"
+              type: "string"
+              required: true
+              location: "path"
+            - name: "title"
+              type: "string"
+              required: true
+              location: "body"
+            - name: "body"
+              type: "string"
+              required: false
+              location: "body"
+            - name: "labels"
+              type: "array"
+              required: false
+              location: "body"
+          description: "创建GitHub Issue"
+
+  # FastAPI应用源 - 通过OpenAPI自动发现
+  - type: "http_api"
+    name: "local_fastapi"
+    source_path: "http://localhost:8000"
+    config:
+      auto_discovery: true  # 自动从OpenAPI文档发现端点
+      openapi_url: "/openapi.json"
+      timeout: 10
+      retry_count: 3
+
+  # CLI工具源 - 适配系统命令和工具
+  - type: "cli"
+    name: "system_tools"
+    source_path: "system"
+    config:
+      commands:
+        - name: "list_directory"
+          command: "ls"
+          arguments:
+            - name: "path"
+              type: "string"
+              required: true
+              description: "要列出的目录路径"
+            - name: "all_files"
+              type: "boolean"
+              required: false
+              flag: "-a"
+              description: "显示隐藏文件"
+            - name: "long_format"
+              type: "boolean"
+              required: false
+              flag: "-l"
+              description: "详细格式"
+          description: "列出目录内容"
+          
+        - name: "find_files"
+          command: "find"
+          arguments:
+            - name: "path"
+              type: "string"
+              required: true
+              description: "搜索路径"
+            - name: "name_pattern"
+              type: "string"
+              required: false
+              flag: "-name"
+              description: "文件名模式"
+            - name: "type"
+              type: "string"
+              required: false
+              flag: "-type"
+              enum: ["f", "d", "l"]
+              description: "文件类型 (f=文件, d=目录, l=链接)"
+          description: "查找文件和目录"
+
+  # Git工具源
+  - type: "cli"
+    name: "git_tools"
+    source_path: "git"
+    config:
+      working_directory: "."  # Git命令的工作目录
+      commands:
+        - name: "git_status"
+          command: "git"
+          arguments:
+            - name: "subcommand"
+              type: "string"
+              required: true
+              default: "status"
+              description: "Git子命令"
+            - name: "porcelain"
+              type: "boolean"
+              required: false
+              flag: "--porcelain"
+              description: "机器可读格式"
+          description: "检查Git仓库状态"
+          
+        - name: "git_log"
+          command: "git"
+          arguments:
+            - name: "subcommand"
+              type: "string"
+              required: true
+              default: "log"
+            - name: "oneline"
+              type: "boolean"
+              required: false
+              flag: "--oneline"
+            - name: "max_count"
+              type: "integer"
+              required: false
+              flag: "--max-count"
+              description: "限制提交数量"
+          description: "查看Git提交历史"
+
+  # Docker工具源
+  - type: "cli"
+    name: "docker_tools"
+    source_path: "docker"
+    config:
+      commands:
+        - name: "list_containers"
+          command: "docker"
+          arguments:
+            - name: "subcommand"
+              type: "string"
+              required: true
+              default: "ps"
+            - name: "all"
+              type: "boolean"
+              required: false
+              flag: "-a"
+              description: "显示所有容器"
+            - name: "format"
+              type: "string"
+              required: false
+              flag: "--format"
+              default: "table"
+              description: "输出格式"
+          description: "列出Docker容器"
+
+# 工具生成配置
+generation:
+  # 生成选项
+  options:
+    include_type_hints: true
+    add_error_handling: true
+    generate_tests: false
+    create_readme: true
+    
+  # 选择要生成的工具
+  selected_tools:
+    mcp_factory:
+      - "create_server"
+      - "build_project"
+      - "list_servers"
+    github_api:
+      - "get_user"
+      - "list_user_repos"
+    system_tools:
+      - "list_directory"
+      - "find_files"
+    git_tools:
+      - "git_status"
+      - "git_log"
+    docker_tools:
+      - "list_containers"
+
+# MCP服务器配置
+server:
+  name: "comprehensive-mcp-server"
+  instructions: |
+    This MCP server provides comprehensive system management capabilities by adapting
+    multiple source systems including Python libraries, HTTP APIs, and CLI tools.
+    
+    Available capabilities:
+    - Project management via mcp-factory
+    - GitHub API integration
+    - System file operations
+    - Git repository management
+    - Docker container management
+  
+  transport:
+    transport: "stdio"
+    host: "localhost"
+    port: 8000
+    log_level: "INFO"
+
+# 元数据
+metadata:
+  author: "MCP Factory Team"
+  license: "MIT"
+  tags:
+    - "multi-source"
+    - "automation"
+    - "system-management"
+    - "git"
+    - "docker"
+    - "github"
+  
+  documentation:
+    readme: |
+      # Comprehensive MCP Server
+      
+      This server demonstrates the power of multi-source adaptation, combining:
+      
+      ## Adapted Sources
+      
+      ### Python Libraries
+      - **mcp-factory**: Project and server management
+      
+      ### HTTP APIs  
+      - **GitHub API**: Repository and user management
+      - **Local FastAPI**: Custom application integration
+      
+      ### CLI Tools
+      - **System Commands**: File and directory operations
+      - **Git**: Version control operations
+      - **Docker**: Container management
+      
+      ## Usage Examples
+      
+      ```python
+      # Create a new MCP server project
+      result = create_server("my-project", {...})
+      
+      # Get GitHub user information
+      user_info = get_user("octocat")
+      
+      # List directory contents
+      files = list_directory("/home/user", all_files=True)
+      
+      # Check Git status
+      status = git_status(porcelain=True)
+      
+      # List Docker containers
+      containers = list_containers(all=True)
+      ```
+    
+    examples_dir: "examples/"
+    api_docs: "docs/api/" 

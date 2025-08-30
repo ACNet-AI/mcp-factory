@@ -462,7 +462,8 @@ class ManagedServer(FastMCP[Any]):
                 method_name, config["description"], annotation_type, config["async"], has_params=False
             )
             logger.debug("Created no-parameter wrapper for method %s", method_name)
-            return wrapper, {}
+            # Return proper JSON Schema for no-parameter methods
+            return wrapper, {"type": "object", "properties": {}}
 
         # Parameterized method: dynamically detect parameters
         try:
@@ -483,7 +484,8 @@ class ManagedServer(FastMCP[Any]):
             wrapper = self._create_wrapper(
                 method_name, config["description"], annotation_type, config["async"], has_params=False
             )
-            return wrapper, {}
+            # Return proper JSON Schema for fallback case
+            return wrapper, {"type": "object", "properties": {}}
 
     def _create_wrapper(
         self, name: str, desc: str, perm_type: str, is_async: bool, has_params: bool
@@ -585,9 +587,26 @@ class ManagedServer(FastMCP[Any]):
     # Public Management Interface
     # =============================================================================
 
-    def get_management_tools_info(self) -> str:
+    def get_management_tools_info(self) -> dict[str, Any]:
         """Get information about currently registered management tools."""
-        return self._safe_execute("get management tools info", self._get_management_tools_info_impl)
+        try:
+            return self._get_management_tools_info_impl()
+        except Exception as e:
+            logger.error("Error getting management tools info: %s", e, exc_info=True)
+            return {
+                "management_tools": [],
+                "configuration": {
+                    "expose_management_tools": self.expose_management_tools,
+                    "enable_permission_check": self.enable_permission_check,
+                    "management_tool_tags": list(self.management_tool_tags)
+                },
+                "statistics": {
+                    "total_management_tools": 0,
+                    "enabled_tools": 0,
+                    "permission_levels": {}
+                },
+                "error": str(e)
+            }
 
     def clear_management_tools(self) -> str:
         """Clear all registered management tools."""
@@ -633,46 +652,85 @@ class ManagedServer(FastMCP[Any]):
             logger.error(error_msg, exc_info=True)
             return error_msg
 
-    def _get_management_tools_info_impl(self) -> str:
-        """Implementation for getting management tools information."""
+    def _get_management_tools_info_impl(self) -> dict[str, Any]:
+        """Implementation for getting management tools information with structured output."""
         if not hasattr(self, "_tool_manager") or not hasattr(self._tool_manager, "_tools"):
-            return "📋 Tool manager or tool list not found"
+            return {
+                "management_tools": [],
+                "configuration": {
+                    "expose_management_tools": self.expose_management_tools,
+                    "enable_permission_check": self.enable_permission_check,
+                    "management_tool_tags": list(self.management_tool_tags)
+                },
+                "statistics": {
+                    "total_management_tools": 0,
+                    "enabled_tools": 0,
+                    "permission_levels": {}
+                }
+            }
 
         tools = self._tool_manager._tools
         management_tools = {
             name: tool for name, tool in tools.items() if isinstance(name, str) and name.startswith("manage_")
         }
 
-        if not management_tools:
-            return "📋 No management tools currently registered"
-
-        info_lines = [f"📋 Management Tools Information (Total: {len(management_tools)}):"]
+        # Build structured tool information
+        tool_info_list = []
+        enabled_count = 0
+        permission_levels = {}
 
         for tool_name, tool in management_tools.items():
             description = getattr(tool, "description", "No description")
             annotations = getattr(tool, "annotations", {})
+            enabled = getattr(tool, "enabled", True)
 
-            # Extract key information
+            if enabled:
+                enabled_count += 1
+
+            # Extract permission level
             if hasattr(annotations, "destructiveHint"):
                 is_destructive = getattr(annotations, "destructiveHint", False)
                 is_readonly = getattr(annotations, "readOnlyHint", False)
-                title = getattr(annotations, "title", tool_name)
             elif isinstance(annotations, dict):
                 is_destructive = annotations.get("destructiveHint", False)
                 is_readonly = annotations.get("readOnlyHint", False)
-                title = annotations.get("title", tool_name)
             else:
                 is_destructive = False
                 is_readonly = False
-                title = tool_name
 
-            # Add security indicators
-            safety_icon = "🔒" if is_destructive else ("👁️" if is_readonly else "⚙️")
-            info_lines.append(f"  {safety_icon} {tool_name}: {title}")
-            if description != tool_name:
-                info_lines.append(f"    Description: {description}")
+            # Determine permission level
+            if is_destructive:
+                permission_level = "destructive"
+            elif is_readonly:
+                permission_level = "readonly"
+            else:
+                permission_level = "modify"
 
-        return "\n".join(info_lines)
+            # Count permission levels
+            permission_levels[permission_level] = permission_levels.get(permission_level, 0) + 1
+
+            tool_info = {
+                "name": tool_name,
+                "description": description,
+                "permission_level": permission_level,
+                "enabled": enabled,
+                "annotations": dict(annotations) if isinstance(annotations, dict) else {}
+            }
+            tool_info_list.append(tool_info)
+
+        return {
+            "management_tools": tool_info_list,
+            "configuration": {
+                "expose_management_tools": self.expose_management_tools,
+                "enable_permission_check": self.enable_permission_check,
+                "management_tool_tags": list(self.management_tool_tags)
+            },
+            "statistics": {
+                "total_management_tools": len(management_tools),
+                "enabled_tools": enabled_count,
+                "permission_levels": permission_levels
+            }
+        }
 
     def _clear_management_tools_impl(self) -> str:
         """Implementation for clearing management tools."""
@@ -899,6 +957,7 @@ class ManagedServer(FastMCP[Any]):
     def _generate_parameters_from_signature(self, sig: inspect.Signature, method_name: str) -> dict[str, Any]:
         """Generate parameter definitions from method signature."""
         parameters = {}
+        required_params = []
 
         for param_name, param in sig.parameters.items():
             if param_name == "self":
@@ -920,11 +979,19 @@ class ManagedServer(FastMCP[Any]):
                 else:
                     param_info["default"] = str(param.default)
             else:
-                param_info["required"] = "true"
+                # This parameter is required (no default value)
+                required_params.append(param_name)
 
             parameters[param_name] = param_info
 
-        return parameters
+        # Create proper JSON Schema structure
+        schema = {"type": "object", "properties": parameters}
+
+        # Add required array if there are required parameters
+        if required_params:
+            schema["required"] = required_params
+
+        return schema
 
     def _map_python_type_to_json_schema(self, python_type: Any) -> str:
         """Map Python types to JSON Schema types."""

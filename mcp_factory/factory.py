@@ -539,6 +539,7 @@ class MCPFactory:
             # Load configuration
             config_data = self._load_config_from_source(source)
             server_config = config_data.get("server", {})
+            transport_config = config_data.get("transport", {})
 
             # CLI parameter > config file > default value
             actual_name = name or server_config.get("name") or "runtime-server"
@@ -552,9 +553,10 @@ class MCPFactory:
             managed_server = self.get_server(server_id)
 
             # Determine transport settings with override priority
-            final_transport = transport or server_config.get("transport", "stdio")
-            final_host = host or server_config.get("host", "127.0.0.1")
-            final_port = port or server_config.get("port", 8000)
+            # Note: We expect transport settings in transport section per schema
+            final_transport = transport or transport_config.get("transport", "stdio")
+            final_host = host or transport_config.get("host", "127.0.0.1")
+            final_port = port or transport_config.get("port", 8000)
 
             # Validate transport
             valid_transports = ["stdio", "http", "sse", "streamable-http"]
@@ -854,13 +856,34 @@ class MCPFactory:
             raise  # Re-raise exception to maintain type consistency
 
     def _register_server(self, server: ManagedServer, name: str) -> str:
-        """Register server to factory management (using UUID)"""
-        server_id = str(uuid.uuid4())
+        """Register server to factory management (with deduplication)"""
+        # Check if server with same name already exists in state
+        existing_server_id = self._find_existing_server_by_name(name)
+
+        if existing_server_id:
+            # Reuse existing server ID to avoid duplicates
+            logger.info("Reusing existing server ID for: %s", name)
+            server_id = existing_server_id
+        else:
+            # Generate new UUID only if no existing server found
+            server_id = str(uuid.uuid4())
+            logger.info("Generated new server ID for: %s", name)
+
         server._server_id = server_id
         server._created_at = datetime.now().isoformat()
         self._servers[server_id] = server
         logger.info("Server registered successfully: %s", name)
         return server_id
+
+    def _find_existing_server_by_name(self, name: str) -> str | None:
+        """Find existing server ID by name from state manager"""
+        if hasattr(self, "_state_manager") and self._state_manager:
+            # Access the internal servers dict from state manager
+            for server_id, server_info in self._state_manager._servers.items():
+                if server_info.get("name") == name:
+                    logger.debug("Found existing server: %s with ID: %s", name, server_id)
+                    return server_id
+        return None
 
     def _prepare_lifespan(
         self, config: dict[str, Any], user_lifespan: Callable[[Any], Any] | None

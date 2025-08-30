@@ -10,6 +10,9 @@ from typing import Any
 
 __version__ = "1.0.0"
 
+# Import adapters module, but don't expose directly in __all__,
+# users access via mcp_factory.adapters.xxx
+from . import adapters
 from .factory import MCPFactory
 from .server import ManagedServer
 
@@ -17,6 +20,8 @@ __all__ = [
     # Core classes
     "MCPFactory",
     "ManagedServer",
+    # Adapters module
+    "adapters",
     # Version
     "__version__",
 ]

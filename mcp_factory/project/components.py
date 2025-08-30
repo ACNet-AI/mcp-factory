@@ -48,44 +48,76 @@ class ComponentManager:
                     continue
 
                 functions = []
-                for module_config in declared_modules:
+                for i, module_config in enumerate(declared_modules):
+                    logger.debug("Processing module_config[%d]: %s", i, module_config)
                     if module_config.get("enabled", True):
                         # 🎯 Complete path resolution here
+                        # Support both "module" (manual config) and "file" (auto-discovery) keys
+                        module_path = module_config.get("module") or module_config.get("file")
+                        if not module_path:
+                            logger.warning("Module config missing both 'module' and 'file' keys: %s", module_config)
+                            continue
+
+                        logger.debug(
+                            "Processing %s[%d]: %s -> path: %s",
+                            component_type,
+                            i,
+                            module_path,
+                            module_path,
+                        )
+
                         resolved_file_path = ComponentManager._resolve_component_path(
-                            project_path, component_type, module_config["module"]
+                            project_path, component_type, module_path
                         )
 
                         if resolved_file_path:
-                            module_functions = ComponentManager._load_component_functions_from_file(resolved_file_path)
-                            functions.extend(module_functions)
+                            try:
+                                module_functions = ComponentManager._load_component_functions_from_file(
+                                    resolved_file_path
+                                )
+                                functions.extend(module_functions)
+                                logger.debug("Loaded %d functions from %s", len(module_functions), resolved_file_path)
+                            except Exception as e:
+                                import traceback
+
+                                logger.error("Failed to load functions from %s: %s", resolved_file_path, e)
+                                logger.error("Load functions traceback: %s", traceback.format_exc())
 
                 registered_count = ComponentManager._register_functions_to_server(server, component_type, functions)
                 total_registered += registered_count
 
             logger.info("Component registration completed: %s functions", total_registered)
         except Exception as e:
+            import traceback
+
             logger.error("Failed to register components: %s", e)
+            logger.error("Full traceback: %s", traceback.format_exc())
             # Don't throw exception, allow server to continue creation
 
     @staticmethod
     def _resolve_component_path(project_path: Path, component_type: str, module_name: str) -> Path | None:
-        """Simplified component path resolution
+        """Component path resolution supporting both simple names and relative paths
 
         Args:
             project_path: Component base path (project directory or shared-components directory)
             component_type: Component type (tools, resources, prompts)
-            module_name: Simple module name (e.g.: weather_tools)
+            module_name: Simple module name (e.g.: weather_tools) or relative path (e.g.: tools/discover_capabilities.py)
 
         Returns:
             Resolved file path or None
         """
-        # Only support simple module name pattern
-        if not module_name.endswith(".py"):
-            module_name_with_ext = f"{module_name}.py"
+        # Check if module_name is a relative path (contains path separators)
+        if "/" in module_name or "\\" in module_name:
+            # Auto-discovery generated path - relative to project_path
+            resolved_path = project_path / module_name
         else:
-            module_name_with_ext = module_name
+            # Simple module name pattern - traditional behavior
+            if not module_name.endswith(".py"):
+                module_name_with_ext = f"{module_name}.py"
+            else:
+                module_name_with_ext = module_name
 
-        resolved_path = project_path / component_type / module_name_with_ext
+            resolved_path = project_path / component_type / module_name_with_ext
 
         if resolved_path.exists():
             logger.debug("Found component file: %s", resolved_path)
@@ -128,7 +160,16 @@ class ComponentManager:
             functions = []
             for attr_name in module.__all__:
                 attr = getattr(module, attr_name, None)
-                if attr and callable(attr) and hasattr(attr, "__doc__") and attr.__doc__:
+                # Only include actual functions, not classes or other callables
+                if (
+                    attr
+                    and callable(attr)
+                    and hasattr(attr, "__doc__")
+                    and attr.__doc__
+                    and
+                    # Check if it's a function (not a class or method)
+                    (hasattr(attr, "__name__") and not isinstance(attr, type))
+                ):
                     description = attr.__doc__
                     functions.append((attr, attr_name, description))
 
@@ -155,17 +196,41 @@ class ComponentManager:
         registered_count = 0
         for func, name, description in functions:
             try:
+                logger.debug("Registering %s: %s", component_type, name)
                 if component_type == "tools":
-                    server.tool(name=name, description=description)(func)
+                    tool_decorator = server.tool(name=name, description=description)
+                    tool_decorator(func)
+                    logger.debug("Successfully decorated tool: %s", name)
                 elif component_type == "resources" and hasattr(server, "resource"):
-                    server.resource(name=name, description=description)(func)
+                    # FastMCP requires uri as first parameter for resources
+                    # Check if function has parameters to determine if it's a template resource
+                    import inspect
+                    sig = inspect.signature(func)
+                    if len(sig.parameters) > 0:
+                        # Template resource with parameters - use actual parameter names
+                        param_names = list(sig.parameters.keys())
+                        uri_params = "/".join([f"{{{param}}}" for param in param_names])
+                        resource_uri = f"resource://{name}/{uri_params}"
+                    else:
+                        # Static resource without parameters
+                        resource_uri = f"resource://{name}"
+                    resource_decorator = server.resource(resource_uri, name=name, description=description)
+                    resource_decorator(func)
+                    logger.debug("Successfully decorated resource: %s", name)
                 elif component_type == "prompts" and hasattr(server, "prompt"):
-                    server.prompt(name=name, description=description)(func)
+                    prompt_decorator = server.prompt(name=name, description=description)
+                    prompt_decorator(func)
+                    logger.debug("Successfully decorated prompt: %s", name)
                 else:
+                    logger.warning("Unsupported component type or missing server method: %s", component_type)
                     continue
                 registered_count += 1
+                logger.debug("Successfully registered %s: %s", component_type, name)
             except Exception as e:
+                import traceback
+
                 logger.error("Failed to register %s %s: %s", component_type, name, e)
+                logger.error("Registration traceback: %s", traceback.format_exc())
         return registered_count
 
     # ========================================================================
@@ -203,14 +268,14 @@ class ComponentManager:
 
     @staticmethod
     def _scan_component_directory(component_dir: Path, component_type: str) -> list[dict[str, Any]]:
-        """Scan component directory
+        """Scan component directory recursively
 
         Args:
             component_dir: Component directory path
             component_type: Component type
 
         Returns:
-            Component configuration list
+            Component configuration list with support for subdirectories
         """
         modules = []
 
@@ -220,21 +285,28 @@ class ComponentManager:
             init_functions = ComponentManager._scan_init_file_functions(init_file, component_type)
             modules.extend(init_functions)
 
-        # Scan independent .py files
-        for py_file in component_dir.glob("*.py"):
+        # Recursively scan all .py files (including subdirectories)
+        for py_file in component_dir.rglob("*.py"):
             if py_file.name == "__init__.py":
                 continue
 
-            module_name = py_file.stem
+            # Generate module name from relative path
+            relative_path = py_file.relative_to(component_dir)
+            if relative_path.parent == Path("."):
+                # Top-level file: use simple name
+                module_name = py_file.stem
+            else:
+                # Subdirectory file: use path-based name (e.g., "core.semantic_understanding")
+                module_name = str(relative_path.with_suffix("")).replace("/", ".").replace("\\", ".")
+
             description = ComponentManager._extract_module_description(py_file)
 
             module_config = {
-                "name": module_name,
                 "description": description or f"{component_type.rstrip('s')} module: {module_name}",
-                "file": str(py_file.relative_to(component_dir.parent)),
+                "module": str(py_file.relative_to(component_dir.parent)),
             }
             modules.append(module_config)
-            logger.debug("Found %s module: %s", component_type, module_name)
+            logger.debug("Found %s module: %s (path: %s)", component_type, module_name, relative_path)
 
         return modules
 

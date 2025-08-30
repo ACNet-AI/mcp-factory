@@ -199,6 +199,10 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     "items": {
                         "type": "object",
                         "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Component name for identification and deduplication",
+                            },
                             "module": {
                                 "type": "string",
                                 "description": "Python module name in tools/ directory (without .py extension)",
@@ -240,6 +244,10 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     "items": {
                         "type": "object",
                         "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Component name for identification and deduplication",
+                            },
                             "module": {
                                 "type": "string",
                                 "description": "Python module name in resources/ directory (without .py extension)",
@@ -283,6 +291,10 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     "items": {
                         "type": "object",
                         "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Component name for identification and deduplication",
+                            },
                             "module": {
                                 "type": "string",
                                 "description": "Python module name in prompts/ directory (without .py extension)",
