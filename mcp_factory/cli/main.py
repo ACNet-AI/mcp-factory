@@ -46,6 +46,53 @@ def warning_message(message: str) -> None:
     click.echo(click.style(f"⚠️ {message}", fg="yellow"))
 
 
+def _run_server_file_directly(server_path: Path, transport: str | None, host: str | None, port: int | None) -> None:
+    """Run server.py file directly using Python subprocess
+
+    Args:
+        server_path: Path to the server.py file
+        transport: Transport protocol override
+        host: Host address override
+        port: Port number override
+    """
+    import os
+    import subprocess
+
+    # Get the directory containing the server.py file
+    server_dir = server_path.parent
+
+    # Set up environment
+    env = os.environ.copy()
+
+    # Add transport overrides as environment variables if provided
+    if transport:
+        env["MCPF_TRANSPORT"] = transport
+    if host:
+        env["MCPF_HOST"] = host
+    if port:
+        env["MCPF_PORT"] = str(port)
+
+    # Run the server.py file directly
+    try:
+        # Change to the server directory and run the file
+        result = subprocess.run(
+            [sys.executable, str(server_path.name)],
+            cwd=str(server_dir),
+            env=env,
+            # Don't capture output - let server communicate directly with parent process
+        )
+
+        # Exit with the same code as the server process
+        sys.exit(result.returncode)
+
+    except KeyboardInterrupt:
+        click.echo("\n🛑 Server stopped by user")
+        sys.exit(0)
+    except Exception as e:
+        error_message(f"Failed to run server file: {e}")
+        sys.exit(1)
+
+
 def get_factory(workspace: str | None = None) -> MCPFactory:
     """Get MCPFactory instance"""
     if workspace:
@@ -612,45 +659,117 @@ def clear(ctx: click.Context, force: bool, keep_configs: bool) -> None:
 
 
 @server.command()
-@click.argument("config_source")
+@click.argument("config_source", required=False)
 @click.option("--name", help="Override server name")
 @click.option("--transport", type=click.Choice(["stdio", "http", "sse"]), help="Override transport method")
 @click.option("--host", help="Override host address")
 @click.option("--port", type=int, help="Override port number")
+@click.option("--project-mode", is_flag=True, help="Force project mode (use project directory directly)")
+@click.option("--server-file", help="Run specific server.py file directly")
 @click.pass_context
 def run(
-    ctx: click.Context, config_source: str, name: str | None, transport: str | None, host: str | None, port: int | None
+    ctx: click.Context,
+    config_source: str | None,
+    name: str | None,
+    transport: str | None,
+    host: str | None,
+    port: int | None,
+    project_mode: bool,
+    server_file: str | None,
 ) -> None:
-    """Run server using FastMCP (supports config file path or project name)"""
+    """Run server using FastMCP (supports config file, project directory, or server.py file)
+
+    Examples:
+      mcp-factory server run config.yaml                    # Config file mode
+      mcp-factory server run my-project --project-mode      # Project directory mode
+      mcp-factory server run /path/to/project --project-mode # Project directory mode
+      mcp-factory server run --server-file /path/to/server.py # Direct server.py mode
+    """
     try:
         factory = get_factory(ctx.obj.get("workspace") if ctx.obj else None)
 
-        # Determine if config_source is a file path or project name
+        # Handle --server-file option (highest priority)
+        if server_file:
+            server_path = Path(server_file)
+            if not server_path.exists() or not server_path.is_file():
+                error_message(f"Server file not found: {server_file}")
+                sys.exit(1)
+            click.echo(f"🚀 Running server file directly: {server_file}")
+            return _run_server_file_directly(server_path, transport, host, port)
+
+        # Validate that config_source is provided when not using --server-file
+        if not config_source:
+            error_message("CONFIG_SOURCE is required when not using --server-file")
+            sys.exit(1)
+
+        # Determine source type and mode
         config_path = Path(config_source)
-        if config_path.exists() and config_path.is_file():
-            # It's a file path
-            source = config_source
-            click.echo(f"🚀 Starting server from config file: {config_source}")
-        else:
-            # Try to resolve as project name
-            project_dir = factory.workspace_root / "projects" / config_source
-            if project_dir.exists() and project_dir.is_dir():
-                # It's a project name
-                project_config = project_dir / "config.yaml"
-                if project_config.exists():
-                    source = str(project_config)
-                    click.echo(f"🚀 Starting server from project: {config_source}")
+
+        if project_mode:
+            # Force project mode - expect directory
+            if config_path.exists() and config_path.is_dir():
+                source = config_source
+                click.echo(f"🚀 Starting server in project mode: {config_source}")
+            else:
+                # Try to resolve as project name in workspace
+                project_dir = factory.workspace_root / "projects" / config_source
+                if project_dir.exists() and project_dir.is_dir():
+                    source = str(project_dir)
+                    click.echo(f"🚀 Starting server in project mode: {config_source}")
                 else:
-                    error_message(f"Project '{config_source}' found but no config.yaml file")
+                    error_message(f"Project directory not found: {config_source}")
+                    sys.exit(1)
+        else:
+            # Auto-detect mode based on path
+            if config_path.exists() and config_path.is_file():
+                # It's a config file
+                source = config_source
+                click.echo(f"🚀 Starting server from config file: {config_source}")
+            elif config_path.exists() and config_path.is_dir():
+                # It's a directory - check if it has server.py (project mode) or config.yaml (config mode)
+                server_py = config_path / "server.py"
+                config_yaml = config_path / "config.yaml"
+
+                if server_py.exists():
+                    click.echo("📁 Detected project directory with server.py")
+                    if config_yaml.exists():
+                        click.echo("⚙️  Found both server.py and config.yaml - using project mode")
+                        click.echo("💡 Tip: Use --project-mode to skip this detection")
+                    source = config_source  # Use directory for project mode
+                    click.echo(f"🚀 Starting server in project mode: {config_source}")
+                elif config_yaml.exists():
+                    # Directory with config.yaml but no server.py - use config mode
+                    source = str(config_yaml)
+                    click.echo(f"🚀 Starting server from project config: {config_source}")
+                else:
+                    error_message(f"Directory '{config_source}' has no server.py or config.yaml")
                     sys.exit(1)
             else:
-                error_message(f"Config file or project not found: {config_source}")
-                sys.exit(1)
+                # Try to resolve as project name in workspace
+                project_dir = factory.workspace_root / "projects" / config_source
+                if project_dir.exists() and project_dir.is_dir():
+                    # Found project directory - check for server.py vs config.yaml
+                    server_py = project_dir / "server.py"
+                    config_yaml = project_dir / "config.yaml"
+
+                    if server_py.exists():
+                        source = str(project_dir)  # Use directory for project mode
+                        click.echo(f"🚀 Starting server in project mode: {config_source}")
+                    elif config_yaml.exists():
+                        source = str(config_yaml)  # Use config file
+                        click.echo(f"🚀 Starting server from project config: {config_source}")
+                    else:
+                        error_message(f"Project '{config_source}' has no server.py or config.yaml")
+                        sys.exit(1)
+                else:
+                    error_message(f"Config file or project not found: {config_source}")
+                    sys.exit(1)
 
         # Use Factory's run_server method for core logic
-        server_id = factory.run_server(source=source, name=name, transport=transport, host=host, port=port)
+        factory.run_server(source=source, name=name, transport=transport, host=host, port=port)
 
-        success_message(f"Server '{server_id}' started successfully!")
+        # Don't show success message for run command as server takes over stdout in stdio mode
+        # The server itself will handle the output after this point
 
     except Exception as e:
         from .helpers import handle_cli_error
@@ -752,24 +871,24 @@ def init(
         click.echo(f"   Debug mode: {'✅' if debug else '❌'}")
         click.echo(f"   Git repository: {'❌' if no_git else '✅'}")
 
-        # Generate configuration file
+        # Generate configuration file following correct schema
         config_data = {
             "server": {
                 "name": name,
-                "description": description,
+                "instructions": f"This is {name} - {description}",
+            },
+            "transport": {
+                "transport": transport,
                 "host": host,
                 "port": port,
-                "transport": transport,
-                "instructions": f"This is {name} - {description}",
-            }
+                "log_level": "DEBUG" if debug else "INFO",
+            },
         }
 
         if auth:
-            config_data["server"]["auth"] = {"enabled": True}
+            config_data["auth"] = {"provider": "basic"}
         if auto_discovery:
-            config_data["server"]["auto_discovery"] = {"enabled": True}
-        if debug:
-            config_data["server"]["debug"] = True
+            config_data["components"] = {"auto_discovery": {"enabled": True}}
 
         # Build project structure (this will create config.yaml inside the project)
         project_path = factory.build_project(name, config_data, git_init=not no_git)
@@ -875,11 +994,11 @@ def _display_project_info(publisher: Any, project_path_obj: Path) -> None:
 
 
 def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Path) -> dict[str, Any]:
-    """Collect project configuration (using OAuth authentication)"""
+    """Collect project configuration (simplified with auth cache in publisher)"""
     has_config, existing_config = publisher.check_hub_configuration(project_path_obj)
 
     if not has_config:
-        # Step 1: Collect basic project information (excluding GitHub username)
+        # Step 1: Collect basic project information
         existing_info = {}
 
         try:
@@ -887,7 +1006,7 @@ def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Pa
         except Exception as e:
             warning_message(f"Unable to extract project metadata: {e}")
 
-        # Collect basic configuration (no GitHub username needed)
+        # Collect basic configuration
         basic_config = cli_helper.collect_project_configuration(existing_info)
 
         # Step 2: GitHub App installation to get GitHub username and installation_id
@@ -902,113 +1021,56 @@ def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Pa
                 warning_message("GitHub App installation timeout. Falling back to manual configuration...")
                 # Fallback to manual GitHub username input
                 github_username = cli_helper.text_input("GitHub Username:", "")
-                installation_id = cli_helper.text_input("Installation ID:", "")
-                oauth_result = {"github_username": github_username, "installation_id": installation_id}
+                oauth_result = {"github_username": github_username}
             else:
                 error_message(f"GitHub App installation failed: {oauth_result.get('error', 'Unknown error')}")
                 sys.exit(1)
 
-        # Step 3: Merge configuration information
-        complete_config = {
+        # Step 3: Save installation_id to auth cache (if available)
+        if oauth_result.get("installation_id") and oauth_result.get("github_username"):
+            publisher._save_installation_id(oauth_result["github_username"], oauth_result["installation_id"])
+            info_message("✅ Installation saved to auth cache")
+
+        # Step 4: Create project configuration (without installation_id)
+        project_config = {
             **basic_config,
             "github_username": oauth_result.get("github_username", ""),
-            "installation_id": oauth_result.get("installation_id", ""),
+            # Note: installation_id is NOT saved to project config anymore
         }
 
-        # Save complete configuration
-        if not publisher.add_hub_configuration(project_path_obj, complete_config):
+        # Save project configuration (without sensitive data)
+        if not publisher.add_hub_configuration(project_path_obj, project_config):
             cli_helper.show_error_message("Failed to save configuration")
             sys.exit(1)
 
-        return complete_config
+        return project_config
     else:
-        # Check validity of existing configuration
-        needs_update = False
-        update_reason = ""
+        # Project has existing configuration
+        github_username = existing_config.get("github_username")
 
-        # Check if required fields are missing
-        if not existing_config.get("github_username") or not existing_config.get("installation_id"):
-            needs_update = True
-            update_reason = "Missing required fields"
-        else:
-            # Validate if Installation ID is valid
-            github_username = existing_config.get("github_username")
-            installation_id = existing_config.get("installation_id")
+        # Check if we have installation_id in auth cache
+        installation_id = publisher._get_installation_id(github_username)
 
-            info_message(f"🔍 Verifying Installation ID {installation_id} for user {github_username}...")
-
-            try:
-                import requests
-
-                response = requests.get(
-                    f"{publisher.github_app_url}/api/github/installation-status",
-                    params={"user": github_username},
-                    timeout=10,
-                )
-
-                if response.status_code == 200:
-                    install_info = response.json()
-                    if install_info.get("installed"):
-                        installations = install_info.get("installations", [])
-                        # Check if current installation_id is in valid list
-                        valid_ids = [install.get("id") for install in installations]
-
-                        if installation_id not in valid_ids:
-                            # App is installed, but ID is invalid - automatically use latest valid ID
-                            if valid_ids:
-                                latest_id = valid_ids[0]  # Use first one (usually the latest)
-                                warning_message(f"⚠️ Installation ID {installation_id} expired")
-                                info_message(f"🔄 Auto-updating to latest ID: {latest_id}")
-
-                                # Update configuration directly, no user action needed
-                                existing_config.update(
-                                    {
-                                        "installation_id": latest_id,
-                                    }
-                                )
-                                publisher.add_hub_configuration(project_path_obj, existing_config)
-                                info_message("✅ Installation ID automatically updated and saved")
-
-                                # Skip OAuth flow, return updated configuration directly
-                                return dict(existing_config)
-                            else:
-                                needs_update = True
-                                update_reason = f"No valid Installation IDs found for user {github_username}"
-                                warning_message(f"⚠️ {update_reason}")
-                        else:
-                            info_message("✅ Installation ID verified successfully")
-                    else:
-                        needs_update = True
-                        update_reason = f"GitHub App not installed for user {github_username}"
-                        warning_message(f"⚠️ {update_reason}")
-                else:
-                    warning_message(f"⚠️ Unable to verify Installation ID (API returned {response.status_code})")
-                    # Continue using existing configuration, don't force update
-
-            except Exception as e:
-                warning_message(f"⚠️ Unable to verify Installation ID: {e}")
-                # In case of network errors, continue using existing configuration
-
-        # If update is needed, get GitHub App information again
-        if needs_update:
-            info_message(f"🔐 Updating GitHub authentication... ({update_reason})")
-            oauth_result = cli_helper.handle_oauth_authentication(
-                publisher, existing_config["name"], str(project_path_obj), force_update=True
-            )
+        if not installation_id:
+            info_message("🔐 No installation found in auth cache, GitHub App installation required...")
+            oauth_result = cli_helper.handle_oauth_authentication(publisher, existing_config.get("name", ""), str(project_path_obj))
 
             if oauth_result.get("success"):
-                # Update configuration information
-                existing_config.update(
-                    {
-                        "github_username": oauth_result.get(
-                            "github_username", existing_config.get("github_username", "")
-                        ),
-                        "installation_id": oauth_result.get("installation_id", ""),
-                    }
-                )
-                # Save updated configuration immediately
-                publisher.add_hub_configuration(project_path_obj, existing_config)
-                info_message("✅ Configuration updated and saved")
+                # Save installation_id to auth cache
+                if oauth_result.get("installation_id") and oauth_result.get("github_username"):
+                    publisher._save_installation_id(oauth_result["github_username"], oauth_result["installation_id"])
+                    info_message("✅ Installation saved to auth cache")
+
+                # Update project config if github_username changed
+                if oauth_result.get("github_username") != github_username:
+                    existing_config["github_username"] = oauth_result.get("github_username", github_username)
+                    publisher.add_hub_configuration(project_path_obj, existing_config)
+                    info_message("✅ Project configuration updated")
+            else:
+                error_message("GitHub App installation failed")
+                sys.exit(1)
+        else:
+            info_message(f"✅ Using installation from auth cache for {github_username}")
 
         return dict(existing_config)
 
@@ -1498,11 +1560,10 @@ def template(
         # Ensure output path is in configs directory
         output_path = configs_dir / output
 
-        # Generate basic configuration template
+        # Generate basic configuration template following correct schema
         config_template = {
             "server": {
                 "name": name,
-                "description": description,
                 "instructions": f"This is {name} - {description}",
             },
             "transport": {"transport": "stdio", "host": "127.0.0.1", "port": 8000, "log_level": "INFO"},

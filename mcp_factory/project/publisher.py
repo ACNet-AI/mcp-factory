@@ -59,6 +59,49 @@ class ProjectPublisher:
         self.github_app_name = "mcp-project-manager"
         self.hub_repo = "ACNet-AI/mcp-servers-hub"
 
+        # Simple auth cache management
+        self.auth_cache_dir = Path.home() / ".mcp-factory"
+        self.auth_cache_file = self.auth_cache_dir / "auth_cache.json"
+        self.auth_cache_dir.mkdir(exist_ok=True)
+
+    # ============================================================================
+    # Authentication cache management
+    # ============================================================================
+
+    def _load_auth_cache(self) -> dict[str, Any]:
+        """Load authentication cache from disk"""
+        if not self.auth_cache_file.exists():
+            return {}
+
+        try:
+            with open(self.auth_cache_file) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _save_auth_cache(self, cache: dict[str, Any]) -> None:
+        """Save authentication cache to disk"""
+        try:
+            with open(self.auth_cache_file, 'w') as f:
+                json.dump(cache, f, indent=2)
+            # Set restrictive permissions (contains sensitive data)
+            self.auth_cache_file.chmod(0o600)
+        except Exception:
+            pass  # Fail silently, not critical
+
+    def _get_installation_id(self, github_username: str) -> str | None:
+        """Get installation_id from cache for a GitHub username"""
+        cache = self._load_auth_cache()
+        return cache.get("installations", {}).get(github_username)
+
+    def _save_installation_id(self, github_username: str, installation_id: str) -> None:
+        """Save installation_id to cache"""
+        cache = self._load_auth_cache()
+        if "installations" not in cache:
+            cache["installations"] = {}
+        cache["installations"][github_username] = installation_id
+        self._save_auth_cache(cache)
+
     # ============================================================================
     # Core publishing logic
     # ============================================================================
@@ -113,13 +156,19 @@ class ProjectPublisher:
             if not self._check_github_app_status():
                 return PublishResult(False, "GitHub App service unavailable. Falling back to manual workflow.")
 
-            # 2. Check if we have installation_id
-            installation_id = metadata.get("installation_id")
-            if not installation_id:
-                return PublishResult(False, "No installation_id provided. GitHub App installation required.")
+            # 2. Get installation_id from auth cache
+            github_username = metadata.get("github_username")
+            installation_id = self._get_installation_id(github_username)
 
-            # 3. Use Installation API directly
-            return self._try_installation_api_publish(project_path, metadata)
+            if not installation_id:
+                return PublishResult(False, f"No installation found for user {github_username}. GitHub App installation required.")
+
+            # 3. Add installation_id to metadata for the API call (but don't save to project)
+            api_metadata = metadata.copy()
+            api_metadata["installation_id"] = installation_id
+
+            # 4. Use Installation API directly
+            return self._try_installation_api_publish(project_path, api_metadata)
 
         except Exception as e:
             return PublishResult(False, f"API publishing failed: {str(e)}")
@@ -532,6 +581,7 @@ class ProjectPublisher:
                 "author": metadata.get("author", ""),
                 "categories": metadata.get("categories", ["tools"]),
                 "private": metadata.get("private", False),  # Added private field support
+                "owner": metadata.get("github_username"),  # Always pass owner, let backend handle account type detection
             }
 
             # Use installation-id header for authentication
@@ -833,6 +883,7 @@ class ProjectPublisher:
             "config.yaml",  # Project configuration file
             "pyproject.toml",  # Python project configuration
             "README.md",  # Project documentation
+            "AGENTS.md",  # AI agent development guidelines
             "CHANGELOG.md",  # Version changelog
             ".env",  # Environment variables configuration
             ".gitignore",  # Git ignore file

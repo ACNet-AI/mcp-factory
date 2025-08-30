@@ -2,6 +2,34 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.2.0] - 2025-08-30
+
+### 🏗️ Architecture Improvements
+- **Authentication Architecture Refactor** - Moved `installation_id` from project config to local auth cache (`~/.mcp-factory/auth_cache.json`)
+- **Security Enhancement** - Resolved security concerns with storing sensitive installation_id in shareable project configurations
+- **Simplified Configuration** - Removed complex user configuration modules in favor of streamlined auth cache system
+- **Publisher Optimization** - Enhanced publisher.py with direct authentication cache management
+
+### ⬆️ Dependency Updates
+- **FastMCP Upgrade** - Updated from v2.10.6 to v2.11.3 with latest features and improvements
+- **Core Dependencies** - Updated all major dependencies to latest stable versions:
+  - `aiohttp`: 3.12.13 → 3.12.15
+  - `jsonschema`: 4.24.0 → 4.25.1  
+  - `mcp`: 1.10.1 → 1.13.1
+  - `ruff`: 0.12.1 → 0.12.11
+  - `uvicorn`: 0.34.3 → 0.35.0
+
+### 🔧 Code Quality
+- **Linting Fixes** - Resolved all Ruff code quality issues and formatting inconsistencies
+- **Type Safety** - Maintained full compatibility with updated dependencies
+- **Clean Architecture** - Removed temporary test files and cleaned project structure
+
+### 🚀 FastMCP 2.11.3 Benefits
+- **Enhanced Stability** - Improved error handling and middleware support
+- **Better Performance** - Optimized sub-process reuse and connection management  
+- **New Capabilities** - Access to elicitation support and output schema features
+- **Improved Developer Experience** - Automatic type conversion and reduced boilerplate code
+
 ## [1.1.1] - 2025-07-25
 
 ### 🐛 Bug Fixes
