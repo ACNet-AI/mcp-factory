@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Multi-source Adapter System Demo
+"""Multi-Adapter System Demo
 
 Demonstrates how to convert different types of existing systems (Python classes, HTTP APIs, CLI commands)
-into MCP tools - complete example.
+into MCP tools using the new unified multi-adapter architecture.
 """
 
 from pathlib import Path
 
-from mcp_factory.adapters import create_multi_adapter
+from mcp_factory.adapters import adapt
 
 
 def demo_python_class_adapter():
@@ -16,15 +16,15 @@ def demo_python_class_adapter():
     print("=" * 50)
 
     # Create multi-source adapter
-    adapter = create_multi_adapter()
+    adapter = adapt.multi()
 
     # Add Python class source - adapt mcp_factory.MCPFactory
     adapter.add_source(
-        source_type="python_class",
         source_path="mcp_factory.MCPFactory",
+        adapter_type="python_class",
         config={
             "instance_creation": "MCPFactory('./workspace')",
-            "methods_filter": ["create_server", "build_project", "list_servers"],
+            "include_methods": ["create_server", "build_project", "list_servers"],
         },
     )
 
@@ -43,7 +43,7 @@ def demo_http_api_adapter():
     print("\n🌐 HTTP API Adaptation Demo")
     print("=" * 50)
 
-    adapter = create_multi_adapter()
+    adapter = adapt.multi()
 
     # Add HTTP API source - Example FastAPI service
     adapter.add_source(
@@ -86,7 +86,7 @@ def demo_cli_adapter():
     print("\n💻 CLI Command Adaptation Demo")
     print("=" * 50)
 
-    adapter = create_multi_adapter()
+    adapter = adapt.multi()
 
     # Add CLI command source
     adapter.add_source(
@@ -144,7 +144,7 @@ def demo_mixed_sources():
     print("=" * 50)
 
     # Create an adapter containing multiple sources
-    adapter = create_multi_adapter()
+    adapter = adapt.multi()
 
     # 1. Python class source
     adapter.add_source(
@@ -247,7 +247,7 @@ def demo_connectivity_test():
     print("\n🔌 Connectivity Testing Demo")
     print("=" * 50)
 
-    adapter = create_multi_adapter()
+    adapter = adapt.multi()
 
     # Add various sources for testing
     test_sources = [

@@ -89,13 +89,14 @@ examples/
 │   └── README.md            # Demo documentation
 ├── shared.py                 # Shared tools and helper functions
 ├── basic_server.py          # Beginner-level basic server
+├── multi_adapter_demo.py    # Multi-adapter system demonstration
 ├── factory_complete.py      # Complete factory pattern example
-├── mounting_servers.py      # External server mounting example
+├── external_servers_demo.py # External server integration demo
 ├── production_ready.py      # Production-grade deployment example
 └── configs/                 # Configuration files directory
     ├── basic.yaml           # Basic configuration
     ├── factory.yaml         # Factory pattern configuration  
-    ├── mounting.yaml        # Mounting configuration
+    ├── external_servers.yaml # External servers configuration
     └── production.yaml      # Production environment configuration
 ```
 

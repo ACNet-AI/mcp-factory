@@ -6,13 +6,12 @@ Welcome to MCP Factory documentation! This contains all the information you need
 
 ### 🚀 Getting Started
 - [Quick Start](getting-started.md) - 5-minute getting started guide
-- [Examples and Tutorials](examples.md) - Practical example code and tutorials
+- [Examples and Tutorials](../examples/README.md) - Practical example code and tutorials
 
 ### 🔧 User Guide
-- [CLI Usage Guide](cli-guide.md) - Complete command-line tool guide
+- [CLI Usage Guide](cli_guide.md) - Complete command-line tool guide
 - [Configuration Reference](configuration.md) - Detailed configuration file documentation
 - [Publishing Guide](publishing-guide.md) - GitHub project publishing and deployment guide
-- [Examples and Tutorials](examples.md) - Practical example code and tutorials
 
 ### 🛠️ Advanced Features
 - [Middleware Guide](middleware.md) - Complete middleware usage and development guide

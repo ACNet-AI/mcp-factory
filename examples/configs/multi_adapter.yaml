@@ -1,15 +1,15 @@
-# 多源适配器配置示例
-# 展示如何通过配置文件定义要适配的多种源系统
+# Multi-source adapter configuration example
+# Shows how to define multiple source systems to adapt through configuration files
 
-# 项目基本信息
+# Basic project information
 project:
   name: "comprehensive-mcp-server"
-  description: "基于多源适配的综合MCP服务器"
+  description: "Comprehensive MCP server based on multi-source adaptation"
   version: "1.0.0"
 
-# 源系统定义
+# Source system definitions
 sources:
-  # Python类源 - 适配现有的Python库/框架
+  # Python class source - adapt existing Python libraries/frameworks
   - type: "python_class"
     name: "mcp_factory"
     source_path: "mcp_factory.MCPFactory"
@@ -26,14 +26,14 @@ sources:
         - "_private_method"
         - "__internal__"
 
-  # HTTP API源 - 适配现有的Web API
+  # HTTP API source - adapt existing Web APIs
   - type: "http_api"
     name: "github_api"
     source_path: "https://api.github.com"
     config:
       auth:
         type: "bearer"
-        token_env: "GITHUB_TOKEN"  # 从环境变量获取
+        token_env: "GITHUB_TOKEN"  # Get from environment variable
       endpoints:
         - name: "get_user"
           method: "GET"
@@ -43,8 +43,8 @@ sources:
               type: "string"
               required: true
               location: "path"
-              description: "GitHub用户名"
-          description: "获取GitHub用户信息"
+              description: "GitHub username"
+          description: "Get GitHub user information"
           
         - name: "list_user_repos"
           method: "GET"
@@ -66,7 +66,7 @@ sources:
               location: "query"
               default: "created"
               enum: ["created", "updated", "pushed", "full_name"]
-          description: "列出用户的代码仓库"
+          description: "List user repositories"
 
         - name: "create_issue"
           method: "POST"
@@ -92,19 +92,19 @@ sources:
               type: "array"
               required: false
               location: "body"
-          description: "创建GitHub Issue"
+          description: "Create GitHub Issue"
 
-  # FastAPI应用源 - 通过OpenAPI自动发现
+  # FastAPI application source - auto-discover through OpenAPI
   - type: "http_api"
     name: "local_fastapi"
     source_path: "http://localhost:8000"
     config:
-      auto_discovery: true  # 自动从OpenAPI文档发现端点
+      auto_discovery: true  # Auto-discover endpoints from OpenAPI docs
       openapi_url: "/openapi.json"
       timeout: 10
       retry_count: 3
 
-  # CLI工具源 - 适配系统命令和工具
+  # CLI tool source - adapt system commands and tools
   - type: "cli"
     name: "system_tools"
     source_path: "system"
@@ -116,18 +116,18 @@ sources:
             - name: "path"
               type: "string"
               required: true
-              description: "要列出的目录路径"
+              description: "Directory path to list"
             - name: "all_files"
               type: "boolean"
               required: false
               flag: "-a"
-              description: "显示隐藏文件"
+              description: "Show hidden files"
             - name: "long_format"
               type: "boolean"
               required: false
               flag: "-l"
-              description: "详细格式"
-          description: "列出目录内容"
+              description: "Long format display"
+          description: "List directory contents"
           
         - name: "find_files"
           command: "find"
@@ -135,26 +135,26 @@ sources:
             - name: "path"
               type: "string"
               required: true
-              description: "搜索路径"
+              description: "Search path"
             - name: "name_pattern"
               type: "string"
               required: false
               flag: "-name"
-              description: "文件名模式"
+              description: "Filename pattern"
             - name: "type"
               type: "string"
               required: false
               flag: "-type"
               enum: ["f", "d", "l"]
-              description: "文件类型 (f=文件, d=目录, l=链接)"
-          description: "查找文件和目录"
+              description: "File type (f=file, d=directory, l=link)"
+          description: "Find files and directories"
 
-  # Git工具源
+  # Git tool source
   - type: "cli"
     name: "git_tools"
     source_path: "git"
     config:
-      working_directory: "."  # Git命令的工作目录
+      working_directory: "."  # Working directory for Git commands
       commands:
         - name: "git_status"
           command: "git"
@@ -163,13 +163,13 @@ sources:
               type: "string"
               required: true
               default: "status"
-              description: "Git子命令"
+              description: "Git subcommand"
             - name: "porcelain"
               type: "boolean"
               required: false
               flag: "--porcelain"
-              description: "机器可读格式"
-          description: "检查Git仓库状态"
+              description: "Machine-readable format"
+          description: "Check Git repository status"
           
         - name: "git_log"
           command: "git"
@@ -186,10 +186,10 @@ sources:
               type: "integer"
               required: false
               flag: "--max-count"
-              description: "限制提交数量"
-          description: "查看Git提交历史"
+              description: "Limit number of commits"
+          description: "View Git commit history"
 
-  # Docker工具源
+  # Docker tool source
   - type: "cli"
     name: "docker_tools"
     source_path: "docker"
@@ -206,25 +206,25 @@ sources:
               type: "boolean"
               required: false
               flag: "-a"
-              description: "显示所有容器"
+              description: "Show all containers"
             - name: "format"
               type: "string"
               required: false
               flag: "--format"
               default: "table"
-              description: "输出格式"
-          description: "列出Docker容器"
+              description: "Output format"
+          description: "List Docker containers"
 
-# 工具生成配置
+# Tool generation configuration
 generation:
-  # 生成选项
+  # Generation options
   options:
     include_type_hints: true
     add_error_handling: true
     generate_tests: false
     create_readme: true
     
-  # 选择要生成的工具
+  # Select tools to generate
   selected_tools:
     mcp_factory:
       - "create_server"
@@ -242,7 +242,7 @@ generation:
     docker_tools:
       - "list_containers"
 
-# MCP服务器配置
+# MCP server configuration
 server:
   name: "comprehensive-mcp-server"
   instructions: |
@@ -262,7 +262,7 @@ server:
     port: 8000
     log_level: "INFO"
 
-# 元数据
+# Metadata
 metadata:
   author: "MCP Factory Team"
   license: "MIT"

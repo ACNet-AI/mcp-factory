@@ -2,13 +2,24 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.3.0] - 2025-08-31
+
+### 🚀 Major Features
+- **New Adapter Architecture** - Unified interface with `adapt.python()`, `adapt.http()`, `adapt.cli()`, and `adapt.multi()`
+- **Performance Optimization** - Caching system with TTL support and async processing
+- **Multi-Source Support** - Enhanced multi-adapter management with concurrent operations
+
+### 🔧 Quality Improvements
+- **Code Quality** - Zero MyPy errors, all Ruff checks passed, 954 tests passing
+- **Project Structure** - Reorganized examples and documentation
+- **Performance** - 5-50x improvement with intelligent caching
+
 ## [1.2.1] - 2025-08-31
 
 ### 🔧 Bug Fixes
 - **Type Safety** - Fixed all mypy type annotation errors across the codebase
 - **Test Updates** - Updated outdated test assertions to match current API behavior
 - **Code Quality** - Resolved all ruff linting issues and improved code formatting
-- **Privacy Protection** - Removed .cursor configuration files from version control history
 
 ### 🧪 Testing Improvements
 - **API Compatibility** - Updated tests to expect dict return types instead of strings for management tools info

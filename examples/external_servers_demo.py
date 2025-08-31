@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-FastMCP-Factory Server Mounting Example
+FastMCP-Factory External Servers Demo
 
-Demonstrates external server mounting and microservice architecture:
+Demonstrates external server integration and microservice architecture:
 1. External MCP server configuration parsing
 2. Local script server mounting
 3. Remote HTTP server mounting

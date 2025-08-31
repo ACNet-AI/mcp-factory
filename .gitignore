@@ -211,3 +211,4 @@ scripts/audit/reports/
 *.tmp
 *.bak
 temp_*
+.cursor
