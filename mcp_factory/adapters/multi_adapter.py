@@ -92,9 +92,9 @@ class MultiSourceAdapter:
         # Map back to original names
         result = {}
         for name, adapter in self._adapter_map.items():
-            adapter_class_name = adapter.__class__.__name__
-            if adapter_class_name in capabilities_map:
-                result[name] = capabilities_map[adapter_class_name]
+            adapter_name = adapter.name
+            if adapter_name in capabilities_map:
+                result[name] = capabilities_map[adapter_name]
             else:
                 result[name] = []
 

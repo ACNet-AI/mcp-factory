@@ -1,8 +1,9 @@
-"""Async utilities for adapter performance optimization.
+"""Async utilities for adapter operations
 
-This module provides async utilities to improve adapter performance:
-- Concurrent capability discovery
-- Async HTTP operations
+This module provides utilities for:
+- Concurrent processing
+- Timeout handling
+- Retry mechanisms
 - Parallel processing utilities
 """
 
@@ -17,10 +18,10 @@ T = TypeVar("T")
 class AsyncAdapter:
     """Mixin class for async adapter operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
-    async def run_in_executor(self, func: Callable[..., T], *args, **kwargs) -> T:
+    async def run_in_executor(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """Run sync function in executor"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(self._executor, func, *args, **kwargs)
@@ -36,7 +37,7 @@ class AsyncAdapter:
         bounded_tasks = [bounded_task(task) for task in tasks]
         return await asyncio.gather(*bounded_tasks)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Cleanup executor"""
         if hasattr(self, "_executor"):
             self._executor.shutdown(wait=True)
@@ -48,283 +49,158 @@ class ConcurrentDiscovery:
     @staticmethod
     async def discover_multiple_sources(adapters: list[Any], max_concurrency: int = 5) -> dict[str, list[Any]]:
         """Discover capabilities from multiple adapters concurrently"""
-
-        async def discover_single(adapter) -> tuple[str, list[Any]]:
-            """Discover capabilities for a single adapter"""
-            try:
-                # Get adapter name
-                adapter_name = getattr(adapter, "name", adapter.__class__.__name__)
-
-                # Run discovery in executor if it's sync
-                if asyncio.iscoroutinefunction(adapter.discover_capabilities):
-                    capabilities = await adapter.discover_capabilities()
-                else:
-                    loop = asyncio.get_event_loop()
-                    capabilities = await loop.run_in_executor(None, adapter.discover_capabilities)
-
-                return adapter_name, capabilities
-            except Exception:
-                return adapter_name, []
-
-        # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def bounded_discover(adapter) -> tuple[str, list[Any]]:
+        async def discover_single(adapter: Any) -> tuple[str, list[Any]]:
             async with semaphore:
-                return await discover_single(adapter)
+                try:
+                    # Run sync discovery in executor
+                    loop = asyncio.get_event_loop()
+                    capabilities = await loop.run_in_executor(
+                        None, adapter.discover_capabilities
+                    )
+                    return adapter.name, capabilities
+                except Exception:
+                    return adapter.name, []
 
-        # Execute all discoveries concurrently
-        tasks = [bounded_discover(adapter) for adapter in adapters]
+        tasks = [discover_single(adapter) for adapter in adapters]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Process results
-        capabilities_map = {}
+        # Filter out exceptions and build result dict
+        result_dict = {}
         for result in results:
-            if isinstance(result, Exception):
-                continue
-            name, capabilities = result
-            capabilities_map[name] = capabilities
+            if isinstance(result, tuple):
+                name, capabilities = result
+                result_dict[name] = capabilities
 
-        return capabilities_map
-
-
-class AsyncCache:
-    """Async-aware cache implementation"""
-
-    def __init__(self):
-        self._cache = {}
-        self._locks = {}
-
-    async def get_or_compute_async(self, key: str, compute_func: Callable[[], Awaitable[T]], ttl: float = 3600) -> T:
-        """Get from cache or compute async"""
-        # Check if already in cache
-        if key in self._cache:
-            entry = self._cache[key]
-            if not entry.is_expired():
-                return entry.value
-
-        # Get or create lock for this key
-        if key not in self._locks:
-            self._locks[key] = asyncio.Lock()
-
-        # Acquire lock and compute
-        async with self._locks[key]:
-            # Double-check after acquiring lock
-            if key in self._cache:
-                entry = self._cache[key]
-                if not entry.is_expired():
-                    return entry.value
-
-            # Compute new value
-            value = await compute_func()
-
-            # Store in cache
-            import time
-
-            from .cache import CacheEntry
-
-            self._cache[key] = CacheEntry(value=value, timestamp=time.time(), ttl=ttl)
-
-            return value
+        return result_dict
 
 
-class BatchProcessor:
-    """Batch processing utilities for adapters"""
+async def timeout_wrapper(coro: Awaitable[T], timeout: float) -> T:
+    """Wrap coroutine with timeout"""
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError as e:
+        raise TimeoutError(f"Operation timed out after {timeout}s") from e
 
-    @staticmethod
-    async def process_in_batches(
-        items: list[T], processor: Callable[[T], Awaitable[Any]], batch_size: int = 10, max_concurrency: int = 5
-    ) -> list[Any]:
-        """Process items in batches with concurrency control"""
-        results = []
-        semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def process_item(item: T) -> Any:
-            async with semaphore:
-                return await processor(item)
+async def retry_with_backoff(
+    func: Callable[..., Awaitable[T]],
+    *args: Any,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    **kwargs: Any
+) -> T:
+    """Retry async function with exponential backoff"""
+    last_exception = None
 
-        # Process in batches
-        for i in range(0, len(items), batch_size):
-            batch = items[i : i + batch_size]
-            batch_tasks = [process_item(item) for item in batch]
-            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
-            results.extend(batch_results)
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            if attempt < max_retries:
+                delay = base_delay * (2 ** attempt)
+                await asyncio.sleep(delay)
+            else:
+                break
 
-        return results
+    if last_exception:
+        raise last_exception
+    raise RuntimeError("Retry failed without exception")
+
+
+def run_sync_in_async(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    """Run sync function in async context"""
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        # If we're already in an async context, use executor
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(func, *args, **kwargs)
+        return future.result()
+    else:
+        # If not in async context, just run directly
+        return func(*args, **kwargs)
 
 
 class PerformanceMonitor:
-    """Monitor adapter performance"""
+    """Simple performance monitoring for adapters"""
 
-    def __init__(self):
-        self.metrics = {"discovery_times": [], "generation_times": [], "cache_hits": 0, "cache_misses": 0}
+    def __init__(self) -> None:
+        self._metrics: dict[str, list[float]] = {}
 
-    def record_discovery_time(self, time_taken: float):
-        """Record capability discovery time"""
-        self.metrics["discovery_times"].append(time_taken)
+    def record_time(self, operation: str, duration: float) -> None:
+        """Record operation duration"""
+        if operation not in self._metrics:
+            self._metrics[operation] = []
+        self._metrics[operation].append(duration)
 
-    def record_generation_time(self, time_taken: float):
-        """Record tool generation time"""
-        self.metrics["generation_times"].append(time_taken)
+    def get_stats(self, operation: str) -> dict[str, float]:
+        """Get statistics for an operation"""
+        if operation not in self._metrics:
+            return {}
 
-    def record_cache_hit(self):
-        """Record cache hit"""
-        self.metrics["cache_hits"] += 1
-
-    def record_cache_miss(self):
-        """Record cache miss"""
-        self.metrics["cache_misses"] += 1
-
-    def get_stats(self) -> dict[str, Any]:
-        """Get performance statistics"""
-        discovery_times = self.metrics["discovery_times"]
-        generation_times = self.metrics["generation_times"]
-
+        times = self._metrics[operation]
         return {
-            "discovery": {
-                "count": len(discovery_times),
-                "avg_time": sum(discovery_times) / len(discovery_times) if discovery_times else 0,
-                "min_time": min(discovery_times) if discovery_times else 0,
-                "max_time": max(discovery_times) if discovery_times else 0,
-            },
-            "generation": {
-                "count": len(generation_times),
-                "avg_time": sum(generation_times) / len(generation_times) if generation_times else 0,
-                "min_time": min(generation_times) if generation_times else 0,
-                "max_time": max(generation_times) if generation_times else 0,
-            },
-            "cache": {
-                "hits": self.metrics["cache_hits"],
-                "misses": self.metrics["cache_misses"],
-                "hit_rate": (
-                    self.metrics["cache_hits"] / (self.metrics["cache_hits"] + self.metrics["cache_misses"])
-                    if (self.metrics["cache_hits"] + self.metrics["cache_misses"]) > 0
-                    else 0
-                ),
-            },
+            "count": len(times),
+            "total": sum(times),
+            "average": sum(times) / len(times),
+            "min": min(times),
+            "max": max(times)
         }
 
-
-# Global performance monitor
-_global_monitor = PerformanceMonitor()
-
-
-def get_performance_monitor() -> PerformanceMonitor:
-    """Get global performance monitor"""
-    return _global_monitor
+    def get_all_stats(self) -> dict[str, dict[str, float]]:
+        """Get all operation statistics"""
+        return {op: self.get_stats(op) for op in self._metrics}
 
 
-def performance_tracked(operation_type: str):
-    """Decorator to track operation performance"""
-
-    def decorator(func):
-        import functools
-        import time
-
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            start_time = time.time()
-            try:
-                result = await func(*args, **kwargs)
-                return result
-            finally:
-                end_time = time.time()
-                duration = end_time - start_time
-
-                monitor = get_performance_monitor()
-                if operation_type == "discovery":
-                    monitor.record_discovery_time(duration)
-                elif operation_type == "generation":
-                    monitor.record_generation_time(duration)
-
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
+def performance_tracked(operation_name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """Decorator to track function performance"""
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            import time
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
                 return result
             finally:
-                end_time = time.time()
-                duration = end_time - start_time
-
-                monitor = get_performance_monitor()
-                if operation_type == "discovery":
-                    monitor.record_discovery_time(duration)
-                elif operation_type == "generation":
-                    monitor.record_generation_time(duration)
-
-        # Return appropriate wrapper based on function type
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
-
+                duration = time.time() - start_time
+                # Could integrate with monitoring system here
+                print(f"{operation_name} took {duration:.3f}s")
+        return wrapper
     return decorator
 
 
 class AdapterPool:
-    """Pool of adapters for load balancing"""
+    """Simple adapter pool for reuse"""
 
-    def __init__(self, adapter_factory: Callable[[], Any], pool_size: int = 3):
-        self.adapter_factory = adapter_factory
-        self.pool_size = pool_size
-        self._pool = []
-        self._current = 0
-        self._lock = asyncio.Lock()
+    def __init__(self, max_size: int = 10) -> None:
+        self.max_size = max_size
+        self._pool: list[Any] = []
+        self._in_use: set[Any] = set()
 
-    async def get_adapter(self) -> Any:
-        """Get adapter from pool (round-robin)"""
-        async with self._lock:
-            if len(self._pool) < self.pool_size:
-                # Create new adapter
-                adapter = self.adapter_factory()
+    def get_adapter(self, adapter_factory: Callable[[], Any]) -> Any:
+        """Get adapter from pool or create new one"""
+        if self._pool:
+            adapter = self._pool.pop()
+            self._in_use.add(adapter)
+            return adapter
+        else:
+            adapter = adapter_factory()
+            self._in_use.add(adapter)
+            return adapter
+
+    def return_adapter(self, adapter: Any) -> None:
+        """Return adapter to pool"""
+        if adapter in self._in_use:
+            self._in_use.remove(adapter)
+            if len(self._pool) < self.max_size:
                 self._pool.append(adapter)
-                return adapter
-            else:
-                # Round-robin selection
-                adapter = self._pool[self._current]
-                self._current = (self._current + 1) % self.pool_size
-                return adapter
 
-    async def cleanup(self):
-        """Cleanup all adapters in pool"""
-        for adapter in self._pool:
-            if hasattr(adapter, "cleanup"):
-                await adapter.cleanup()
+    def cleanup(self) -> None:
+        """Cleanup all adapters"""
+        for adapter in self._pool + list(self._in_use):
+            if hasattr(adapter, 'cleanup'):
+                adapter.cleanup()
         self._pool.clear()
-
-
-# Utility functions for common async patterns
-
-
-async def timeout_wrapper(coro: Awaitable[T], timeout_seconds: float) -> T:
-    """Wrap coroutine with timeout"""
-    try:
-        return await asyncio.wait_for(coro, timeout=timeout_seconds)
-    except asyncio.TimeoutError as e:
-        raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds") from e
-
-
-async def retry_with_backoff(coro_func: Callable[[], Awaitable[T]], max_retries: int = 3, base_delay: float = 1.0) -> T:
-    """Retry coroutine with exponential backoff"""
-    for attempt in range(max_retries + 1):
-        try:
-            return await coro_func()
-        except Exception as e:
-            if attempt == max_retries:
-                raise e
-
-            delay = base_delay * (2**attempt)
-            await asyncio.sleep(delay)
-
-    raise RuntimeError("Retry logic failed unexpectedly")
-
-
-def make_async_safe(func: Callable[..., T]) -> Callable[..., Awaitable[T]]:
-    """Make a sync function async-safe by running in executor"""
-
-    async def async_wrapper(*args, **kwargs) -> T:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, func, *args, **kwargs)
-
-    return async_wrapper
+        self._in_use.clear()

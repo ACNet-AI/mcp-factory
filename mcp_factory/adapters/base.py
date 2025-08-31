@@ -55,13 +55,14 @@ class BaseAdapter(ABC):
     def __init__(self, source_info: SourceInfo):
         self.source_info = source_info
         self.config = source_info.config
+        self.name = self.config.get("name", self.source_info.source_path.split("/")[-1].split(".")[0])
 
         # Initialize cache if enabled
         cache_enabled = self.config.get("cache_enabled", True)
         if cache_enabled:
             from .cache import AdapterCache
 
-            self._cache = AdapterCache()
+            self._cache: AdapterCache | None = AdapterCache()
         else:
             self._cache = None
 

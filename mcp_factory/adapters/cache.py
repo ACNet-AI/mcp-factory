@@ -48,7 +48,7 @@ class AdapterCache:
         self._cache: dict[str, CacheEntry] = {}
         self._stats = {"hits": 0, "misses": 0, "evictions": 0}
 
-    def _generate_key(self, prefix: str, *args, **kwargs) -> str:
+    def _generate_key(self, prefix: str, *args: Any, **kwargs: Any) -> str:
         """Generate cache key from arguments"""
         # Create a stable hash from arguments
         key_data = {"args": args, "kwargs": sorted(kwargs.items()) if kwargs else {}}
@@ -118,7 +118,7 @@ class AdapterCache:
         """Get value from cache or compute if not present"""
         value = self.get(key)
         if value is not None:
-            return value
+            return value  # type: ignore[no-any-return]
 
         # Compute new value
         computed_value = compute_func()
@@ -135,7 +135,7 @@ def get_global_cache() -> AdapterCache:
     return _global_cache
 
 
-def cached(prefix: str, ttl: float | None = None, cache_instance: AdapterCache | None = None):
+def cached(prefix: str, ttl: float | None = None, cache_instance: AdapterCache | None = None) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for caching function results
 
     Args:
@@ -148,14 +148,14 @@ def cached(prefix: str, ttl: float | None = None, cache_instance: AdapterCache |
         cache = cache_instance or get_global_cache()
 
         @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
             # Generate cache key
             cache_key = cache._generate_key(prefix, *args, **kwargs)
 
             # Try to get from cache
             cached_result = cache.get(cache_key)
             if cached_result is not None:
-                return cached_result
+                return cached_result  # type: ignore[no-any-return]
 
             # Compute and cache result
             result = func(*args, **kwargs)
@@ -172,7 +172,7 @@ def cached(prefix: str, ttl: float | None = None, cache_instance: AdapterCache |
     return decorator
 
 
-def cached_method(prefix: str, ttl: float | None = None):
+def cached_method(prefix: str, ttl: float | None = None) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for caching method results (includes self in key)
 
     Args:
@@ -182,7 +182,7 @@ def cached_method(prefix: str, ttl: float | None = None):
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
-        def wrapper(self, *args, **kwargs) -> T:
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> T:
             # Get cache from self or use global
             cache = getattr(self, "_cache", None) or get_global_cache()
 
@@ -193,7 +193,7 @@ def cached_method(prefix: str, ttl: float | None = None):
             # Try to get from cache
             cached_result = cache.get(cache_key)
             if cached_result is not None:
-                return cached_result
+                return cached_result  # type: ignore[no-any-return]
 
             # Compute and cache result
             result = func(self, *args, **kwargs)

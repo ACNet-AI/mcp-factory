@@ -230,8 +230,8 @@ class PythonClassAdapter(BaseAdapter):
         """Discover all methods of the class"""
         methods = []
 
-        # Get instance methods
-        for name, method in inspect.getmembers(self.target_class, predicate=inspect.ismethod):
+        # Get instance methods and functions
+        for name, method in inspect.getmembers(self.target_class, predicate=inspect.isfunction):
             if not self.include_private and name.startswith("_"):
                 continue
 
