@@ -49,6 +49,6 @@ __all__ = [
     "validate_external_servers_config",
 ]
 
-__version__ = "1.0.0"
+__version__ = "1.3.0"
 
 __status__ = "refactoring"
