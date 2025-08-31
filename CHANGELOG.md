@@ -2,6 +2,19 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.2.1] - 2025-08-31
+
+### 🔧 Bug Fixes
+- **Type Safety** - Fixed all mypy type annotation errors across the codebase
+- **Test Updates** - Updated outdated test assertions to match current API behavior
+- **Code Quality** - Resolved all ruff linting issues and improved code formatting
+- **Privacy Protection** - Removed .cursor configuration files from version control history
+
+### 🧪 Testing Improvements
+- **API Compatibility** - Updated tests to expect dict return types instead of strings for management tools info
+- **Component Discovery** - Enhanced test coverage for component scanning and discovery functionality
+- **Parameter Generation** - Fixed test expectations for tool parameter schema structure
+
 ## [1.2.0] - 2025-08-30
 
 ### 🏗️ Architecture Improvements
