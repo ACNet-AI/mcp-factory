@@ -56,9 +56,7 @@ class ConcurrentDiscovery:
                 try:
                     # Run sync discovery in executor
                     loop = asyncio.get_event_loop()
-                    capabilities = await loop.run_in_executor(
-                        None, adapter.discover_capabilities
-                    )
+                    capabilities = await loop.run_in_executor(None, adapter.discover_capabilities)
                     return adapter.name, capabilities
                 except Exception:
                     return adapter.name, []
@@ -85,11 +83,7 @@ async def timeout_wrapper(coro: Awaitable[T], timeout: float) -> T:
 
 
 async def retry_with_backoff(
-    func: Callable[..., Awaitable[T]],
-    *args: Any,
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    **kwargs: Any
+    func: Callable[..., Awaitable[T]], *args: Any, max_retries: int = 3, base_delay: float = 1.0, **kwargs: Any
 ) -> T:
     """Retry async function with exponential backoff"""
     last_exception = None
@@ -100,7 +94,7 @@ async def retry_with_backoff(
         except Exception as e:
             last_exception = e
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 await asyncio.sleep(delay)
             else:
                 break
@@ -146,7 +140,7 @@ class PerformanceMonitor:
             "total": sum(times),
             "average": sum(times) / len(times),
             "min": min(times),
-            "max": max(times)
+            "max": max(times),
         }
 
     def get_all_stats(self) -> dict[str, dict[str, float]]:
@@ -156,9 +150,11 @@ class PerformanceMonitor:
 
 def performance_tracked(operation_name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator to track function performance"""
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         def wrapper(*args: Any, **kwargs: Any) -> T:
             import time
+
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
@@ -167,7 +163,9 @@ def performance_tracked(operation_name: str) -> Callable[[Callable[..., T]], Cal
                 duration = time.time() - start_time
                 # Could integrate with monitoring system here
                 print(f"{operation_name} took {duration:.3f}s")
+
         return wrapper
+
     return decorator
 
 
@@ -200,7 +198,7 @@ class AdapterPool:
     def cleanup(self) -> None:
         """Cleanup all adapters"""
         for adapter in self._pool + list(self._in_use):
-            if hasattr(adapter, 'cleanup'):
+            if hasattr(adapter, "cleanup"):
                 adapter.cleanup()
         self._pool.clear()
         self._in_use.clear()

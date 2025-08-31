@@ -135,7 +135,9 @@ def get_global_cache() -> AdapterCache:
     return _global_cache
 
 
-def cached(prefix: str, ttl: float | None = None, cache_instance: AdapterCache | None = None) -> Callable[[Callable[..., T]], Callable[..., T]]:
+def cached(
+    prefix: str, ttl: float | None = None, cache_instance: AdapterCache | None = None
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for caching function results
 
     Args:
