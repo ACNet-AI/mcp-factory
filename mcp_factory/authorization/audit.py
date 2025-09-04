@@ -547,7 +547,9 @@ def get_audit_logger() -> AuditLogger:
     return _global_audit_logger
 
 
-def configure_audit_logger(db_path: str | None = None, enable_file_log: bool = True, log_file_path: str | None = None) -> None:
+def configure_audit_logger(
+    db_path: str | None = None, enable_file_log: bool = True, log_file_path: str | None = None
+) -> None:
     """Configure global audit logger"""
     global _global_audit_logger
     _global_audit_logger = AuditLogger(db_path=db_path, enable_file_log=enable_file_log, log_file_path=log_file_path)

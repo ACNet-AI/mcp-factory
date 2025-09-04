@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Part 1: Quick Start - Basic Configuration and Concepts
 # ============================================================================
 
+
 def demo_basic_configuration():
     """Demonstrate basic configuration options"""
 
@@ -128,6 +129,7 @@ def demo_configuration_comparison():
 # Part 2: Basic Permission Management
 # ============================================================================
 
+
 async def demo_basic_authorization():
     """Demonstrate basic permission management functions"""
 
@@ -137,11 +139,7 @@ async def demo_basic_authorization():
     # 1. Create server with authorization
     print("\n1. Create ManagedServer with Authorization...")
 
-    server = ManagedServer(
-        name="authorization-demo-server",
-        authorization=True,
-        expose_management_tools=True
-    )
+    server = ManagedServer(name="authorization-demo-server", authorization=True, expose_management_tools=True)
 
     # 2. Create initial admin user
     print("\n2. Create initial admin user...")
@@ -195,6 +193,7 @@ async def demo_basic_authorization():
 # ============================================================================
 # Part 3: Advanced Features
 # ============================================================================
+
 
 async def demo_advanced_features(server):
     """Demonstrate advanced features"""
@@ -256,17 +255,14 @@ async def demo_advanced_features(server):
 # Part 4: Management Tools Demo
 # ============================================================================
 
+
 async def demo_management_tools():
     """Demonstrate usage of management tools"""
 
     print("\n\n🛠️ Part 4: Management Tools Demo")
     print("=" * 35)
 
-    server = ManagedServer(
-        name="management-tools-demo",
-        authorization=True,
-        expose_management_tools=True
-    )
+    server = ManagedServer(name="management-tools-demo", authorization=True, expose_management_tools=True)
 
     # Create demo admin
     server.create_admin_user("demo_admin", "Demo admin")
@@ -282,7 +278,7 @@ async def demo_management_tools():
         "debug_permission",
         "get_permission_history",
         "get_authorization_stats",
-        "cleanup_expired_permissions"
+        "cleanup_expired_permissions",
     ]
 
     for tool in management_tools:
@@ -302,6 +298,7 @@ async def demo_management_tools():
 # ============================================================================
 # Part 5: Business Scenario Demo
 # ============================================================================
+
 
 def demo_business_scenarios():
     """Demonstrate business scenarios"""
@@ -329,6 +326,7 @@ def demo_business_scenarios():
 # ============================================================================
 # Part 6: Best Practices and Troubleshooting
 # ============================================================================
+
 
 def demo_best_practices():
     """Demonstrate best practices"""
@@ -384,6 +382,7 @@ def demo_troubleshooting():
 # ============================================================================
 # Main Demo Function
 # ============================================================================
+
 
 async def main():
     """Main demo function"""

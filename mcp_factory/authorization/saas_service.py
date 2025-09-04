@@ -391,9 +391,7 @@ class SaaSService:
                 "status_breakdown": status_stats,
                 "role_breakdown": role_stats,
                 "average_processing_time_minutes": round(avg_processing_time or 0, 2),
-                "approval_rate": round(
-                    (status_stats.get("approved", 0) / max(total_requests, 1)) * 100, 2
-                ),
+                "approval_rate": round((status_stats.get("approved", 0) / max(total_requests, 1)) * 100, 2),
             }
 
         except Exception as e:
@@ -460,8 +458,7 @@ class SaaSService:
 
             # Find users with multiple pending requests
             multiple_requests_users = {
-                user_id: requests for user_id, requests in user_requests.items()
-                if len(requests) > 1
+                user_id: requests for user_id, requests in user_requests.items() if len(requests) > 1
             }
 
             return {
@@ -469,10 +466,7 @@ class SaaSService:
                 "role_breakdown": role_counts,
                 "unique_users": len(user_requests),
                 "multiple_requests_users": len(multiple_requests_users),
-                "oldest_request": min(
-                    (req["submitted_at"] for req in pending_requests),
-                    default=None
-                ),
+                "oldest_request": min((req["submitted_at"] for req in pending_requests), default=None),
                 "recent_requests": pending_requests[:10],  # Most recent 10 requests
             }
 
@@ -512,6 +506,7 @@ class SaaSService:
                     # Check age criteria
                     if "max_age_hours" in criteria:
                         import datetime
+
                         submitted_time = datetime.datetime.fromisoformat(request["submitted_at"])
                         age_hours = (datetime.datetime.now() - submitted_time).total_seconds() / 3600
                         if age_hours > criteria["max_age_hours"]:
@@ -526,7 +521,7 @@ class SaaSService:
                             request["request_id"],
                             "system_auto_approval",
                             "approve",
-                            f"Auto-approved based on criteria: {criteria}"
+                            f"Auto-approved based on criteria: {criteria}",
                         )
 
                         if success:

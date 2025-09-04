@@ -42,6 +42,7 @@ class PermissionCheckResult:
         if self.debug_info is None:
             self.debug_info = {}
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -337,9 +338,13 @@ class PermissionEngine:
                 # Check resource matching
                 if perm_parts[0] == resource:
                     if perm_parts[1] != action:
-                        similar_permissions.append(f"Has {resource}:{perm_parts[1]} permission, but lacks {action} action permission")
+                        similar_permissions.append(
+                            f"Has {resource}:{perm_parts[1]} permission, but lacks {action} action permission"
+                        )
                     elif perm_parts[2] != scope and perm_parts[2] != "*":
-                        similar_permissions.append(f"Has {resource}:{action} permission, but scope is limited to {perm_parts[2]}")
+                        similar_permissions.append(
+                            f"Has {resource}:{action} permission, but scope is limited to {perm_parts[2]}"
+                        )
 
         if similar_permissions:
             reason = "Insufficient permissions - has related permissions but not fully matched"

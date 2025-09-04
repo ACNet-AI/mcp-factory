@@ -278,7 +278,9 @@ class RoleService:
             if self.cache:
                 self.cache.invalidate_user(user_id)
 
-            logger.info(f"Temporary permission '{resource}:{action}:{scope}' granted to user '{user_id}' for {expires_in_hours} hours")
+            logger.info(
+                f"Temporary permission '{resource}:{action}:{scope}' granted to user '{user_id}' for {expires_in_hours} hours"
+            )
 
             return True
         except Exception as e:
@@ -386,14 +388,16 @@ class RoleService:
 
             history = []
             for row in rows:
-                history.append({
-                    "action": row[0],
-                    "permission_type": row[1],
-                    "permission_value": row[2],
-                    "granted_by": row[3],
-                    "reason": row[4],
-                    "created_at": row[5],
-                })
+                history.append(
+                    {
+                        "action": row[0],
+                        "permission_type": row[1],
+                        "permission_value": row[2],
+                        "granted_by": row[3],
+                        "reason": row[4],
+                        "created_at": row[5],
+                    }
+                )
 
             return history
         except Exception as e:

@@ -218,7 +218,6 @@ FASTMCP_NATIVE_METHODS: dict[str, dict[str, Any]] = {
         "tags": {"admin", "modify", "transform", "advanced"},
         "enabled": True,
     },
-
 }
 
 # User permission tools (registered as regular tools, not management tools)
@@ -305,11 +304,7 @@ def get_methods_by_annotation_type(annotation_type: str) -> dict[str, dict[str, 
         Dictionary containing methods matching the annotation type.
     """
     all_methods = get_management_method_configs()
-    return {
-        name: config
-        for name, config in all_methods.items()
-        if config.get("annotation_type") == annotation_type
-    }
+    return {name: config for name, config in all_methods.items() if config.get("annotation_type") == annotation_type}
 
 
 def get_methods_by_tags(include_tags: set[str], exclude_tags: set[str] | None = None) -> dict[str, dict[str, Any]]:

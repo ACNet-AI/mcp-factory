@@ -161,9 +161,7 @@ class ManagedServer(FastMCP[Any]):
         self.management_tool_tags = management_tool_tags or {"management", "admin"}
 
         # 🔒 Setup authorization system
-        self.authorization = self._setup_authorization(
-            authorization, kwargs.get("auth"), expose_management_tools
-        )
+        self.authorization = self._setup_authorization(authorization, kwargs.get("auth"), expose_management_tools)
 
         # Initialize authorization manager if needed
         self._authorization_manager = None
@@ -188,9 +186,7 @@ class ManagedServer(FastMCP[Any]):
         # Log initialization information
         server_name = kwargs.get("name", "ManagedServer")
         logger.info("Initializing ManagedServer: %s", server_name)
-        logger.info(
-            f"Expose management tools: {expose_management_tools}, Permission check: {self.authorization}"
-        )
+        logger.info(f"Expose management tools: {expose_management_tools}, Permission check: {self.authorization}")
 
         if expose_management_tools:
             # Create management tool object list
@@ -318,7 +314,7 @@ class ManagedServer(FastMCP[Any]):
         created_count = 0
 
         for tool_name in tool_names:
-            method_name = tool_name[len(self._MANAGEMENT_TOOL_PREFIX):]  # Remove prefix
+            method_name = tool_name[len(self._MANAGEMENT_TOOL_PREFIX) :]  # Remove prefix
 
             if method_name not in management_methods:
                 logger.warning("Configuration for method %s not found, skipping creation of %s", method_name, tool_name)
@@ -588,13 +584,14 @@ class ManagedServer(FastMCP[Any]):
             "permission debugging", lambda: self._debug_permission_impl(user_id, resource, action, scope)
         )
 
-    def review_permission_requests(self, action: str = "list", request_id: str = "", review_action: str = "", comment: str = "") -> str:
+    def review_permission_requests(
+        self, action: str = "list", request_id: str = "", review_action: str = "", comment: str = ""
+    ) -> str:
         """Review and approve/reject permission requests."""
         return self._safe_execute(
-            "permission request review", lambda: self._review_permission_requests_impl(action, request_id, review_action, comment)
+            "permission request review",
+            lambda: self._review_permission_requests_impl(action, request_id, review_action, comment),
         )
-
-
 
     # =============================================================================
     # Public Authorization API
@@ -744,10 +741,6 @@ class ManagedServer(FastMCP[Any]):
         """
         return self.assign_role(user_id, "admin", "system", reason)
 
-
-
-
-
     # =============================================================================
     # Management Interface Implementation
     # =============================================================================
@@ -797,10 +790,7 @@ class ManagedServer(FastMCP[Any]):
     def _extract_management_tools(self) -> dict[str, Any]:
         """Extract management tools from tool manager."""
         tools = self._tool_manager._tools
-        return {
-            name: tool for name, tool in tools.items()
-            if self._is_management_tool(name)
-        }
+        return {name: tool for name, tool in tools.items() if self._is_management_tool(name)}
 
     def _build_tool_info_list(self, management_tools: dict[str, Any]) -> tuple[list[dict], dict[str, Any]]:
         """Build tool information list and statistics."""
@@ -904,9 +894,7 @@ class ManagedServer(FastMCP[Any]):
             return "❌ Tool manager not found"
 
         if tool_name not in self._tool_manager._tools:
-            available_tools = [
-                name for name in self._tool_manager._tools if self._is_management_tool(name)
-            ]
+            available_tools = [name for name in self._tool_manager._tools if self._is_management_tool(name)]
             return f"❌ Management tool {tool_name} does not exist\nAvailable tools: {', '.join(available_tools)}"
 
         # Get current tool object
@@ -931,9 +919,7 @@ class ManagedServer(FastMCP[Any]):
             return "📋 Tool manager not found"
 
         tools = self._tool_manager._tools
-        management_tools = {
-            name: tool for name, tool in tools.items() if self._is_management_tool(name)
-        }
+        management_tools = {name: tool for name, tool in tools.items() if self._is_management_tool(name)}
 
         if not management_tools:
             return "📋 No management tools currently available"
@@ -1068,17 +1054,21 @@ class ManagedServer(FastMCP[Any]):
             check = debug_info["permission_check"]
             result_lines.append("\n🔒 Permission Check:")
             result_lines.append(f"   Casbin result: {'✅ Passed' if check['casbin_result'] else '❌ Denied'}")
-            result_lines.append(f"   Temporary permission: {'✅ Passed' if check['temporary_permission'] else '❌ Denied'}")
+            result_lines.append(
+                f"   Temporary permission: {'✅ Passed' if check['temporary_permission'] else '❌ Denied'}"
+            )
             result_lines.append(f"   Final result: {'✅ Allowed' if check['final_result'] else '❌ Denied'}")
 
             # Matching policies
             policies = debug_info.get("matching_policies", [])
             if policies:
                 result_lines.append(f"\n📜 Matching Policies: {len(policies)} items")
-                result_lines.extend([
-                    f"   • {policy['subject']} -> {policy['resource']}:{policy['action']}:{policy['scope']} ({policy['effect']})"
-                    for policy in policies
-                ])
+                result_lines.extend(
+                    [
+                        f"   • {policy['subject']} -> {policy['resource']}:{policy['action']}:{policy['scope']} ({policy['effect']})"
+                        for policy in policies
+                    ]
+                )
 
             # Diagnostic information
             diagnosis = debug_info.get("diagnosis", [])
@@ -1107,9 +1097,7 @@ class ManagedServer(FastMCP[Any]):
     def _get_management_tool_count(self) -> int:
         """Get the current number of management tools."""
         if hasattr(self, "_tool_manager") and hasattr(self._tool_manager, "_tools"):
-            return len(
-                [name for name in self._tool_manager._tools if self._is_management_tool(name)]
-            )
+            return len([name for name in self._tool_manager._tools if self._is_management_tool(name)])
         return 0
 
     def _get_management_tool_names(self) -> set[str]:
@@ -1268,8 +1256,6 @@ class ManagedServer(FastMCP[Any]):
         except Exception as e:
             logger.error(f"Failed to register user permission tools: {e}")
 
-
-
     # =============================================================================
     # SaaS permission management tools implementation (management tools)
     # =============================================================================
@@ -1327,7 +1313,9 @@ Use 'view_my_requests' to check request status."""
                 "🔑 Permission List:",
             ]
 
-            result_lines.extend([f"  • {perm}" for perm in summary["permissions"][:10]])  # Only show first 10 permissions
+            result_lines.extend(
+                [f"  • {perm}" for perm in summary["permissions"][:10]]
+            )  # Only show first 10 permissions
 
             if len(summary["permissions"]) > 10:
                 result_lines.append(f"  ... {len(summary['permissions']) - 10} more permissions")
@@ -1487,5 +1475,3 @@ Use 'view_my_requests' to check request status."""
         except Exception as e:
             logger.error(f"Error revoking role: {e}")
             return f"❌ Revocation failed: {str(e)}"
-
-

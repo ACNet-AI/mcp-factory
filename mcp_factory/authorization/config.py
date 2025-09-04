@@ -24,7 +24,7 @@ def get_default_data_dir() -> Path:
         return path
 
     # 2. Use user data directory
-    if os.name == 'nt':  # Windows
+    if os.name == "nt":  # Windows
         appdata = os.getenv("APPDATA")
         if appdata:
             base_dir = Path(appdata)

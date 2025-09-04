@@ -238,7 +238,11 @@ class MCPAuthorizationManager:
                         # Type hint for MyPy - cast to MCPPermission
                         perm = permission
                         self.enforcer.add_policy(
-                            role_name, perm.resource, perm.action, perm.scope, "allow"  # type: ignore
+                            role_name,
+                            perm.resource,
+                            perm.action,
+                            perm.scope,
+                            "allow",  # type: ignore
                         )
 
                 # Save policies
@@ -267,9 +271,7 @@ class MCPAuthorizationManager:
         session_id: str | None = None,
     ) -> bool:
         """Check user permissions"""
-        return self.permission_engine.check_permission(
-            user_id, resource, action, scope, ip_address, session_id
-        )
+        return self.permission_engine.check_permission(user_id, resource, action, scope, ip_address, session_id)
 
     def check_annotation_permission(self, user_id: str, annotation_type: str) -> bool:
         """Check annotation type permissions"""
