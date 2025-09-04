@@ -19,6 +19,7 @@ from .config import get_default_authz_db_path, get_default_authz_policy_path
 from .debug_service import DebugService
 from .models import (
     DEFAULT_ROLES,
+    MCPPermission,
 )
 from .permission_engine import PermissionCheckResult, PermissionEngine
 from .role_service import RoleService
@@ -236,13 +237,13 @@ class MCPAuthorizationManager:
                 for role_name, role_config in DEFAULT_ROLES.items():
                     for permission in role_config["permissions"]:
                         # Type hint for MyPy - cast to MCPPermission
-                        perm = permission
+                        perm: MCPPermission = permission  # type: ignore[assignment]
                         self.enforcer.add_policy(
                             role_name,
                             perm.resource,
                             perm.action,
                             perm.scope,
-                            "allow",  # type: ignore
+                            "allow",
                         )
 
                 # Save policies
