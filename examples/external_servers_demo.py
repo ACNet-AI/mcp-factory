@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """
 FastMCP-Factory External Servers Demo
 
@@ -154,7 +154,7 @@ async def demo_local_server_mounting(workspace: str):
     # Create a simple local server script
     local_server_script = os.path.join(workspace, "demo_local_server.py")
 
-    script_content = '''#!/usr/bin/env python3
+    script_content = '''# !/usr/bin/env python3
 """Simple demonstration MCP server"""
 import asyncio
 from mcp_factory.server import ManagedServer

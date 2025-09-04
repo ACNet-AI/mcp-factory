@@ -330,7 +330,7 @@ class ComponentManager:
                 return docstring_match.group(1).strip()
 
             # Try to extract single-line comment
-            comment_match = re.search(r"^#\s*(.+)", content, re.MULTILINE)
+            comment_match = re.search(r"^# \s*(.+)", content, re.MULTILINE)
             if comment_match:
                 return comment_match.group(1).strip()
 
@@ -444,7 +444,7 @@ class ComponentManager:
             # Skip initial comments and blank lines
             for i, line in enumerate(lines):
                 stripped = line.strip()
-                if stripped and not stripped.startswith("#"):
+                if stripped and not stripped.startswith("# "):
                     insert_index = i
                     break
 

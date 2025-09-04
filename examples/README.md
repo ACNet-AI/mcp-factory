@@ -34,6 +34,7 @@ Demo includes:
 | `mounting_servers.py` | ⭐⭐⭐⭐ | External server mounting, microservices | Distributed systems |
 | `production_ready.py` | ⭐⭐⭐⭐⭐ | Enterprise deployment, security, monitoring | Production environment |
 | `custom_middleware.py` | ⭐⭐⭐⭐ | **Custom middleware development** | Advanced customization |
+| `authorization_demo.py` | ⭐⭐⭐ | **Complete authorization system** | From configuration to enterprise permission management |
 
 ## 🚀 Quick Start
 
@@ -211,6 +212,39 @@ config = {
 **Perfect Integration with middleware_demo.py**: Can be directly called and tested
 
 **See complete implementation**: `examples/custom_middleware.py`
+
+### 🔐 authorization_demo.py - Complete Authorization System
+**From configuration to enterprise permission management** | **Complexity: ⭐⭐⭐**
+
+**One-stop authorization system learning**, covering the complete process from basic configuration to enterprise-level permission management:
+
+**📋 Demo Content:**
+1. **Quick Start** - authorization parameter configuration and basic concepts
+2. **Basic Permission Management** - role assignment, permission check, user management  
+3. **Advanced Features** - temporary permissions, management tool calls, audit logs
+4. **Business Scenarios** - SaaS permission requests and approval workflows
+5. **Best Practices** - configuration comparison, design principles, troubleshooting
+
+**🎯 Use Cases:**
+- Complete understanding of MCP Factory authorization system
+- Complete learning path from configuration to usage
+- Production environment permission management reference
+
+```bash
+# Run complete authorization system demo
+python examples/authorization_demo.py
+```
+
+**Core Feature Preview:**
+```python
+# Basic configuration
+server = ManagedServer(name="secure-server", authorization=True)
+
+# Permission management
+auth_mgr = server._authorization_manager
+auth_mgr.assign_role("alice", "premium_user", "admin", "Upgrade user")
+can_access = auth_mgr.check_permission("alice", "tool", "execute", "premium")
+```
 
 ### 🏗️ production_ready.py - Production Environment
 **Enterprise deployment** | **Complexity: ⭐⭐⭐⭐⭐**

@@ -2,15 +2,15 @@
 
 This guide provides detailed instructions on how to publish your MCP project to GitHub and register it in the MCP Servers Hub.
 
-## 🎯 Publishing Overview
+# # 🎯 Publishing Overview
 
 MCP Factory provides two publishing methods:
 - **🚀 GitHub App Automatic Publishing** - Recommended approach, fully automated
 - **📋 Manual Publishing** - Traditional approach, requires manual operations
 
-## 🚀 GitHub App Automatic Publishing (Recommended)
+# # 🚀 GitHub App Automatic Publishing (Recommended)
 
-### Prerequisites
+# ## Prerequisites
 
 1. **Project Preparation**
    ```bash
@@ -22,15 +22,15 @@ MCP Factory provides two publishing methods:
    - Valid GitHub account
    - Permission to install GitHub Apps
 
-### Publishing Steps
+# ## Publishing Steps
 
-#### 1. Start Publishing Process
+# ### 1. Start Publishing Process
 
 ```bash
 mcpf project publish my-project
 ```
 
-#### 2. GitHub App Installation
+# ### 2. GitHub App Installation
 
 For first-time publishing, the system will prompt you to install the GitHub App:
 
@@ -41,7 +41,7 @@ https://github.com/apps/mcp-project-manager/installations/new
 ✅ After installation is complete, the system will automatically continue the publishing process
 ```
 
-#### 3. Automated Process
+# ### 3. Automated Process
 
 After installation is complete, the system will automatically:
 - ✅ Create GitHub repository
@@ -49,7 +49,7 @@ After installation is complete, the system will automatically:
 - ✅ Configure webhook
 - ✅ Register to MCP Servers Hub
 
-#### 4. Publishing Complete
+# ### 4. Publishing Complete
 
 ```
 🎉 Publishing successful!
@@ -57,9 +57,9 @@ After installation is complete, the system will automatically:
 🌐 MCP Hub: https://github.com/ACNet-AI/mcp-servers-hub
 ```
 
-## 🔧 Advanced Configuration
+# # 🔧 Advanced Configuration
 
-### Project Configuration
+# ## Project Configuration
 
 Configure publishing information in `pyproject.toml`:
 
@@ -74,7 +74,7 @@ github_username = "your-github-username"
 installation_id = "12345678"  # Auto-filled
 ```
 
-### Publishing Options
+# ## Publishing Options
 
 ```bash
 # Publish private repository
@@ -87,11 +87,11 @@ mcpf project publish my-project --github-username your-username
 mcpf project publish my-project --force
 ```
 
-## 📋 Manual Publishing Method
+# # 📋 Manual Publishing Method
 
 If GitHub App is not available, you can use manual publishing:
 
-### 1. Prepare Git Repository
+# ## 1. Prepare Git Repository
 
 ```bash
 # Initialize Git repository (if not already initialized)
@@ -101,7 +101,7 @@ git add .
 git commit -m "Initial commit"
 ```
 
-### 2. Create GitHub Repository
+# ## 2. Create GitHub Repository
 
 1. Visit [GitHub](https://github.com/new)
 2. Create new repository
@@ -111,7 +111,7 @@ git commit -m "Initial commit"
    git push -u origin main
    ```
 
-### 3. Manual Registration to Hub
+# ## 3. Manual Registration to Hub
 
 1. Fork [MCP Servers Hub](https://github.com/ACNet-AI/mcp-servers-hub)
 2. Edit `registry.json` file
@@ -127,11 +127,11 @@ git commit -m "Initial commit"
    ```
 4. Create Pull Request
 
-## 🚨 Troubleshooting
+# # 🚨 Troubleshooting
 
-### Common Issues
+# ## Common Issues
 
-#### 1. GitHub App Installation Failed
+# ### 1. GitHub App Installation Failed
 
 **Issue**: Cannot install GitHub App
 **Solutions**:
@@ -139,7 +139,7 @@ git commit -m "Initial commit"
 - Check network connection
 - Try refreshing browser
 
-#### 2. Repository Creation Failed
+# ### 2. Repository Creation Failed
 
 **Issue**: "Repository already exists" error
 **Solutions**:
@@ -150,7 +150,7 @@ mcpf project publish my-project-v2
 # Or delete existing repository and retry
 ```
 
-#### 3. Permission Issues
+# ### 3. Permission Issues
 
 **Issue**: Code push failed
 **Solutions**:
@@ -158,7 +158,7 @@ mcpf project publish my-project-v2
 - Check repository permission settings
 - Reinstall GitHub App
 
-#### 4. Network Connection Issues
+# ### 4. Network Connection Issues
 
 **Issue**: Failed to connect to GitHub services
 **Solutions**:
@@ -171,7 +171,7 @@ export HTTPS_PROXY=http://your-proxy:port
 mcpf project publish my-project
 ```
 
-### Debug Mode
+# ## Debug Mode
 
 Enable verbose output for more information:
 
@@ -179,7 +179,7 @@ Enable verbose output for more information:
 mcpf --verbose project publish my-project
 ```
 
-### Reset Configuration
+# ## Reset Configuration
 
 If you encounter persistent issues, reset configuration:
 
@@ -191,9 +191,9 @@ rm -f .mcpf-config.json
 mcpf project publish my-project
 ```
 
-## 📊 Publishing Status Check
+# # 📊 Publishing Status Check
 
-### Check Publishing Status
+# ## Check Publishing Status
 
 ```bash
 # Check project status
@@ -204,15 +204,15 @@ curl -s "https://api.github.com/repos/ACNet-AI/mcp-servers-hub/contents/registry
   jq '.content' | base64 -d | jq '.[] | select(.name == "my-project")'
 ```
 
-### Verify Publishing Results
+# ## Verify Publishing Results
 
 1. **GitHub Repository**: Visit repository URL to confirm code is pushed
 2. **MCP Hub**: Check if it appears in [MCP Servers Hub](https://github.com/ACNet-AI/mcp-servers-hub)
 3. **Webhook**: Verify webhook configuration is correct
 
-## 🔄 Update Published Project
+# # 🔄 Update Published Project
 
-### Push Updates
+# ## Push Updates
 
 ```bash
 # Commit changes
@@ -223,14 +223,14 @@ git commit -m "Update features"
 git push
 ```
 
-### Manual Trigger Update
+# ## Manual Trigger Update
 
 ```bash
 # Republish if needed
 mcpf project publish my-project --force
 ```
 
-## 🔗 Related Resources
+# # 🔗 Related Resources
 
 - [GitHub App Management](https://github.com/settings/installations)
 - [MCP Servers Hub](https://github.com/ACNet-AI/mcp-servers-hub)

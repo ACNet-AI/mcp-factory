@@ -235,7 +235,7 @@ class ProjectPublisher:
     # Git operations
     # ============================================================================
 
-    def check_git_status(self, project_path: Path) -> dict[str, Any]:
+    def check_git_status(self, project_path: Path, allow_no_remote: bool = False) -> dict[str, Any]:
         """Check Git status"""
         try:
             git_info = self.detect_git_info(project_path)
@@ -246,6 +246,14 @@ class ProjectPublisher:
                 "needs_push": git_info.get("has_unpushed", False),
             }
         except GitError as e:
+            if allow_no_remote and "no remote" in str(e).lower():
+                # Allow projects without remote when explicitly requested
+                return {
+                    "valid": True,
+                    "git_info": {"has_changes": False, "has_unpushed": False},
+                    "needs_commit": False,
+                    "needs_push": False,
+                }
             return {"valid": False, "error": str(e)}
 
     def commit_changes(self, project_path: Path, message: str | None = None) -> bool:

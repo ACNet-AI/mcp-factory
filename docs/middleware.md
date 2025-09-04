@@ -1,6 +1,6 @@
 # Complete Middleware Guide
 
-## 📖 Overview
+# # 📖 Overview
 
 MCP Factory provides a powerful middleware system that supports middleware integration at different levels:
 
@@ -8,9 +8,9 @@ MCP Factory provides a powerful middleware system that supports middleware integ
 2. **Project Level**: Directly configure and use middleware in generated projects
 3. **Custom Development**: Develop your own enterprise-grade middleware
 
-## 🏗️ Architecture Design
+# # 🏗️ Architecture Design
 
-### Independent Middleware Module
+# ## Independent Middleware Module
 
 Middleware functionality is implemented through the independent `mcp_factory.middleware` module:
 
@@ -21,20 +21,20 @@ from mcp_factory.middleware import load_middleware_from_config
 middleware_instances = load_middleware_from_config(config)
 ```
 
-### Design Advantages
+# ## Design Advantages
 
 1. **Single Responsibility Principle**: Middleware module focuses on middleware loading logic
 2. **Code Reuse**: Factory and project levels share the same middleware loading code
 3. **Modular Design**: Easy to test and maintain
 4. **Extensibility**: Leaves room for future middleware functionality expansion
 
-## 🔧 Basic Usage
+# # 🔧 Basic Usage
 
-### Built-in Middleware Types
+# ## Built-in Middleware Types
 
 Based on FastMCP official middleware implementation:
 
-#### 1. Error Handling Middleware (error_handling)
+# ### 1. Error Handling Middleware (error_handling)
 
 ```yaml
 - type: error_handling
@@ -44,7 +44,7 @@ Based on FastMCP official middleware implementation:
   enabled: true
 ```
 
-#### 2. Rate Limiting Middleware (rate_limiting)
+# ### 2. Rate Limiting Middleware (rate_limiting)
 
 ```yaml
 - type: rate_limiting
@@ -55,7 +55,7 @@ Based on FastMCP official middleware implementation:
   enabled: true
 ```
 
-#### 3. Performance Timing Middleware (timing)
+# ### 3. Performance Timing Middleware (timing)
 
 ```yaml
 - type: timing
@@ -64,7 +64,7 @@ Based on FastMCP official middleware implementation:
   enabled: true
 ```
 
-#### 4. Request Logging Middleware (logging)
+# ### 4. Request Logging Middleware (logging)
 
 ```yaml
 - type: logging
@@ -75,7 +75,7 @@ Based on FastMCP official middleware implementation:
   enabled: true
 ```
 
-### Basic Configuration Example
+# ## Basic Configuration Example
 
 ```yaml
 server:
@@ -93,9 +93,9 @@ middleware:
     enabled: true
 ```
 
-## 🏭 Project-Level Usage
+# # 🏭 Project-Level Usage
 
-### Using in Generated Projects
+# ## Using in Generated Projects
 
 1. **Configure when creating project**:
 
@@ -121,7 +121,7 @@ cd my_project
 python server.py
 ```
 
-### Manual Middleware Loading
+# ## Manual Middleware Loading
 
 ```python
 from mcp_factory.middleware import load_middleware_from_config
@@ -131,9 +131,9 @@ config = {"middleware": [...]}
 middleware_instances = load_middleware_from_config(config)
 ```
 
-## 🛠️ Custom Middleware Development
+# # 🛠️ Custom Middleware Development
 
-### Basic Structure
+# ## Basic Structure
 
 ```python
 class CustomMiddleware:
@@ -156,23 +156,23 @@ class CustomMiddleware:
             raise
 ```
 
-### Implementation Requirements
+# ## Implementation Requirements
 
 1. **Constructor**: Accept `**config` parameters
 2. **`__call__` method**: Implement middleware logic, must be `async` method
 3. **Request processing**: Call `await call_next(request)` to continue processing chain
 4. **Error handling**: Catch and handle exceptions
 
-### Enterprise-Grade Examples
+# ## Enterprise-Grade Examples
 
-#### Enterprise-Grade Examples
+# ### Enterprise-Grade Examples
 
 For complete implementations of enterprise-grade middleware, see:
 - **Authentication Middleware**: `examples/custom_middleware.py` - API key authentication with anonymous access control
 - **Audit Logging Middleware**: `examples/custom_middleware.py` - Security audit logging with sensitive data masking
 - **Caching Middleware**: `examples/custom_middleware.py` - Intelligent response caching with TTL management
 
-### Configuration in Projects
+# ## Configuration in Projects
 
 ```yaml
 middleware:
@@ -191,9 +191,9 @@ middleware:
     enabled: true
 ```
 
-## 📋 Configuration Reference
+# # 📋 Configuration Reference
 
-### Complete Configuration Example
+# ## Complete Configuration Example
 
 ```yaml
 server:
@@ -262,9 +262,9 @@ runtime:
   log_level: "INFO"
 ```
 
-## 🎯 Best Practices
+# # 🎯 Best Practices
 
-### 1. Middleware Ordering
+# ## 1. Middleware Ordering
 
 Middleware execution follows the order defined in configuration:
 
@@ -277,7 +277,7 @@ Middleware execution follows the order defined in configuration:
 7. **Timing** - Performance monitoring
 8. **Logging** - Request/response logging
 
-### 2. Error Handling
+# ## 2. Error Handling
 
 ```python
 async def __call__(self, request, call_next):
@@ -293,23 +293,23 @@ async def __call__(self, request, call_next):
         raise
 ```
 
-### 3. Performance Considerations
+# ## 3. Performance Considerations
 
 - **Lightweight processing**: Keep middleware logic simple
 - **Async/await**: Use proper async patterns
 - **Resource cleanup**: Clean up resources in finally blocks
 - **Caching**: Cache expensive operations
 
-### 4. Security Best Practices
+# ## 4. Security Best Practices
 
 - **Input validation**: Validate all inputs
 - **Sensitive data**: Sanitize logs and audit trails
 - **Error messages**: Don't expose internal details
 - **Rate limiting**: Implement proper rate limiting
 
-## 🔍 Debugging and Monitoring
+# # 🔍 Debugging and Monitoring
 
-### Logging Configuration
+# ## Logging Configuration
 
 ```python
 import logging
@@ -319,14 +319,14 @@ logging.getLogger("mcp_factory.middleware").setLevel(logging.DEBUG)
 logging.getLogger("examples.custom_middleware").setLevel(logging.INFO)
 ```
 
-### Common Issues
+# ## Common Issues
 
 1. **Middleware not loading**: Check class path and imports
 2. **Configuration errors**: Validate YAML syntax
 3. **Performance issues**: Profile middleware execution
 4. **Memory leaks**: Monitor cache sizes and cleanup
 
-### Testing Middleware
+# ## Testing Middleware
 
 ```python
 import pytest
@@ -344,16 +344,16 @@ async def test_custom_middleware():
     call_next.assert_called_once_with(request)
 ```
 
-## 📚 Examples and References
+# # 📚 Examples and References
 
 - **Basic Examples**: `examples/middleware_demo.py`
 - **Custom Implementations**: `examples/custom_middleware.py`
 - **Configuration Files**: `examples/configs/`
 - **FastMCP Documentation**: [FastMCP Middleware](https://github.com/jlowin/fastmcp)
 
-## 🚀 Advanced Topics
+# # 🚀 Advanced Topics
 
-### Dynamic Middleware Loading
+# ## Dynamic Middleware Loading
 
 ```python
 from mcp_factory.middleware import load_middleware_from_config
@@ -363,7 +363,7 @@ config = load_config_from_file("config.yaml")
 middleware_instances = load_middleware_from_config(config)
 ```
 
-### Middleware Composition
+# ## Middleware Composition
 
 ```python
 # Combine multiple middleware
@@ -374,7 +374,7 @@ middleware_stack = [
 ]
 ```
 
-### Custom Middleware Registry
+# ## Custom Middleware Registry
 
 ```python
 # Register custom middleware types

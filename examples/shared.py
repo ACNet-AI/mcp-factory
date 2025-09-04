@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """
 FastMCP-Factory Examples - Shared Utilities Module
 

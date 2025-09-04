@@ -16,9 +16,13 @@ from fastmcp import FastMCP
 from fastmcp.tools.tool import Tool
 from mcp.types import ToolAnnotations
 
-# Update import path
-from .auth import check_annotation_type, format_permission_error
-from .exceptions import ServerError
+from ..authorization import get_current_user_info
+from ..exceptions import ServerError
+from .tool_configs import (
+    get_fastmcp_native_methods,
+    get_self_implemented_methods,
+    get_user_permission_tools,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -28,7 +32,15 @@ logger = logging.getLogger(__name__)
 
 
 class ManagedServer(FastMCP[Any]):
-    """Extended FastMCP class that registers its own management methods as MCP tools."""
+    """Extended FastMCP class with self-management capabilities and authentication support.
+
+    Extends FastMCP by adding:
+    - Automatic registration of management tools
+    - Scope-based permission control
+    - Support for multiple authentication providers
+
+    See __init__ method for authentication options and detailed examples.
+    """
 
     # =============================================================================
     # Class Constants Definition
@@ -58,6 +70,9 @@ class ManagedServer(FastMCP[Any]):
         },
     }
 
+    # Management tool prefix constant
+    _MANAGEMENT_TOOL_PREFIX = "manage_"
+
     # Meta management tools (tools that should not be cleared)
     _META_MANAGEMENT_TOOLS = {
         "manage_get_management_tools_info",
@@ -65,6 +80,11 @@ class ManagedServer(FastMCP[Any]):
         "manage_recreate_management_tools",
         "manage_reset_management_tools",
     }
+
+    @classmethod
+    def _is_management_tool(cls, tool_name: str) -> bool:
+        """Check if a tool name is a management tool."""
+        return isinstance(tool_name, str) and tool_name.startswith(cls._MANAGEMENT_TOOL_PREFIX)
 
     # =============================================================================
     # Initialization Methods
@@ -74,7 +94,7 @@ class ManagedServer(FastMCP[Any]):
         self,
         *,
         expose_management_tools: bool = True,
-        enable_permission_check: bool | None = None,
+        authorization: bool | None = None,
         management_tool_tags: set[str] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -82,19 +102,80 @@ class ManagedServer(FastMCP[Any]):
 
         Args:
             expose_management_tools: Whether to expose FastMCP methods as management tools (default: True)
-            enable_permission_check: Whether to enable JWT permission check
+
+            authorization: Authorization configuration (bool | None)
+                * None (default): Infer from auth parameter - no auth means no authorization, with auth means enable authorization
+                * True: Force enable authorization (uses Casbin RBAC system)
+                * False: Force disable authorization (all permissions allowed)
             management_tool_tags: Management tool tag set (fastmcp 2.8.0+)
-            **kwargs: All parameters for FastMCP
+            **kwargs: All parameters for FastMCP, including:
+                - auth: Authentication provider (AuthProvider | None | NotSetT)
+                    * NotSet (default): Use FastMCP default behavior (checks environment variables)
+                    * None: No authentication required
+                    * JWTVerifier: JWT token authentication with key verification
+                    * TokenVerifier: Simple bearer token verification
+                    * InMemoryOAuthProvider: Built-in OAuth server (testing/development)
+                    * OAuthProxy: External OAuth providers (GitHub, Google, etc.)
+                    * Custom implementations: Any class implementing AuthProvider interface
+                - name: Server name (required)
+                - instructions: Server description
+                - tools: List of tools to register
+
+        Examples:
+            # Default behavior - infer authorization from auth parameter
+            server = ManagedServer(name="my-server")  # Auto-infer based on auth
+
+            # Explicit authorization control
+            server = ManagedServer(name="secure-server", authorization=True)   # Force enable
+            server = ManagedServer(name="open-server", authorization=False)    # Force disable
+
+            # Combined with authentication
+            from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
+
+            # JWT authentication with authorization
+            key_pair = RSAKeyPair.generate()
+            jwt_auth = JWTVerifier(public_key=key_pair.public_key)
+            server = ManagedServer(
+                name="jwt-server",
+                auth=jwt_auth,
+                authorization=True  # Explicit enable
+            )
+
+            # OAuth authentication with auto-inferred authorization
+            from fastmcp.server.auth import OAuthProxy
+            proxy_auth = OAuthProxy(providers=["github", "google"])
+            server = ManagedServer(
+                name="oauth-server",
+                auth=proxy_auth  # authorization=None will auto-enable
+            )
+
+            # Public server with no auth or authorization
+            server = ManagedServer(
+                name="public-server",
+                auth=None,
+                authorization=False
+            )
         """
         # 💾 Save configuration parameters
         self.expose_management_tools = expose_management_tools
         self.management_tool_tags = management_tool_tags or {"management", "admin"}
 
-        # 🔒 Security default: enable permission check by default when exposing management tools
-        if enable_permission_check is None:
-            self.enable_permission_check = expose_management_tools
-        else:
-            self.enable_permission_check = enable_permission_check
+        # 🔒 Setup authorization system
+        self.authorization = self._setup_authorization(
+            authorization, kwargs.get("auth"), expose_management_tools
+        )
+
+        # Initialize authorization manager if needed
+        self._authorization_manager = None
+        if self.authorization:
+            try:
+                from ..authorization.manager import MCPAuthorizationManager
+
+                self._authorization_manager = MCPAuthorizationManager()
+                logger.info("Authorization manager initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize authorization manager: {e}")
+                self._authorization_manager = None
 
         # 🏷️ Dynamic attribute declaration (set by Factory)
         self._config: dict[str, Any] = {}
@@ -108,7 +189,7 @@ class ManagedServer(FastMCP[Any]):
         server_name = kwargs.get("name", "ManagedServer")
         logger.info("Initializing ManagedServer: %s", server_name)
         logger.info(
-            f"Expose management tools: {expose_management_tools}, Permission check: {self.enable_permission_check}"
+            f"Expose management tools: {expose_management_tools}, Permission check: {self.authorization}"
         )
 
         if expose_management_tools:
@@ -125,11 +206,43 @@ class ManagedServer(FastMCP[Any]):
             kwargs["instructions"] = kwargs.pop("description")
 
         super().__init__(**kwargs)
+
+        # Register user permission tools (separate from management tools)
+        if self.authorization:
+            self._register_user_permission_tools()
+
         logger.info("ManagedServer %s initialization completed", server_name)
+
+    def _setup_authorization(self, authorization: Any, auth_provider: Any, expose_management_tools: bool) -> bool:
+        """Setup authorization system based on parameters"""
+
+        # Handle explicit authorization parameter
+        if authorization is not None:
+            if authorization is True:
+                logger.info("Authorization explicitly enabled")
+                return True
+            elif authorization is False:
+                logger.info("Authorization explicitly disabled")
+                return False
+            else:
+                logger.warning(f"Invalid authorization value: {authorization}, using False")
+                return False
+
+        # Default behavior: infer from auth parameter
+        if auth_provider is None:
+            # No auth -> no authorization by default
+            inferred = False
+            logger.info("No auth provider -> authorization disabled")
+        else:
+            # Has auth -> enable authorization if exposing management tools
+            inferred = expose_management_tools
+            logger.info(f"Auth provider detected -> authorization {'enabled' if inferred else 'disabled'}")
+
+        return inferred
 
     def _validate_security_config(self) -> None:
         """Validate security configuration."""
-        if self.expose_management_tools and not self.enable_permission_check:
+        if self.expose_management_tools and not self.authorization:
             import os
             import warnings
 
@@ -147,12 +260,12 @@ class ManagedServer(FastMCP[Any]):
                 msg = (
                     "🚨 Production security error: Exposing management tools "
                     "with disabled permission check not allowed. "
-                    "Set enable_permission_check=True or expose_management_tools=False"
+                    "Set authorization=True or expose_management_tools=False"
                 )
                 raise ServerError(msg)
             warnings.warn(
                 "⚠️ Security warning: Management tools are exposed but permission check is not enabled. "
-                "This is dangerous in production! Recommend setting enable_permission_check=True or configuring auth",
+                "This is dangerous in production! Recommend setting authorization=True or configuring auth",
                 UserWarning,
                 stacklevel=3,
             )
@@ -163,187 +276,9 @@ class ManagedServer(FastMCP[Any]):
 
     def _get_management_methods(self) -> dict[str, dict[str, Any]]:
         """Get management method configuration dictionary."""
-
-        # Custom management methods (defined in ManagedServer class, guaranteed to exist)
-        self_implemented_methods = {
-            # Meta management tools - Manage management tools themselves
-            "get_management_tools_info": {
-                "description": "Get information and status of currently registered management tools",
-                "async": False,
-                "title": "View management tool information",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "meta", "introspection"},
-                "enabled": True,
-            },
-            "clear_management_tools": {
-                "description": "Clear all registered management tools (excluding meta management tools)",
-                "async": False,
-                "title": "Clear management tools",
-                "annotation_type": "destructive",
-                "no_params": True,
-                "tags": {"admin", "destructive", "dangerous", "meta"},
-                "enabled": True,
-            },
-            "recreate_management_tools": {
-                "description": "Recreate all management tools (smart deduplication, won't affect meta tools)",
-                "async": False,
-                "title": "Recreate management tools",
-                "annotation_type": "modify",
-                "no_params": True,
-                "tags": {"admin", "modify", "meta", "recovery"},
-                "enabled": True,
-            },
-            "reset_management_tools": {
-                "description": "Completely reset management tool system (clear then rebuild, dangerous operation)",
-                "async": False,
-                "title": "Reset management tool system",
-                "annotation_type": "destructive",
-                "no_params": True,
-                "tags": {"admin", "destructive", "dangerous", "meta", "emergency"},
-                "enabled": True,
-            },
-            "toggle_management_tool": {
-                "description": "Dynamically enable/disable specified management tool",
-                "async": False,
-                "title": "Toggle tool status",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "meta", "dynamic"},
-                "enabled": True,
-            },
-            "get_tools_by_tags": {
-                "description": "Filter and display management tools by tags",
-                "async": False,
-                "title": "Query tools by tags",
-                "annotation_type": "readonly",
-                "tags": {"readonly", "safe", "meta", "query"},
-                "enabled": True,
-            },
-        }
-
-        # FastMCP native methods (inherited from FastMCP, need existence check)
-        fastmcp_native_methods = {
-            # Query methods - Safe, read-only operations
-            "get_tools": {
-                "description": "Get all registered tools on the server",
-                "async": True,
-                "title": "View tool list",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_resources": {
-                "description": "Get all registered resources on the server",
-                "async": True,
-                "title": "View resource list",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_resource_templates": {
-                "description": "Get all registered resource templates on the server",
-                "async": True,
-                "title": "View resource templates",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            "get_prompts": {
-                "description": "Get all registered prompts on the server",
-                "async": True,
-                "title": "View prompt templates",
-                "annotation_type": "readonly",
-                "no_params": True,
-                "tags": {"readonly", "safe", "query"},
-                "enabled": True,
-            },
-            # Server composition management - High-risk operations
-            "mount": {
-                "description": "Mount another FastMCP server to the current server",
-                "async": False,
-                "title": "Mount server",
-                "annotation_type": "external",
-                "tags": {"admin", "external", "dangerous", "composition"},
-                "enabled": True,
-            },
-            "import_server": {
-                "description": "Import all tools and resources from another FastMCP server",
-                "async": True,
-                "title": "Import server",
-                "annotation_type": "external",
-                "tags": {"admin", "external", "dangerous", "composition"},
-                "enabled": True,
-            },
-            # Dynamic management - Medium risk operations
-            "add_tool": {
-                "description": "Dynamically add tool to server",
-                "async": False,
-                "title": "Add tool",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "remove_tool": {
-                "description": "Remove specified tool from server",
-                "async": False,
-                "title": "Remove tool",
-                "annotation_type": "destructive",
-                "tags": {"admin", "destructive", "dangerous", "dynamic"},
-                "enabled": True,
-            },
-            "add_resource": {
-                "description": "Dynamically add resource to server",
-                "async": False,
-                "title": "Add resource",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "add_prompt": {
-                "description": "Dynamically add prompt to server",
-                "async": False,
-                "title": "Add prompt template",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "add_template": {
-                "description": "Add a resource template to the server",
-                "async": False,
-                "title": "Add resource template",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic"},
-                "enabled": True,
-            },
-            "add_resource_fn": {
-                "description": "Add a resource or template to the server from a function",
-                "async": False,
-                "title": "Add resource from function",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "dynamic", "advanced"},
-                "enabled": True,
-            },
-            "add_middleware": {
-                "description": "Add middleware to the server",
-                "async": False,
-                "title": "Add middleware",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "middleware", "advanced"},
-                "enabled": True,
-            },
-            # Tool Transformation - FastMCP 2.8.0+ feature
-            "transform_tool": {
-                "description": "Transform existing tools using Tool Transformation API. Use manage_get_tools.",
-                "async": False,
-                "title": "Transform tool",
-                "annotation_type": "modify",
-                "tags": {"admin", "modify", "transform", "advanced"},
-                "enabled": True,
-            },
-        }
+        # Load configurations from external config file
+        self_implemented_methods = get_self_implemented_methods()
+        fastmcp_native_methods = get_fastmcp_native_methods()
 
         # Merge methods: custom management methods + existing FastMCP native methods
         result = self_implemented_methods.copy()
@@ -363,7 +298,7 @@ class ManagedServer(FastMCP[Any]):
     def _create_management_tools(self) -> list[Tool]:
         """Create management tool object list."""
         management_methods = self._get_management_methods()
-        all_tool_names = {f"manage_{method_name}" for method_name in management_methods}
+        all_tool_names = {f"{self._MANAGEMENT_TOOL_PREFIX}{method_name}" for method_name in management_methods}
 
         logger.debug("Defined %s management methods", len(management_methods))
 
@@ -383,7 +318,7 @@ class ManagedServer(FastMCP[Any]):
         created_count = 0
 
         for tool_name in tool_names:
-            method_name = tool_name[7:]  # Remove "manage_" prefix
+            method_name = tool_name[len(self._MANAGEMENT_TOOL_PREFIX):]  # Remove prefix
 
             if method_name not in management_methods:
                 logger.warning("Configuration for method %s not found, skipping creation of %s", method_name, tool_name)
@@ -494,11 +429,26 @@ class ManagedServer(FastMCP[Any]):
 
         def permission_check() -> str | None:
             """Unified permission check logic."""
-            if self.enable_permission_check:
-                permission_result = check_annotation_type(perm_type)
-                if not permission_result.allowed:
-                    logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
-                    return format_permission_error(permission_result)
+            if self.authorization:
+                # Use authorization system
+                if hasattr(self, "_authorization_manager") and self._authorization_manager:
+                    try:
+                        user_id, _ = get_current_user_info()
+                        if not user_id:
+                            return "❌ Authentication required"
+
+                        # Check permission using authorization manager
+                        allowed = self._authorization_manager.check_annotation_permission(user_id, perm_type)
+                        if not allowed:
+                            logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
+                            return f"❌ Insufficient permissions for {perm_type} operations"
+                    except Exception as e:
+                        logger.error("Authorization system error: %s", e)
+                        return f"❌ Authorization system error: {e}"
+                else:
+                    # No authorization manager available
+                    logger.warning("Authorization manager not available for permission check")
+                    return "❌ Authorization system not available"
             return None
 
         def log_execution(action: str, execution_time: float | None = None) -> None:
@@ -597,7 +547,7 @@ class ManagedServer(FastMCP[Any]):
                 "management_tools": [],
                 "configuration": {
                     "expose_management_tools": self.expose_management_tools,
-                    "enable_permission_check": self.enable_permission_check,
+                    "authorization": self.authorization,
                     "management_tool_tags": list(self.management_tool_tags),
                 },
                 "statistics": {"total_management_tools": 0, "enabled_tools": 0, "permission_levels": {}},
@@ -632,6 +582,172 @@ class ManagedServer(FastMCP[Any]):
             "tool transformation", lambda: self._transform_tool_impl(source_tool_name, new_tool_name, transform_config)
         )
 
+    def debug_permission(self, user_id: str, resource: str, action: str, scope: str = "*") -> str:
+        """Debug permission check process with detailed diagnostics."""
+        return self._safe_execute(
+            "permission debugging", lambda: self._debug_permission_impl(user_id, resource, action, scope)
+        )
+
+    def review_permission_requests(self, action: str = "list", request_id: str = "", review_action: str = "", comment: str = "") -> str:
+        """Review and approve/reject permission requests."""
+        return self._safe_execute(
+            "permission request review", lambda: self._review_permission_requests_impl(action, request_id, review_action, comment)
+        )
+
+
+
+    # =============================================================================
+    # Public Authorization API
+    # =============================================================================
+
+    @property
+    def authz(self) -> Any:
+        """Get the authorization manager instance.
+
+        Returns:
+            MCPAuthorizationManager: The authorization manager instance, or None if authorization is disabled.
+
+        Example:
+            ```python
+            server = ManagedServer(name="my-server", authorization=True)
+            if server.authz:
+                server.authz.assign_role("alice", "premium_user", "admin", "User upgrade")
+                can_access = server.authz.check_permission("alice", "tool", "execute", "premium")
+            ```
+        """
+        return getattr(self, "_authorization_manager", None)
+
+    def assign_role(self, user_id: str, role: str, assigned_by: str = "system", reason: str = "") -> bool:
+        """Assign a role to a user.
+
+        Args:
+            user_id: The user ID to assign the role to
+            role: The role to assign (e.g., 'premium_user', 'admin')
+            assigned_by: Who is assigning the role (default: 'system')
+            reason: Reason for the role assignment
+
+        Returns:
+            bool: True if successful, False otherwise
+
+        Example:
+            ```python
+            success = server.assign_role("alice", "premium_user", "admin", "User purchased premium")
+            ```
+        """
+        if not self.authz:
+            logger.warning("Authorization not enabled, cannot assign role")
+            return False
+
+        try:
+            result = self.authz.assign_role(user_id, role, assigned_by, reason)
+            return bool(result)
+        except Exception as e:
+            logger.error(f"Failed to assign role {role} to user {user_id}: {e}")
+            return False
+
+    def revoke_role(self, user_id: str, role: str, revoked_by: str = "system", reason: str = "") -> bool:
+        """Revoke a role from a user.
+
+        Args:
+            user_id: The user ID to revoke the role from
+            role: The role to revoke
+            revoked_by: Who is revoking the role (default: 'system')
+            reason: Reason for the role revocation
+
+        Returns:
+            bool: True if successful, False otherwise
+
+        Example:
+            ```python
+            success = server.revoke_role("alice", "premium_user", "admin", "Subscription expired")
+            ```
+        """
+        if not self.authz:
+            logger.warning("Authorization not enabled, cannot revoke role")
+            return False
+
+        try:
+            result = self.authz.revoke_role(user_id, role, revoked_by, reason)
+            return bool(result)
+        except Exception as e:
+            logger.error(f"Failed to revoke role {role} from user {user_id}: {e}")
+            return False
+
+    def check_permission(self, user_id: str, resource: str, action: str, scope: str = "*") -> bool:
+        """Check if a user has a specific permission.
+
+        Args:
+            user_id: The user ID to check
+            resource: The resource type (e.g., 'tool', 'mcp', 'resource')
+            action: The action type (e.g., 'execute', 'read', 'write', 'admin')
+            scope: The permission scope (e.g., '*', 'basic', 'premium', 'enterprise')
+
+        Returns:
+            bool: True if user has permission, False otherwise
+
+        Example:
+            ```python
+            can_execute = server.check_permission("alice", "tool", "execute", "premium")
+            ```
+        """
+        if not self.authz:
+            logger.warning("Authorization not enabled, permission check returns True")
+            return True
+
+        try:
+            result = self.authz.check_permission(user_id, resource, action, scope)
+            return bool(result)
+        except Exception as e:
+            logger.error(f"Failed to check permission for user {user_id}: {e}")
+            return False
+
+    def get_user_roles(self, user_id: str) -> list[str]:
+        """Get all roles assigned to a user.
+
+        Args:
+            user_id: The user ID to get roles for
+
+        Returns:
+            list[str]: List of role names assigned to the user
+
+        Example:
+            ```python
+            roles = server.get_user_roles("alice")
+            print(f"Alice has roles: {roles}")
+            ```
+        """
+        if not self.authz:
+            logger.warning("Authorization not enabled, returning empty roles list")
+            return []
+
+        try:
+            result = self.authz.get_user_roles(user_id)
+            return list(result) if result else []
+        except Exception as e:
+            logger.error(f"Failed to get roles for user {user_id}: {e}")
+            return []
+
+    def create_admin_user(self, user_id: str, reason: str = "Admin user creation") -> bool:
+        """Create an admin user by assigning the admin role.
+
+        Args:
+            user_id: The user ID to make admin
+            reason: Reason for creating admin user
+
+        Returns:
+            bool: True if successful, False otherwise
+
+        Example:
+            ```python
+            success = server.create_admin_user("admin", "Initial setup")
+            ```
+        """
+        return self.assign_role(user_id, "admin", "system", reason)
+
+
+
+
+
     # =============================================================================
     # Management Interface Implementation
     # =============================================================================
@@ -651,78 +767,100 @@ class ManagedServer(FastMCP[Any]):
     def _get_management_tools_info_impl(self) -> dict[str, Any]:
         """Implementation for getting management tools information with structured output."""
         if not hasattr(self, "_tool_manager") or not hasattr(self._tool_manager, "_tools"):
-            return {
-                "management_tools": [],
-                "configuration": {
-                    "expose_management_tools": self.expose_management_tools,
-                    "enable_permission_check": self.enable_permission_check,
-                    "management_tool_tags": list(self.management_tool_tags),
-                },
-                "statistics": {"total_management_tools": 0, "enabled_tools": 0, "permission_levels": {}},
-            }
+            return self._get_empty_tools_info()
 
-        tools = self._tool_manager._tools
-        management_tools = {
-            name: tool for name, tool in tools.items() if isinstance(name, str) and name.startswith("manage_")
+        management_tools = self._extract_management_tools()
+        tool_info_list, statistics = self._build_tool_info_list(management_tools)
+
+        return {
+            "management_tools": tool_info_list,
+            "configuration": self._get_configuration_info(),
+            "statistics": statistics,
         }
 
-        # Build structured tool information
+    def _get_empty_tools_info(self) -> dict[str, Any]:
+        """Return empty tools info structure."""
+        return {
+            "management_tools": [],
+            "configuration": self._get_configuration_info(),
+            "statistics": {"total_management_tools": 0, "enabled_tools": 0, "permission_levels": {}},
+        }
+
+    def _get_configuration_info(self) -> dict[str, Any]:
+        """Get server configuration information."""
+        return {
+            "expose_management_tools": self.expose_management_tools,
+            "authorization": self.authorization,
+            "management_tool_tags": list(self.management_tool_tags),
+        }
+
+    def _extract_management_tools(self) -> dict[str, Any]:
+        """Extract management tools from tool manager."""
+        tools = self._tool_manager._tools
+        return {
+            name: tool for name, tool in tools.items()
+            if self._is_management_tool(name)
+        }
+
+    def _build_tool_info_list(self, management_tools: dict[str, Any]) -> tuple[list[dict], dict[str, Any]]:
+        """Build tool information list and statistics."""
         tool_info_list = []
         enabled_count = 0
         permission_levels: dict[str, int] = {}
 
         for tool_name, tool in management_tools.items():
-            description = getattr(tool, "description", "No description")
-            annotations = getattr(tool, "annotations", {})
-            enabled = getattr(tool, "enabled", True)
-
-            if enabled:
-                enabled_count += 1
-
-            # Extract permission level
-            if hasattr(annotations, "destructiveHint"):
-                is_destructive = getattr(annotations, "destructiveHint", False)
-                is_readonly = getattr(annotations, "readOnlyHint", False)
-            elif isinstance(annotations, dict):
-                is_destructive = annotations.get("destructiveHint", False)
-                is_readonly = annotations.get("readOnlyHint", False)
-            else:
-                is_destructive = False
-                is_readonly = False
-
-            # Determine permission level
-            if is_destructive:
-                permission_level = "destructive"
-            elif is_readonly:
-                permission_level = "readonly"
-            else:
-                permission_level = "modify"
-
-            # Count permission levels
-            permission_levels[permission_level] = permission_levels.get(permission_level, 0) + 1
-
-            tool_info = {
-                "name": tool_name,
-                "description": description,
-                "permission_level": permission_level,
-                "enabled": enabled,
-                "annotations": dict(annotations) if isinstance(annotations, dict) else {},
-            }
+            tool_info = self._create_tool_info(tool_name, tool)
             tool_info_list.append(tool_info)
 
-        return {
-            "management_tools": tool_info_list,
-            "configuration": {
-                "expose_management_tools": self.expose_management_tools,
-                "enable_permission_check": self.enable_permission_check,
-                "management_tool_tags": list(self.management_tool_tags),
-            },
-            "statistics": {
-                "total_management_tools": len(management_tools),
-                "enabled_tools": enabled_count,
-                "permission_levels": permission_levels,
-            },
+            if tool_info["enabled"]:
+                enabled_count += 1
+
+            permission_level = tool_info["permission_level"]
+            permission_levels[permission_level] = permission_levels.get(permission_level, 0) + 1
+
+        statistics = {
+            "total_management_tools": len(management_tools),
+            "enabled_tools": enabled_count,
+            "permission_levels": permission_levels,
         }
+
+        return tool_info_list, statistics
+
+    def _create_tool_info(self, tool_name: str, tool: Any) -> dict[str, Any]:
+        """Create information dictionary for a single tool."""
+        description = getattr(tool, "description", "No description")
+        annotations = getattr(tool, "annotations", {})
+        enabled = getattr(tool, "enabled", True)
+        permission_level = self._determine_permission_level(annotations)
+
+        return {
+            "name": tool_name,
+            "description": description,
+            "permission_level": permission_level,
+            "enabled": enabled,
+            "annotations": dict(annotations) if isinstance(annotations, dict) else {},
+        }
+
+    def _determine_permission_level(self, annotations: Any) -> str:
+        """Determine permission level from tool annotations."""
+        # Extract permission hints
+        if hasattr(annotations, "destructiveHint"):
+            is_destructive = getattr(annotations, "destructiveHint", False)
+            is_readonly = getattr(annotations, "readOnlyHint", False)
+        elif isinstance(annotations, dict):
+            is_destructive = annotations.get("destructiveHint", False)
+            is_readonly = annotations.get("readOnlyHint", False)
+        else:
+            is_destructive = False
+            is_readonly = False
+
+        # Determine permission level
+        if is_destructive:
+            return "destructive"
+        elif is_readonly:
+            return "readonly"
+        else:
+            return "modify"
 
     def _clear_management_tools_impl(self) -> str:
         """Implementation for clearing management tools."""
@@ -750,7 +888,7 @@ class ManagedServer(FastMCP[Any]):
         logger.info("Cleared %s management tools", cleared_count)
 
         management_methods = self._get_management_methods()
-        all_tool_names = {f"manage_{method_name}" for method_name in management_methods}
+        all_tool_names = {f"{self._MANAGEMENT_TOOL_PREFIX}{method_name}" for method_name in management_methods}
         recreated_count = self._create_tools_from_names(all_tool_names, management_methods, use_tool_objects=False)
 
         return f"🔄 Management tools system reset complete: cleared {cleared_count}, rebuilt {recreated_count}"
@@ -758,7 +896,7 @@ class ManagedServer(FastMCP[Any]):
     def _toggle_management_tool_impl(self, tool_name: str, enabled: bool | None) -> str:
         """Implementation for toggling management tool status."""
         # Normalize tool name
-        if not tool_name.startswith("manage_"):
+        if not self._is_management_tool(tool_name):
             tool_name = f"manage_{tool_name}"
 
         # Check if tool exists
@@ -767,7 +905,7 @@ class ManagedServer(FastMCP[Any]):
 
         if tool_name not in self._tool_manager._tools:
             available_tools = [
-                name for name in self._tool_manager._tools if isinstance(name, str) and name.startswith("manage_")
+                name for name in self._tool_manager._tools if self._is_management_tool(name)
             ]
             return f"❌ Management tool {tool_name} does not exist\nAvailable tools: {', '.join(available_tools)}"
 
@@ -794,7 +932,7 @@ class ManagedServer(FastMCP[Any]):
 
         tools = self._tool_manager._tools
         management_tools = {
-            name: tool for name, tool in tools.items() if isinstance(name, str) and name.startswith("manage_")
+            name: tool for name, tool in tools.items() if self._is_management_tool(name)
         }
 
         if not management_tools:
@@ -898,6 +1036,70 @@ class ManagedServer(FastMCP[Any]):
         logger.info("🎯 Successfully transformed tool: %s -> %s", source_tool_name, new_tool_name)
         return result
 
+    def _debug_permission_impl(self, user_id: str, resource: str, action: str, scope: str) -> str:
+        """Implementation for permission debugging."""
+        if not hasattr(self, "_authorization_manager") or not self._authorization_manager:
+            return "❌ Authorization system not available. Please enable authorization to use this feature."
+
+        try:
+            # Execute permission debugging
+            debug_info = self._authorization_manager.debug_permission(user_id, resource, action, scope)
+
+            # Format output
+            result_lines = []
+            result_lines.append("🔍 Permission Debug Report")
+            result_lines.append("=" * 50)
+
+            # Request information
+            req = debug_info["request"]
+            result_lines.append("\n📋 Permission Request:")
+            result_lines.append(f"   User: {req['user_id']}")
+            result_lines.append(f"   Resource: {req['resource']}")
+            result_lines.append(f"   Action: {req['action']}")
+            result_lines.append(f"   Scope: {req['scope']}")
+
+            # User information
+            user_info = debug_info["user_info"]
+            result_lines.append("\n👤 User Information:")
+            result_lines.append(f"   Roles: {user_info.get('roles', [])}")
+            result_lines.append(f"   Direct permissions: {len(user_info.get('direct_permissions', []))} items")
+
+            # Permission check results
+            check = debug_info["permission_check"]
+            result_lines.append("\n🔒 Permission Check:")
+            result_lines.append(f"   Casbin result: {'✅ Passed' if check['casbin_result'] else '❌ Denied'}")
+            result_lines.append(f"   Temporary permission: {'✅ Passed' if check['temporary_permission'] else '❌ Denied'}")
+            result_lines.append(f"   Final result: {'✅ Allowed' if check['final_result'] else '❌ Denied'}")
+
+            # Matching policies
+            policies = debug_info.get("matching_policies", [])
+            if policies:
+                result_lines.append(f"\n📜 Matching Policies: {len(policies)} items")
+                result_lines.extend([
+                    f"   • {policy['subject']} -> {policy['resource']}:{policy['action']}:{policy['scope']} ({policy['effect']})"
+                    for policy in policies
+                ])
+
+            # Diagnostic information
+            diagnosis = debug_info.get("diagnosis", [])
+            if diagnosis:
+                result_lines.append("\n🔍 Diagnostic Information:")
+                result_lines.extend([f"   {diag}" for diag in diagnosis])
+
+            # Suggestions
+            suggestions = debug_info.get("suggestions", [])
+            if suggestions:
+                result_lines.append("\n💡 Suggestions:")
+                result_lines.extend([f"   {suggestion}" for suggestion in suggestions])
+
+            result_lines.append("\n" + "=" * 50)
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error in permission debugging: {e}")
+            return f"❌ Permission debugging failed: {str(e)}"
+
     # =============================================================================
     # Internal Helper Methods
     # =============================================================================
@@ -906,14 +1108,14 @@ class ManagedServer(FastMCP[Any]):
         """Get the current number of management tools."""
         if hasattr(self, "_tool_manager") and hasattr(self._tool_manager, "_tools"):
             return len(
-                [name for name in self._tool_manager._tools if isinstance(name, str) and name.startswith("manage_")]
+                [name for name in self._tool_manager._tools if self._is_management_tool(name)]
             )
         return 0
 
     def _get_management_tool_names(self) -> set[str]:
         """Get the set of current management tool names."""
         if hasattr(self, "_tool_manager") and hasattr(self._tool_manager, "_tools"):
-            return {name for name in self._tool_manager._tools if isinstance(name, str) and name.startswith("manage_")}
+            return {name for name in self._tool_manager._tools if self._is_management_tool(name)}
         return set()
 
     def _clear_management_tools(self) -> int:
@@ -927,7 +1129,7 @@ class ManagedServer(FastMCP[Any]):
                 for tool_name in tool_names:
                     if (
                         isinstance(tool_name, str)
-                        and tool_name.startswith("manage_")
+                        and self._is_management_tool(tool_name)
                         and tool_name not in self._META_MANAGEMENT_TOOLS
                     ):
                         try:
@@ -1030,3 +1232,260 @@ class ManagedServer(FastMCP[Any]):
         except Exception as e:
             logger.error(f"Error occurred while formatting result: {e}", exc_info=True)
             return f"⚠️ Result formatting error: {e}"
+
+    # =============================================================================
+    # User permission tools registration (regular tools, not management tools)
+    # =============================================================================
+
+    def _register_user_permission_tools(self) -> None:
+        """Register user permission self-service tools (as regular tools, not management tools)"""
+        try:
+            # Load user permission tools configuration from config file
+            user_tools = get_user_permission_tools()
+
+            for tool_name, config in user_tools.items():
+                if not config.get("enabled", True):
+                    logger.debug("Skipping disabled user permission tool: %s", tool_name)
+                    continue
+
+                # Get implementation method
+                method_name = config["method"]
+                if hasattr(self, method_name):
+                    method = getattr(self, method_name)
+
+                    # Use the tool decorator approach instead of add_tool with kwargs
+                    self.tool(
+                        name=tool_name,
+                        description=config["description"],
+                        annotations=config["annotations"],
+                    )(method)
+                    logger.debug("Registered user permission tool: %s", tool_name)
+                else:
+                    logger.warning("Method %s not found for user permission tool %s", method_name, tool_name)
+
+            logger.info("User permission tools registered successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to register user permission tools: {e}")
+
+
+
+    # =============================================================================
+    # SaaS permission management tools implementation (management tools)
+    # =============================================================================
+
+    def _request_permission_impl(self, requested_role: str, reason: str = "") -> str:
+        """User permission request implementation"""
+        if not hasattr(self, "_authorization_manager") or not self._authorization_manager:
+            return "❌ Authorization system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            request_id = self._authorization_manager.submit_permission_request(user_id, requested_role, reason)
+
+            return f"""✅ Permission request submitted
+Request ID: {request_id}
+Requested role: {requested_role}
+Reason: {reason}
+
+Your request will be reviewed by administrators, please wait patiently.
+Use 'view_my_requests' to check request status."""
+
+        except Exception as e:
+            logger.error(f"Error in permission request: {e}")
+            return f"❌ Request failed: {str(e)}"
+
+    def _view_my_permissions_impl(self) -> str:
+        """View user permissions summary implementation"""
+        if not hasattr(self, "_authorization_manager") or not self._authorization_manager:
+            return "❌ Authorization system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            summary = self._authorization_manager.get_user_permission_summary(user_id)
+
+            if "error" in summary:
+                return f"❌ Failed to get permission info: {summary['error']}"
+
+            result_lines = [
+                "👤 My Permission Information",
+                "=" * 40,
+                f"User ID: {summary['user_id']}",
+                f"Current roles: {', '.join(summary['current_roles']) if summary['current_roles'] else 'None'}",
+                f"Pending requests: {summary['pending_requests']} items",
+                "",
+                "🔑 Permission List:",
+            ]
+
+            result_lines.extend([f"  • {perm}" for perm in summary["permissions"][:10]])  # Only show first 10 permissions
+
+            if len(summary["permissions"]) > 10:
+                result_lines.append(f"  ... {len(summary['permissions']) - 10} more permissions")
+
+            if summary["limitations"]:
+                result_lines.append("\n📊 Usage Limitations:")
+                for key, value in summary["limitations"].items():
+                    result_lines.append(f"  • {key}: {value}")
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error viewing permissions: {e}")
+            return f"❌ Failed to view permissions: {str(e)}"
+
+    def _view_my_requests_impl(self) -> str:
+        """View user request history implementation"""
+        if not hasattr(self, "_authorization_manager") or not self._authorization_manager:
+            return "❌ Authorization system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            requests = self._authorization_manager.get_permission_requests(user_id=user_id)
+
+            if not requests:
+                return "📋 You haven't submitted any permission requests yet"
+
+            result_lines = [
+                "📋 My Permission Request History",
+                "=" * 40,
+            ]
+
+            for req in requests[:10]:  # Show only recent 10 requests
+                status_emoji = {"pending": "⏳", "approved": "✅", "rejected": "❌"}.get(req["status"], "❓")
+                result_lines.append(f"{status_emoji} {req['submitted_at'][:19]}")
+                result_lines.append(f"   Requested role: {req['requested_role']}")
+                result_lines.append(f"   Status: {req['status']}")
+                if req["review_comment"]:
+                    result_lines.append(f"   Review comment: {req['review_comment']}")
+                result_lines.append("")
+
+            if len(requests) > 10:
+                result_lines.append(f"... {len(requests) - 10} more historical requests")
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error viewing requests: {e}")
+            return f"❌ Failed to view requests: {str(e)}"
+
+    def _review_permission_requests_impl(
+        self, action: str = "list", request_id: str = "", review_action: str = "", comment: str = ""
+    ) -> str:
+        """Review permission requests implementation"""
+        if not hasattr(self, "_authorization_manager") or not self._authorization_manager:
+            return "❌ Authorization system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            reviewer_id, _ = get_current_user_info()
+            if not reviewer_id:
+                return "❌ Authentication required"
+
+            if action == "list":
+                # List pending requests
+                requests = self._authorization_manager.get_permission_requests(status="pending")
+
+                if not requests:
+                    return "📋 No pending permission requests"
+
+                result_lines = [
+                    "📋 Pending Permission Requests",
+                    "=" * 40,
+                ]
+
+                for req in requests:
+                    result_lines.append(f"🆔 Request ID: {req['request_id']}")
+                    result_lines.append(f"   User: {req['user_id']}")
+                    result_lines.append(f"   Requested role: {req['requested_role']}")
+                    result_lines.append(f"   Current roles: {req['current_roles']}")
+                    result_lines.append(f"   Request time: {req['submitted_at'][:19]}")
+                    result_lines.append(f"   Reason: {req['reason']}")
+                    result_lines.append("")
+
+                result_lines.append("💡 Use the following format for review:")
+                result_lines.append(
+                    "   action=review, request_id=REQUEST_ID, review_action=approve/reject, comment=REVIEW_COMMENT"
+                )
+
+                return "\n".join(result_lines)
+
+            elif action == "review":
+                if not request_id or not review_action:
+                    return "❌ Please provide request_id and review_action (approve/reject)"
+
+                success = self._authorization_manager.review_permission_request(
+                    request_id, reviewer_id, review_action, comment
+                )
+
+                if success:
+                    action_text = "approved" if review_action == "approve" else "rejected"
+                    return f"✅ Permission request {action_text}: {request_id}"
+                else:
+                    return f"❌ Review failed: {request_id}"
+
+            else:
+                return "❌ Invalid action, please use action=list or action=review"
+
+        except Exception as e:
+            logger.error(f"Error reviewing requests: {e}")
+            return f"❌ Review failed: {str(e)}"
+
+    def _assign_user_role_impl(self, target_user_id: str, role: str, reason: str = "") -> str:
+        """Admin direct role assignment implementation - calls public API"""
+        try:
+            from ..authorization import get_current_user_info
+
+            admin_id, _ = get_current_user_info()
+            if not admin_id:
+                return "❌ Authentication required"
+
+            # Call public method to avoid duplicate logic
+            success = self.assign_role(target_user_id, role, admin_id, reason)
+
+            if success:
+                return f"✅ Role assignment successful: {target_user_id} -> {role}"
+            else:
+                return "❌ Role assignment failed"
+
+        except Exception as e:
+            logger.error(f"Error assigning role: {e}")
+            return f"❌ Assignment failed: {str(e)}"
+
+    def _revoke_user_role_impl(self, target_user_id: str, role: str, reason: str = "") -> str:
+        """Admin revoke user role implementation - calls public API"""
+        try:
+            from ..authorization import get_current_user_info
+
+            admin_id, _ = get_current_user_info()
+            if not admin_id:
+                return "❌ Authentication required"
+
+            # Call public method to avoid duplicate logic
+            success = self.revoke_role(target_user_id, role, admin_id, reason)
+
+            if success:
+                return f"✅ Role revocation successful: {target_user_id} -x-> {role}"
+            else:
+                return "❌ Role revocation failed"
+
+        except Exception as e:
+            logger.error(f"Error revoking role: {e}")
+            return f"❌ Revocation failed: {str(e)}"
+
+

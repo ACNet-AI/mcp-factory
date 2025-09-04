@@ -4,7 +4,7 @@ This document provides detailed information about all MCP Factory configuration 
 
 > 📋 **For Developers**: See [Configuration Architecture](architecture/configuration_architecture.md) for technical implementation details and internal design.
 
-## 🗂️ Configuration File Structure
+# # 🗂️ Configuration File Structure
 
 ```yaml
 # Complete configuration file example
@@ -29,9 +29,9 @@ publishing:       # Publishing configuration (optional)
   installation_id: "12345678"
 ```
 
-## 🎯 Required Configuration
+# # 🎯 Required Configuration
 
-### server section
+# ## server section
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
@@ -48,9 +48,9 @@ server:
   port: 8888         # Custom port
 ```
 
-## 🔐 Authentication Configuration
+# # 🔐 Authentication Configuration
 
-### auth section
+# ## auth section
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -61,9 +61,9 @@ auth:
   provider_id: "production-auth0"  # Reference to created authentication provider
 ```
 
-#### Creating Authentication Provider
+# ### Creating Authentication Provider
 
-> 🔐 **Authentication Setup**: For detailed authentication setup instructions, see [Troubleshooting Guide](troubleshooting.md#authentication-issues).
+> 🔐 **Authentication Setup**: For detailed authentication setup instructions, see [Troubleshooting Guide](troubleshooting.md# authentication-issues).
 
 ```bash
 # Check authentication environment
@@ -73,9 +73,9 @@ mcpf auth check --fastmcp
 mcpf auth help
 ```
 
-## 🛠️ Tools Configuration
+# # 🛠️ Tools Configuration
 
-### tools section
+# ## tools section
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
@@ -86,7 +86,7 @@ tools:
   expose_management_tools: true   # Enable management tools
 ```
 
-#### Management Tools List
+# ### Management Tools List
 
 Available management tools when enabled:
 - `manage_reload_config` - Reload configuration
@@ -95,9 +95,9 @@ Available management tools when enabled:
 - `manage_mount_server` - Mount other servers
 - `manage_unmount_server` - Unmount servers
 
-## ⚙️ Advanced Configuration
+# # ⚙️ Advanced Configuration
 
-### advanced section
+# ## advanced section
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
@@ -123,9 +123,9 @@ advanced:
   timeout: 60
 ```
 
-## 📝 Configuration Templates
+# # 📝 Configuration Templates
 
-### Configuration Templates
+# ## Configuration Templates
 
 > 📝 **Generate Templates**: Use `mcpf config template` command to generate configuration templates automatically.
 
@@ -137,7 +137,7 @@ mcpf config template --name my-server --description "My MCP server" -o config.ya
 mcpf config template --name my-server --description "My MCP server" --with-mounts -o config.yaml
 ```
 
-#### Minimal Configuration
+# ### Minimal Configuration
 
 ```yaml
 server:
@@ -145,7 +145,7 @@ server:
   instructions: "Minimal MCP server"
 ```
 
-#### Production Configuration
+# ### Production Configuration
 
 ```yaml
 server:
@@ -171,9 +171,9 @@ advanced:
 
 > 📖 **More Examples**: See [`examples/configs/`](../examples/configs/) directory for complete configuration examples.
 
-## 🔍 Configuration Validation
+# # 🔍 Configuration Validation
 
-### Using CLI Validation
+# ## Using CLI Validation
 
 ```bash
 # Validate configuration file
@@ -183,7 +183,7 @@ mcpf config validate config.yaml
 mcpf config validate config.yaml --check-mounts
 ```
 
-### Common Validation Errors
+# ## Common Validation Errors
 
 1. **YAML Syntax Error**
 ```yaml
@@ -219,7 +219,7 @@ server:
   port: 8080
 ```
 
-## 🌍 Environment Variables
+# # 🌍 Environment Variables
 
 Support overriding configuration through environment variables:
 
@@ -234,9 +234,9 @@ Support overriding configuration through environment variables:
 MCPF_PORT=9000 MCPF_DEBUG=true mcpf run config.yaml
 ```
 
-## 📁 Configuration File Location
+# # 📁 Configuration File Location
 
-### Default Search Paths
+# ## Default Search Paths
 
 MCP Factory searches for configuration files in the following order:
 
@@ -245,7 +245,7 @@ MCP Factory searches for configuration files in the following order:
 3. `~/.mcpf/config.yaml`
 4. `/etc/mcpf/config.yaml`
 
-### Custom Configuration Directory
+# ## Custom Configuration Directory
 
 ```bash
 # Set custom configuration directory
@@ -253,9 +253,9 @@ export MCPF_CONFIG_DIR=~/.my-mcpf-configs
 mcpf run config.yaml
 ```
 
-## 📤 Publishing Configuration
+# # 📤 Publishing Configuration
 
-### Publishing to GitHub
+# ## Publishing to GitHub
 
 When using `mcpf project publish`, you can configure publishing options in `pyproject.toml`:
 
@@ -271,7 +271,7 @@ installation_id = "12345678"  # Automatically filled after GitHub App installati
 private = false  # Set to true for private repositories
 ```
 
-### Configuration Fields
+# ## Configuration Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -284,7 +284,7 @@ private = false  # Set to true for private repositories
 | `installation_id` | string | ❌ | GitHub App installation ID (auto-filled) |
 | `private` | boolean | ❌ | Whether to create private repository (default: false) |
 
-### Example Publishing Configuration
+# ## Example Publishing Configuration
 
 ```toml
 # pyproject.toml
@@ -308,7 +308,7 @@ github_username = "johndoe"
 private = false
 ```
 
-### Authentication Configuration for Publishing
+# ## Authentication Configuration for Publishing
 
 GitHub App authentication is handled automatically, but you can also set environment variables:
 
@@ -320,7 +320,7 @@ export GITHUB_TOKEN="your-github-token"
 export HTTPS_PROXY="http://your-proxy:port"
 ```
 
-### Validation Before Publishing
+# ## Validation Before Publishing
 
 ```bash
 # Validate project configuration before publishing
@@ -334,9 +334,9 @@ mcpf project validate my-project
 mcpf --config-dir /path/to/configs run server.yaml
 ```
 
-## ⚡ Best Practices
+# # ⚡ Best Practices
 
-### 1. Configuration Separation
+# ## 1. Configuration Separation
 
 ```bash
 # Use different configurations for different environments
@@ -345,7 +345,7 @@ mcpf run config.staging.yaml  # Staging
 mcpf run config.prod.yaml     # Production
 ```
 
-### 2. Security Configuration
+# ## 2. Security Configuration
 
 ```yaml
 # Production environment security configuration
@@ -361,7 +361,7 @@ advanced:
     - "https://trusted-domain.com"  # Restrict origins
 ```
 
-### 3. Performance Optimization
+# ## 3. Performance Optimization
 
 ```yaml
 advanced:

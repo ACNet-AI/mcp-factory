@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """
 FastMCP-Factory Comprehensive Middleware Examples
 

@@ -2,9 +2,9 @@
 
 This document contains common issues and solutions when using MCP Factory.
 
-## 🔧 Installation Issues
+# # 🔧 Installation Issues
 
-### Q: `mcpf` command not found
+# ## Q: `mcpf` command not found
 
 **Issue**: After installation, executing `mcpf` shows "command not found"
 
@@ -24,7 +24,7 @@ pip uninstall mcp-factory
 pip install mcp-factory
 ```
 
-### Q: Dependency conflicts
+# ## Q: Dependency conflicts
 
 **Issue**: Dependency version conflicts during installation
 
@@ -41,9 +41,9 @@ source .venv/bin/activate
 uv add mcp-factory
 ```
 
-## 🖥️ CLI Issues
+# # 🖥️ CLI Issues
 
-### Q: Configuration file validation failed
+# ## Q: Configuration file validation failed
 
 **Issue**: `mcpf validate config.yaml` reports configuration errors
 
@@ -61,7 +61,7 @@ mcpf template --type simple > new-config.yaml
 # 3. Port conflicts or out of range
 ```
 
-### Q: Server startup failed
+# ## Q: Server startup failed
 
 **Issue**: `mcpf run config.yaml` cannot start server
 
@@ -80,9 +80,9 @@ mcpf run config.yaml --debug
 # Ensure host: "localhost" or host: "0.0.0.0"
 ```
 
-## 🔐 Authentication Issues
+# # 🔐 Authentication Issues
 
-### Q: Auth0 authentication provider creation failed
+# ## Q: Auth0 authentication provider creation failed
 
 **Issue**: `mcpf auth` command cannot create Auth0 provider
 
@@ -101,7 +101,7 @@ mcpf auth my-auth \
 # 3. Application type set to "Machine to Machine"
 ```
 
-### Q: Authentication token validation failed
+# ## Q: Authentication token validation failed
 
 **Issue**: Client requests rejected with authentication failure
 
@@ -117,9 +117,9 @@ curl -H "Authorization: Bearer your-token" \
 # 3. Token not expired
 ```
 
-## 🚀 Server Runtime Issues
+# # 🚀 Server Runtime Issues
 
-### Q: Tools cannot be called
+# ## Q: Tools cannot be called
 
 **Issue**: Client cannot call server tools
 
@@ -136,7 +136,7 @@ curl -X POST http://localhost:8888/api/mcp \
 # 3. Tool parameter types match
 ```
 
-### Q: Configuration hot reload failed
+# ## Q: Configuration hot reload failed
 
 **Issue**: `manage_reload_config` tool reports error
 
@@ -151,9 +151,9 @@ mcpf validate new-config.yaml
 # 2. User authentication permissions (if authentication enabled)
 ```
 
-## 📁 File and Path Issues
+# # 📁 File and Path Issues
 
-### Q: Configuration file not found
+# ## Q: Configuration file not found
 
 **Issue**: Specified configuration file path is invalid
 
@@ -170,7 +170,7 @@ ls -la *.yaml
 mcpf template --type simple > config.yaml
 ```
 
-### Q: Permission errors
+# ## Q: Permission errors
 
 **Issue**: Cannot read configuration file or create log files
 
@@ -186,9 +186,9 @@ chmod 644 config.yaml
 chmod 755 ~/.mcpf
 ```
 
-## 🌐 Network Issues
+# # 🌐 Network Issues
 
-### Q: Client connection timeout
+# ## Q: Client connection timeout
 
 **Issue**: Client cannot connect to server
 
@@ -206,7 +206,7 @@ netstat -tuln | grep 8888
 # 3. Cloud provider security groups
 ```
 
-### Q: CORS cross-origin issues
+# ## Q: CORS cross-origin issues
 
 **Issue**: Browser client reports CORS errors
 
@@ -219,9 +219,9 @@ advanced:
   cors_headers: ["Content-Type", "Authorization"]
 ```
 
-## 📤 Publishing Issues
+# # 📤 Publishing Issues
 
-### Q: GitHub App installation failed
+# ## Q: GitHub App installation failed
 
 **Issue**: Cannot install GitHub App or installation process stuck
 
@@ -239,7 +239,7 @@ curl -I https://github.com/apps/mcp-project-manager
 mcpf project publish my-project --manual
 ```
 
-### Q: Repository creation failed
+# ## Q: Repository creation failed
 
 **Issue**: Error "Repository already exists" or "Failed to create repository"
 
@@ -261,7 +261,7 @@ mcpf project publish my-project-v2
 mcpf project publish my-project --force
 ```
 
-### Q: Authentication issues during publishing
+# ## Q: Authentication issues during publishing
 
 **Issue**: "Permission denied" or "Invalid credentials" errors
 
@@ -283,7 +283,7 @@ export GITHUB_TOKEN="your-github-token"
 mcpf project publish my-project
 ```
 
-### Q: Project validation failed before publishing
+# ## Q: Project validation failed before publishing
 
 **Issue**: Project doesn't meet publishing requirements
 
@@ -309,7 +309,7 @@ git commit -m "Initial commit"
 mcpf config validate config.yaml
 ```
 
-### Q: Network connection issues during publishing
+# ## Q: Network connection issues during publishing
 
 **Issue**: Timeout or connection errors to GitHub services
 
@@ -332,7 +332,7 @@ git remote add origin https://github.com/your-username/project-name.git
 git push -u origin main
 ```
 
-### Q: Hub registration failed
+# ## Q: Hub registration failed
 
 **Issue**: Project published to GitHub but not appearing in MCP Servers Hub
 
@@ -357,7 +357,7 @@ curl -s "https://api.github.com/repos/ACNet-AI/mcp-servers-hub/contents/registry
 mcpf project status my-project
 ```
 
-## 📋 Common Debug Commands
+# # 📋 Common Debug Commands
 
 ```bash
 # Check version
@@ -376,7 +376,7 @@ mcpf validate config.yaml
 mcpf template --type minimal | mcpf validate /dev/stdin
 ```
 
-## 🆘 Getting Help
+# # 🆘 Getting Help
 
 If none of the above solutions work for your issue, please:
 

@@ -170,13 +170,13 @@ SERVER_CONFIG_SCHEMA: dict[str, Any] = {
                     "description": "Whether to automatically register FastMCP methods as management tools",
                     "default": True,
                 },
-                "enable_permission_check": {
+                "authorization": {
                     "type": ["boolean", "null"],
                     "description": textwrap.dedent("""
-                        Whether to enable JWT permission checking for management tools:
-                        - null (default): Auto-enable when expose_management_tools=true
-                        - true: Force enable permission checking
-                        - false: Disable permission checking (development only, not recommended for production)
+                        Whether to enable authorization system for management tools:
+                        - null (default): Auto-enable when expose_management_tools=true and auth is configured
+                        - true: Force enable authorization system
+                        - false: Disable authorization (development only, not recommended for production)
                     """).strip(),
                     "default": None,
                 },

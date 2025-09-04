@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """MCP Factory CLI - Main command line interface"""
 
 from __future__ import annotations

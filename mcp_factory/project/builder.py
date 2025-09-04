@@ -1075,7 +1075,7 @@ class Builder:
 
             for line in existing_lines:
                 line = line.rstrip()
-                if "=" in line and not line.strip().startswith("#"):
+                if "=" in line and not line.strip().startswith("# "):
                     var_name = line.split("=", 1)[0].strip()
                     if var_name in env_vars:
                         updated_lines.append(f"{var_name}={env_vars[var_name]}\n")

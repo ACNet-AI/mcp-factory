@@ -2,13 +2,13 @@
 
 This guide will help you get started with MCP Factory in 5 minutes.
 
-## 🎯 What You'll Learn
+# # 🎯 What You'll Learn
 
 - Install MCP Factory
 - Create your first MCP server
 - Use CLI tools to manage servers
 
-## 📦 Step 1: Installation
+# # 📦 Step 1: Installation
 
 ```bash
 # Recommended using uv (faster)
@@ -18,9 +18,9 @@ uv add mcp-factory
 pip install mcp-factory
 ```
 
-## 🚀 Step 2: Quick Start Server
+# # 🚀 Step 2: Quick Start Server
 
-### Method 1: Use CLI Quick Start
+# ## Method 1: Use CLI Quick Start
 
 ```bash
 # One-click server startup
@@ -32,7 +32,7 @@ mcpf quick --name hello-world --port 8888
 # ⏹️  Press Ctrl+C to stop server
 ```
 
-### Method 2: Use Python API
+# ## Method 2: Use Python API
 
 ```python
 from mcp_factory import MCPFactory
@@ -68,7 +68,7 @@ def add(a: int, b: int) -> int:
 server.run()
 ```
 
-## 🧪 Step 3: Test Server
+# # 🧪 Step 3: Test Server
 
 Open another terminal and test if the server is working properly:
 
@@ -79,13 +79,13 @@ curl -X POST http://localhost:8888/api/mcp \
   -d '{"method": "tools/list"}'
 ```
 
-## 🎉 Congratulations!
+# # 🎉 Congratulations!
 
 You have successfully created your first MCP server!
 
-## 📋 Next Steps
+# # 📋 Next Steps
 
-### 🔧 Use Configuration File
+# ## 🔧 Use Configuration File
 
 ```bash
 # Generate configuration template
@@ -98,7 +98,7 @@ mcpf template --type simple > my-server.yaml
 mcpf run my-server.yaml
 ```
 
-### 🔐 Add Authentication
+# ## 🔐 Add Authentication
 
 ```bash
 # Create Auth0 authentication provider
@@ -110,10 +110,10 @@ mcpf auth my-auth \
 
 # Reference authentication provider in configuration file
 # auth:
-#   provider_id: "my-auth"
+# provider_id: "my-auth"
 ```
 
-### 📤 Publish Your Project
+# ## 📤 Publish Your Project
 
 ```bash
 # Publish your MCP server to GitHub
@@ -126,14 +126,14 @@ mcpf project publish my-server
 # ✅ Enable community discovery
 ```
 
-### 📚 Learn More
+# ## 📚 Learn More
 
 - 📖 [CLI Usage Guide](cli-guide.md) - Master all CLI commands
 - 🔧 [Configuration Reference](configuration.md) - Detailed configuration options
 - 🔒 [Authentication Configuration](authentication.md) - Set up authentication and permissions
 - 📝 [Example Collection](examples/README.md) - View more practical examples
 
-## ❓ Having Issues?
+# # ❓ Having Issues?
 
 - Check [Troubleshooting](troubleshooting.md)
 - Submit an [Issue](https://github.com/your-repo/issues)

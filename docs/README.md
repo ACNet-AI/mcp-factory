@@ -2,27 +2,27 @@
 
 Welcome to MCP Factory documentation! This contains all the information you need to use this project.
 
-## 📖 Quick Navigation
+# # 📖 Quick Navigation
 
-### 🚀 Getting Started
+# ## 🚀 Getting Started
 - [Quick Start](getting-started.md) - 5-minute getting started guide
 - [Examples and Tutorials](../examples/README.md) - Practical example code and tutorials
 
-### 🔧 User Guide
+# ## 🔧 User Guide
 - [CLI Usage Guide](cli_guide.md) - Complete command-line tool guide
 - [Configuration Reference](configuration.md) - Detailed configuration file documentation
 - [Publishing Guide](publishing-guide.md) - GitHub project publishing and deployment guide
 
-### 🛠️ Advanced Features
+# ## 🛠️ Advanced Features
 - [Middleware Guide](middleware.md) - Complete middleware usage and development guide
 
-### 🏗️ Architecture
+# ## 🏗️ Architecture
 - [Architecture Overview](architecture/README.md) - System architecture documentation
 
-### 🛠️ Developer Guide
+# ## 🛠️ Developer Guide
 - [Troubleshooting](troubleshooting.md) - Common problem solutions
 
-## 📋 Documentation Version
+# # 📋 Documentation Version
 
 | Version | Status | Update Date |
 |---------|--------|-------------|
@@ -32,7 +32,7 @@ Welcome to MCP Factory documentation! This contains all the information you need
 | v0.1.1 | Previous | 2025-05-23 |
 | v0.1.0 | Initial | 2025-05-22 |
 
-## 🤝 Help Improve Documentation
+# # 🤝 Help Improve Documentation
 
 Found documentation issues or have improvement suggestions? Please:
 1. Submit an [Issue](https://github.com/your-repo/issues)

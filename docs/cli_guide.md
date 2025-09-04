@@ -2,9 +2,9 @@
 
 This document demonstrates the actual usage of the `mcpf` CLI tool.
 
-## 🚀 **CLI Feature Demonstration**
+# # 🚀 **CLI Feature Demonstration**
 
-### 1. **View Help Information**
+# ## 1. **View Help Information**
 
 ```bash
 $ mcpf --help
@@ -27,7 +27,7 @@ Commands:
   health    System health check.
 ```
 
-### 2. **Generate Configuration Template**
+# ## 2. **Generate Configuration Template**
 
 ```bash
 # Generate configuration template using config command
@@ -42,7 +42,7 @@ $ mcpf config template --name my-server --description "My MCP server" -o my-conf
 $ mcpf config template --name my-server --description "My MCP server" --with-mounts
 ```
 
-### 3. **Validate Configuration File**
+# ## 3. **Validate Configuration File**
 
 ```bash
 $ mcpf config validate test-server.yaml
@@ -52,7 +52,7 @@ $ mcpf config validate test-server.yaml
 $ mcpf config validate test-server.yaml --check-mounts
 ```
 
-### 4. **Quick Start Server**
+# ## 4. **Quick Start Server**
 
 ```bash
 $ mcpf server quick
@@ -65,7 +65,7 @@ $ mcpf project init --name demo-server --port 8080 --debug --start-server
 ⏹️  Press Ctrl+C to stop server
 ```
 
-### 5. **Run Server with Configuration File or Project Name**
+# ## 5. **Run Server with Configuration File or Project Name**
 
 ```bash
 # Run server with configuration file
@@ -79,7 +79,7 @@ $ mcpf server run my-project
 🚀 Starting server from project: my-project
 ```
 
-### 6. **List All Resources**
+# ## 6. **List All Resources**
 
 ```bash
 $ mcpf server list
@@ -93,7 +93,7 @@ $ mcpf config list
   📋 my-config.yaml
 ```
 
-### 7. **Project Management**
+# ## 7. **Project Management**
 
 ```bash
 # Build project from configuration (now with automatic Git initialization)
@@ -110,9 +110,9 @@ $ mcpf project publish my-project
 ✅ Project published successfully
 ```
 
-## 🎯 **Real-world Usage Scenarios**
+# # 🎯 **Real-world Usage Scenarios**
 
-### **Scenario 1: Quick Start for Beginners**
+# ## **Scenario 1: Quick Start for Beginners**
 
 ```bash
 # 1. Use quick server for testing
@@ -122,7 +122,7 @@ mcpf server quick
 mcpf project init --name hello-world --start-server
 ```
 
-### **Scenario 2: Configuration-based Deployment**
+# ## **Scenario 2: Configuration-based Deployment**
 
 ```bash
 # 1. Generate configuration template
@@ -136,7 +136,7 @@ mcpf config validate production.yaml
 mcpf server run production.yaml
 ```
 
-### **Scenario 3: Development Environment Setup**
+# ## **Scenario 3: Development Environment Setup**
 
 ```bash
 # 1. Generate development configuration with mounts
@@ -149,7 +149,7 @@ mcpf config validate dev-config.yaml --check-mounts
 mcpf server run dev-config.yaml
 ```
 
-### **Scenario 4: Project Publishing to GitHub**
+# ## **Scenario 4: Project Publishing to GitHub**
 
 ```bash
 # 1. Initialize project with Git repository
@@ -166,7 +166,7 @@ mcpf project publish my-mcp-server
 # Check: https://github.com/ACNet-AI/mcp-servers-hub
 ```
 
-## 📋 **Complete Command Reference**
+# # 📋 **Complete Command Reference**
 
 | Command | Purpose | Options |
 |---------|---------|---------|
@@ -186,23 +186,23 @@ mcpf project publish my-mcp-server
 | `mcpf auth check` | Check authentication | `--fastmcp` |
 | `mcpf health` | System health check | `--check-config`, `--check-env` |
 
-## 🔧 **Advanced Usage**
+# # 🔧 **Advanced Usage**
 
-### **Health Check**
+# ## **Health Check**
 
 ```bash
 # Complete system health check
 mcpf health --check-config --check-env
 ```
 
-### **Verbose Output**
+# ## **Verbose Output**
 
 ```bash
 # Enable verbose output to see more information
 mcpf --verbose server run config.yaml
 ```
 
-### **Custom Workspace**
+# ## **Custom Workspace**
 
 ```bash
 # Use custom workspace directory

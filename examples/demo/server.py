@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """FastMCP-Factory Demo Server
 
 This demo server demonstrates how to use MCPFactory to create and configure MCP servers,

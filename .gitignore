@@ -189,6 +189,7 @@ test_*.py
 *_REFACTOR*.md
 *_STRUCTURE.md
 KEEP_*.md
+ROADMAP.md
 
 # MCP Factory specific
 # Runtime data directory
@@ -197,6 +198,8 @@ KEEP_*.md
 servers_state.json
 # Default workspace directory for MCPFactory
 workspace/
+# Backup directories
+backup/
 # Any workspace directories ending with -workspace
 *-workspace/
 # Middleware generated files
@@ -212,3 +215,12 @@ scripts/audit/reports/
 *.bak
 temp_*
 .cursor
+
+# Authorization system temporary files (legacy paths - should not appear in root anymore)
+mcp_audit.db
+mcp_authz_*.db
+mcp_authz_*.csv
+*.audit.log
+
+# Authorization system data directory
+.mcp-factory/

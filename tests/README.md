@@ -31,7 +31,7 @@ tests/
 
 ### ✅ **Completed Modules (162/162 - 100% Coverage)**
 
-#### 1. **mcp_factory.auth** - Authentication & Authorization System (32/32 ✅)
+#### 1. **mcp_factory.permissions** - Permission Control System (32/32 ✅)
 - **Scope Mapping**: ANNOTATION_TO_SCOPE_MAPPING constant testing
 - **Permission Checking**: check_scopes, check_annotation_type function tests
 - **User Information**: get_current_user_info function integration tests

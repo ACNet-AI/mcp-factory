@@ -58,7 +58,7 @@ server:
 
 management:
   expose_management_tools: true
-  enable_permission_check: true
+  authorization: true
 
 auth:
   provider: "none"  # or "oauth" for OAuth2 flow

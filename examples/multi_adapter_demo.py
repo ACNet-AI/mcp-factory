@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 """Multi-Adapter System Demo
 
 Demonstrates how to convert different types of existing systems (Python classes, HTTP APIs, CLI commands)

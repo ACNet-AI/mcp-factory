@@ -2,6 +2,36 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.4.0] - 2025-09-04
+
+### 🚀 Major Features
+- **Enterprise Authorization System** - Complete RBAC permission management based on Casbin
+- **Authorization Module** - New `mcp_factory.authorization` package with manager, models, audit, and cache
+- **Permission Management Tools** - 20+ MCP tools for user and role management
+- **Audit Logging** - Complete permission change history tracking
+- **Authorization Demo** - Comprehensive example showing enterprise permission management
+
+### 🏗️ Architecture Improvements
+- **Modular Design** - Refactored authorization module into 5 specialized services (PermissionEngine, RoleService, DebugService, SaaSService)
+- **Code Quality** - Achieved zero MyPy errors and zero Ruff warnings across the entire codebase
+- **Type Safety** - Complete type annotations for better IDE support and error detection
+- **Maintainability** - Reduced complexity from 1,623-line monolith to focused, single-responsibility modules
+
+### 🔧 API Changes
+- **ManagedServer Parameter** - Changed `enable_permission_check` to `authorization` for clarity
+- **Module Restructure** - Migrated from `auth.py` to `authorization/` package structure
+- **Data Directory** - Authorization system now uses user data directory (`~/.mcp-factory/`) instead of project root
+- **Backward Compatibility** - 100% API compatibility maintained during refactoring
+
+### 🧪 Testing & Quality
+- **Test Coverage** - All 910 tests passing with comprehensive authorization system coverage
+- **Code Standards** - Zero linting errors, complete type checking, and clean code structure
+- **Documentation Updates** - Updated architecture docs to reflect new modular authorization system
+
+### 📚 Documentation
+- **Authorization Guide** - Complete documentation for permission system setup and usage
+- **Architecture Updates** - Reflected new authorization module in overall architecture docs
+
 ## [1.3.0] - 2025-08-31
 
 ### 🚀 Major Features
