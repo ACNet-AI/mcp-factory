@@ -8,8 +8,8 @@ import inspect
 from unittest.mock import Mock, patch
 
 import pytest
+from conftest import create_test_server
 from fastmcp import FastMCP
-from test_helpers import create_test_server
 
 from mcp_factory.server import ManagedServer
 

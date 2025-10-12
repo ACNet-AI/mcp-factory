@@ -8,11 +8,13 @@ import tracemalloc
 import warnings
 from collections.abc import Generator, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 
 from mcp_factory import MCPFactory
+from mcp_factory.server.managed_server import ManagedServer
 
 
 # Set up pytest session
@@ -93,3 +95,32 @@ def factory(temp_dir: str) -> MCPFactory:
 def factory_with_workspace(temp_dir: str) -> MCPFactory:
     """Return a MCPFactory instance with temporary workspace."""
     return MCPFactory(workspace_root=temp_dir)
+
+
+# Test helper function - available to all tests
+def create_test_server(**kwargs: Any) -> ManagedServer:
+    """Create a ManagedServer instance for testing with safe defaults.
+
+    This helper automatically sets authorization=False to suppress security warnings
+    in tests, unless explicitly overridden.
+
+    Args:
+        **kwargs: Arguments to pass to ManagedServer
+
+    Returns:
+        ManagedServer instance configured for testing
+    """
+    # Set safe defaults for testing
+    test_defaults = {
+        "authorization": False,  # Suppress security warnings in tests
+        "expose_management_tools": False,  # Don't expose management tools in tests by default
+        "name": "test-server",  # Default name if not provided
+    }
+
+    # Merge with provided kwargs (kwargs take precedence)
+    final_kwargs = {**test_defaults, **kwargs}
+
+    # Suppress security warnings in test environment
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*Security warning.*")
+        return ManagedServer(**final_kwargs)
