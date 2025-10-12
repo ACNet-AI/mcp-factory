@@ -5,21 +5,13 @@ Focus on testing core functionality while avoiding complex mock setups
 
 import asyncio
 import inspect
-import os
-import sys
 from unittest.mock import Mock, patch
 
 import pytest
 from fastmcp import FastMCP
+from test_helpers import create_test_server
 
 from mcp_factory.server import ManagedServer
-
-# Import test_helpers - add tests directory to sys.path
-_tests_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if _tests_dir not in sys.path:
-    sys.path.insert(0, _tests_dir)
-
-from test_helpers import create_test_server  # noqa: E402
 
 
 class TestManagedServerBasics:
