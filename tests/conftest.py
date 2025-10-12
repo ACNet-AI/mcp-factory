@@ -2,6 +2,7 @@
 
 import asyncio
 import shutil
+import sys
 import tempfile
 import tracemalloc
 import warnings
@@ -17,6 +18,11 @@ from mcp_factory import MCPFactory
 # Set up pytest session
 def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest session."""
+    # Add tests directory to sys.path for test_helpers import
+    tests_dir = Path(__file__).parent
+    if str(tests_dir) not in sys.path:
+        sys.path.insert(0, str(tests_dir))
+    
     # Ensure asyncio warnings are handled
     asyncio.get_event_loop_policy().new_event_loop()
     # Enable tracemalloc for memory allocation tracking
