@@ -3,6 +3,7 @@ Billing and Authorization Integration Service
 This module provides integration logic between billing and authorization systems
 for MCP servers, keeping the integration logic separate from the core server.
 """
+
 import asyncio
 import logging
 import time
@@ -16,6 +17,7 @@ class BillingAuthIntegration:
     This class handles the coordination between billing and authorization
     without implementing the core logic of either system.
     """
+
     def __init__(self, billing_system, authorization_manager, plan_config=None, merge_strategy="merge"):
         """
         Initialize the integration service.
@@ -34,36 +36,33 @@ class BillingAuthIntegration:
             # Default role mapping - all registered users are user role
             "default_role_mapping": {
                 # Common user subscription plans
-                "free": "user",                  # Registered users with free plan
-                "basic": "user",                 # Registered users with basic paid plan
-                "pro": "user",                   # Registered users with pro paid plan
-
+                "free": "user",  # Registered users with free plan
+                "basic": "user",  # Registered users with basic paid plan
+                "pro": "user",  # Registered users with pro paid plan
                 # Users accessing via intermediary
-                "proxy": "user",                 # Proxy users
+                "proxy": "user",  # Proxy users
             },
             # Default tier mapping - plan to user tier mapping
             "default_tier_mapping": {
                 # Tiers corresponding to subscription plans
-                "free": "free_tier",             # Free tier
-                "basic": "basic_tier",           # Basic tier
-                "pro": "pro_tier",               # Pro tier
-
+                "free": "free_tier",  # Free tier
+                "basic": "basic_tier",  # Basic tier
+                "pro": "pro_tier",  # Pro tier
                 # Proxy user tier (accessing via intermediary)
-                "proxy": "proxy_tier",           # Proxy user tier
+                "proxy": "proxy_tier",  # Proxy user tier
             },
             # Default roles (when plan is not explicitly defined)
             "fallback_roles": {
-                "registered_user": "user",       # Any registered user is user role
+                "registered_user": "user",  # Any registered user is user role
                 "anonymous_visitor": "visitor",  # Only unregistered visitors are visitor role
             },
             # Smart inference (only enabled for custom config)
-            "enable_smart_inference": False,    # Smart inference disabled by default
-            "role_inference_rules": None,       # No inference rules by default
-
+            "enable_smart_inference": False,  # Smart inference disabled by default
+            "role_inference_rules": None,  # No inference rules by default
             # Dynamic plan support
-            "dynamic_plans": True,               # Enable dynamic plan loading
-            "plan_cache_ttl": 300,              # Plan cache TTL (seconds)
-            "auto_load_on_init": False          # Not auto-load by default (avoid complexity)
+            "dynamic_plans": True,  # Enable dynamic plan loading
+            "plan_cache_ttl": 300,  # Plan cache TTL (seconds)
+            "auto_load_on_init": False,  # Not auto-load by default (avoid complexity)
         }
         # Apply configuration based on merge strategy
         if plan_config:
@@ -101,6 +100,7 @@ class BillingAuthIntegration:
             except RuntimeError:
                 # If no event loop, call manually later
                 logger.info("No event loop available, plans will be loaded on first access")
+
     # ========================================================================
     # Dynamic Plan Management (Dynamic Plan Management)
     # ========================================================================
@@ -117,9 +117,10 @@ class BillingAuthIntegration:
             "role": role,
             "tier": tier,
             "billing_mode": billing_mode,
-            "registered_at": time.time()
+            "registered_at": time.time(),
         }
         logger.info(f"Registered plan: {plan_id} -> {role} (tier: {tier}, mode: {billing_mode})")
+
     async def get_plans_from_billing_system(self) -> dict[str, dict]:
         """Dynamically get available plans from billing system"""
         if not self.billing or not self.dynamic_plans_enabled:
@@ -130,12 +131,12 @@ class BillingAuthIntegration:
             if (current_time - self._cache_timestamp) < self.plan_cache_ttl and self._plan_cache:
                 return self._plan_cache
             # Get plans from billing system
-            if hasattr(self.billing, 'get_available_plans'):
+            if hasattr(self.billing, "get_available_plans"):
                 plans = await self.billing.get_available_plans()
                 # Convert to standard format
                 formatted_plans = {}
                 for plan in plans:
-                    plan_id = plan.get('id') or plan.get('plan_id')
+                    plan_id = plan.get("id") or plan.get("plan_id")
                     if plan_id:
                         # Smart mapping: infer role from plan name
                         role = self._infer_role_from_plan(plan_id, plan)
@@ -143,7 +144,7 @@ class BillingAuthIntegration:
                             "role": role,
                             "tier": plan_id,
                             "billing_mode": "subscription",
-                            "source": "billing_system"
+                            "source": "billing_system",
                         }
                 # Update cache
                 self._plan_cache = formatted_plans
@@ -153,6 +154,7 @@ class BillingAuthIntegration:
         except Exception as e:
             logger.warning(f"Failed to load plans from billing system: {e}")
         return {}
+
     def _infer_role_from_plan(self, plan_id: str, plan_data: dict) -> str:
         """Infer user role from plan ID and data (only when smart inference is enabled)"""
 
@@ -199,6 +201,7 @@ class BillingAuthIntegration:
         else:
             # No plan ID, possibly unregistered visitor
             return self.fallback_roles.get("anonymous_visitor", "visitor")
+
     def get_role_by_plan(self, plan_id: str) -> str:
         """Get role corresponding to plan"""
         # 1. Check dynamically registered plans
@@ -256,6 +259,7 @@ class BillingAuthIntegration:
 
         # Default to basic tier
         return "basic_tier"
+
     def is_pay_per_use_plan(self, plan_id: str) -> bool:
         """Check if pay-per-use billing plan"""
         # Check registry
@@ -268,7 +272,6 @@ class BillingAuthIntegration:
             return billing_mode in ("pay_per_use", "prepaid")
         # Default check
         return plan_id in ("proxy", "pay_per_use", "prepaid", "payg")
-
 
     async def _auto_load_plans(self) -> None:
         """Auto-load plans (async)"""
@@ -298,6 +301,7 @@ class BillingAuthIntegration:
             mapping[plan_id] = plan_info["role"]
 
         return mapping
+
     def _merge_config(self, default_config: dict, custom_config: dict) -> dict:
         """
         Merge configuration with field-level override strategy.
@@ -315,6 +319,7 @@ class BillingAuthIntegration:
             # Complete field-level override - replace entire field value
             merged[key] = value
         return merged
+
     def get_user_plan(self, user_id: str) -> str:
         """
         Get user's current billing plan (synchronous).
@@ -326,7 +331,7 @@ class BillingAuthIntegration:
             return "free"
         try:
             # Try to get user plan from billing system (sync method)
-            if hasattr(self.billing, 'get_user_plan'):
+            if hasattr(self.billing, "get_user_plan"):
                 plan = self.billing.get_user_plan(user_id)
                 if plan:
                     return plan
@@ -347,19 +352,20 @@ class BillingAuthIntegration:
             return "free"
         try:
             # Try to get user plan from billing system
-            if hasattr(self.billing, 'get_user_plan'):
+            if hasattr(self.billing, "get_user_plan"):
                 plan = self.billing.get_user_plan(user_id)
                 if plan:
                     return plan
             # Fallback: try to get from subscription (async)
-            if hasattr(self.billing, 'get_user_subscription'):
+            if hasattr(self.billing, "get_user_subscription"):
                 subscription = await self.billing.get_user_subscription(user_id)
-                if subscription and subscription.get('active'):
-                    return subscription.get('plan_id', 'free')
+                if subscription and subscription.get("active"):
+                    return subscription.get("plan_id", "free")
             return "free"
         except Exception as e:
             logger.error(f"Error getting user plan for {user_id}: {e}")
             return "free"
+
     def get_user_role_info(self, user_id: str) -> dict:
         """Get comprehensive user role and billing information"""
         if not self.auth:
@@ -377,17 +383,14 @@ class BillingAuthIntegration:
                 role = user_role or "visitor"
                 tier = None
 
-            result = {
-                "role": role,
-                "plan": current_plan,
-                "tier": tier
-            }
+            result = {"role": role, "plan": current_plan, "tier": tier}
 
             return result
 
         except Exception as e:
             logger.error(f"Error getting user role info: {e}")
             return {"role": "visitor", "plan": None, "tier": None}
+
     # =========================================================================
     # Role Mapping Methods
     # =========================================================================
@@ -397,6 +400,7 @@ class BillingAuthIntegration:
             if role == role_name:
                 return plan
         return None
+
     def get_subscription_roles(self) -> list[str]:
         """Get all subscription-related roles"""
         return list(set(self.billing_role_mapping.values()))

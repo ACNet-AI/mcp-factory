@@ -101,11 +101,10 @@ DEFAULT_ROLES = {
             "daily_requests": 50,
             "max_tokens_per_request": 500,
             "rate_limit_per_minute": 5,
-            "trial_duration_days": 7
+            "trial_duration_days": 7,
         },
-        "extensible": True  # Changed: visitor can now be extended with app-specific permissions
+        "extensible": True,  # Changed: visitor can now be extended with app-specific permissions
     },
-
     "user": {
         "description": "Paid user - full access with extensible tiers",
         "base_permissions": [
@@ -114,14 +113,9 @@ DEFAULT_ROLES = {
             MCPPermission("mcp", "read", "capabilities", "View server capabilities"),
             MCPPermission("mcp", "read", "status", "View server status"),
         ],
-        "default_limitations": {
-            "daily_requests": 1000,
-            "max_tokens_per_request": 4000,
-            "rate_limit_per_minute": 60
-        },
-        "extensible": True  # Key: this role can be extended with tiers and app-specific permissions
+        "default_limitations": {"daily_requests": 1000, "max_tokens_per_request": 4000, "rate_limit_per_minute": 60},
+        "extensible": True,  # Key: this role can be extended with tiers and app-specific permissions
     },
-
     "admin": {
         "description": "System administrator - full system access",
         "base_permissions": [
@@ -137,12 +131,13 @@ DEFAULT_ROLES = {
             MCPPermission("system", "admin", "*", "System administration"),
         ],
         "default_limitations": {},
-        "extensible": True  # Changed: admin can also be extended for app-specific admin features
-    }
+        "extensible": True,  # Changed: admin can also be extended for app-specific admin features
+    },
 }
 
 # Global role permission overrides
 _role_permission_overrides: dict[str, list[MCPPermission]] = {}
+
 
 def configure_role_permissions(role_name: str, additional_permissions: list[MCPPermission]) -> None:
     """
@@ -161,6 +156,7 @@ def configure_role_permissions(role_name: str, additional_permissions: list[MCPP
         raise ValueError(f"Role {role_name} is not extensible")
 
     _role_permission_overrides[role_name] = additional_permissions.copy()
+
 
 def get_role_permissions(role_name: str) -> list[MCPPermission]:
     """
@@ -184,8 +180,10 @@ def get_role_permissions(role_name: str) -> list[MCPPermission]:
 
     return permissions
 
+
 # Global role configuration overrides
 _role_config_overrides: dict[str, dict[str, Any]] = {}
+
 
 def configure_role_limitations(role_name: str, limitations: dict[str, Any]) -> None:
     """
@@ -201,6 +199,7 @@ def configure_role_limitations(role_name: str, limitations: dict[str, Any]) -> N
         raise ValueError(f"Unknown role: {role_name}")
 
     _role_config_overrides[role_name] = limitations.copy()
+
 
 def get_role_limitations(role_name: str) -> dict[str, Any]:
     """
@@ -224,9 +223,11 @@ def get_role_limitations(role_name: str) -> dict[str, Any]:
 
     return limitations
 
+
 def reset_role_configuration() -> None:
     """Reset all role configuration overrides to defaults."""
     _role_config_overrides.clear()
+
 
 # Mapping from MCP annotation types to permissions
 ANNOTATION_TO_PERMISSION = {
@@ -258,6 +259,7 @@ ANNOTATION_TO_PERMISSION = {
 # Core Three-Tier Role System (New Simplified Design)
 # =============================================================================
 
+
 @dataclass
 class UserTier:
     """
@@ -276,6 +278,7 @@ class UserTier:
     (e.g., platform, reseller, aggregator). The payment method (credits,
     cash, tokens) is determined by the intermediary, not the tier.
     """
+
     tier_id: str
     name: str
     description: str
@@ -320,6 +323,7 @@ class UserTier:
 # Proxy Access Configuration
 # =============================================================================
 
+
 @dataclass
 class ProxyConfig:
     """
@@ -331,6 +335,7 @@ class ProxyConfig:
     Note: Pricing and revenue sharing are handled by the proxy platform,
     not by the developer's server.
     """
+
     name: str  # Unique identifier (e.g., "mcp-factory", "awesome-platform")
     api_key: str  # API key for authentication
     enabled: bool = True  # Whether this proxy is currently active
@@ -352,6 +357,7 @@ class AuthorizedProxies:
     - Revenue sharing agreement
     - Rate limits and other constraints
     """
+
     proxies: dict[str, ProxyConfig] = field(default_factory=dict)
     assigns_tier: str = "proxy_tier"  # Which tier proxies are assigned to
 

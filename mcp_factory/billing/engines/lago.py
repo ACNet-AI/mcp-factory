@@ -35,8 +35,9 @@ class LagoBillingClient(BillingClient):
         """Check if client is initialized and return status"""
         return self._client is not None
 
-    def _standardize_data_list(self, data_list: list[dict[str, Any]],
-                              standardization_map: dict[str, str]) -> list[dict[str, Any]]:
+    def _standardize_data_list(
+        self, data_list: list[dict[str, Any]], standardization_map: dict[str, str]
+    ) -> list[dict[str, Any]]:
         """Standardize a list of data objects using a field mapping"""
         standardized_list = []
         for item in data_list:
@@ -235,8 +236,9 @@ class LagoBillingClient(BillingClient):
     # Wallet and Prepaid Credits API
     # ============================================================================
 
-    async def create_wallet(self, customer_id: str, name: str = "Default Wallet",
-                          rate_amount: float = 1.0, currency: str = "USD") -> BillingResult:
+    async def create_wallet(
+        self, customer_id: str, name: str = "Default Wallet", rate_amount: float = 1.0, currency: str = "USD"
+    ) -> BillingResult:
         """Create a wallet for prepaid credits"""
         if not self._client:
             return BillingResult(success=False, message="Client not initialized")
@@ -246,7 +248,7 @@ class LagoBillingClient(BillingClient):
                 "external_customer_id": customer_id,
                 "name": name,
                 "rate_amount": str(int(rate_amount * 100)),  # Convert to cents
-                "currency": currency
+                "currency": currency,
             }
 
             result = await asyncio.to_thread(self._client.wallets.create, wallet_data)
@@ -270,8 +272,7 @@ class LagoBillingClient(BillingClient):
             logger.error(f"Failed to get wallet for {customer_id}: {e}")
             return None
 
-    async def add_credits(self, customer_id: str, credits: float,
-                         source: str = "purchase") -> BillingResult:
+    async def add_credits(self, customer_id: str, credits: float, source: str = "purchase") -> BillingResult:
         """Add credits to customer's wallet"""
         if not self._client:
             return BillingResult(success=False, message="Client not initialized")
@@ -280,12 +281,10 @@ class LagoBillingClient(BillingClient):
             transaction_data = {
                 "external_customer_id": customer_id,
                 "paid_credits": str(credits) if source == "purchase" else "0",
-                "granted_credits": str(credits) if source == "grant" else "0"
+                "granted_credits": str(credits) if source == "grant" else "0",
             }
 
-            result = await asyncio.to_thread(
-                self._client.wallet_transactions.create, transaction_data
-            )
+            result = await asyncio.to_thread(self._client.wallet_transactions.create, transaction_data)
 
             logger.info(f"Added {credits} credits to {customer_id} via {source}")
             return BillingResult(success=True, message="Credits added", data=result)
@@ -306,7 +305,7 @@ class LagoBillingClient(BillingClient):
                     "balance_cents": wallet.get("balance_cents", 0),
                     "credits_balance": wallet.get("credits_balance", 0),
                     "ongoing_balance_cents": wallet.get("ongoing_balance_cents", 0),
-                    "currency": wallet.get("currency", "USD")
+                    "currency": wallet.get("currency", "USD"),
                 }
             return None
 
@@ -320,9 +319,7 @@ class LagoBillingClient(BillingClient):
             return []
 
         try:
-            result = await asyncio.to_thread(
-                self._client.wallet_transactions.find_all, customer_id
-            )
+            result = await asyncio.to_thread(self._client.wallet_transactions.find_all, customer_id)
 
             raw_transactions = result.get("wallet_transactions", [])
 
@@ -336,7 +333,7 @@ class LagoBillingClient(BillingClient):
                     "source": tx.get("transaction_type", "unknown"),
                     "created_at": tx.get("created_at", ""),
                     "metadata": tx.get("metadata", {}),
-                    "status": tx.get("status", "settled")
+                    "status": tx.get("status", "settled"),
                 }
                 standardized_transactions.append(standardized_tx)
 
@@ -357,10 +354,7 @@ class LagoBillingClient(BillingClient):
             return BillingResult(success=False, message="Client not initialized")
 
         try:
-            invoice_data = {
-                "external_customer_id": customer_id,
-                "currency": currency
-            }
+            invoice_data = {"external_customer_id": customer_id, "currency": currency}
 
             result = await asyncio.to_thread(self._client.invoices.create, invoice_data)
 
@@ -394,7 +388,7 @@ class LagoBillingClient(BillingClient):
                     "currency": invoice.get("currency", "USD"),
                     "issued_at": invoice.get("issued_at", ""),
                     "payment_due_date": invoice.get("payment_due_date", ""),
-                    "customer_id": customer_id
+                    "customer_id": customer_id,
                 }
                 standardized_invoices.append(standardized_invoice)
 
@@ -458,7 +452,7 @@ class LagoBillingClient(BillingClient):
                     "name": metric.get("name", ""),
                     "description": metric.get("description", ""),
                     "aggregation_type": metric.get("aggregation_type", ""),
-                    "field_name": metric.get("field_name", "")
+                    "field_name": metric.get("field_name", ""),
                 }
                 standardized_metrics.append(standardized_metric)
 
@@ -494,10 +488,7 @@ class LagoBillingClient(BillingClient):
             return BillingResult(success=False, message="Client not initialized")
 
         try:
-            coupon_data = {
-                "external_customer_id": customer_id,
-                "coupon_code": coupon_code
-            }
+            coupon_data = {"external_customer_id": customer_id, "coupon_code": coupon_code}
 
             result = await asyncio.to_thread(self._client.applied_coupons.create, coupon_data)
 
@@ -530,7 +521,7 @@ class LagoBillingClient(BillingClient):
                     "amount_cents": coupon.get("amount_cents", 0),
                     "percentage_rate": coupon.get("percentage_rate", 0),
                     "frequency": coupon.get("frequency", ""),
-                    "status": coupon.get("status", "")
+                    "status": coupon.get("status", ""),
                 }
                 standardized_coupons.append(standardized_coupon)
 
@@ -577,7 +568,7 @@ class LagoBillingClient(BillingClient):
                     "id": endpoint.get("lago_id", ""),
                     "webhook_url": endpoint.get("webhook_url", ""),
                     "signature_algo": endpoint.get("signature_algo", ""),
-                    "created_at": endpoint.get("created_at", "")
+                    "created_at": endpoint.get("created_at", ""),
                 }
                 standardized_endpoints.append(standardized_endpoint)
 
@@ -598,9 +589,7 @@ class LagoBillingClient(BillingClient):
             return {}
 
         try:
-            result = await asyncio.to_thread(
-                self._client.mrrs.find_all, {"currency": currency}
-            )
+            result = await asyncio.to_thread(self._client.mrrs.find_all, {"currency": currency})
 
             mrr_data = result.get("mrrs", [])
 
@@ -611,7 +600,7 @@ class LagoBillingClient(BillingClient):
                 "total_mrr": total_mrr,
                 "currency": currency,
                 "data_points": len(mrr_data),
-                "raw_data": mrr_data
+                "raw_data": mrr_data,
             }
 
             logger.info(f"Retrieved MRR analytics: ${total_mrr:.2f} {currency}")
@@ -627,9 +616,7 @@ class LagoBillingClient(BillingClient):
             return {}
 
         try:
-            result = await asyncio.to_thread(
-                self._client.gross_revenues.find_all, {"currency": currency}
-            )
+            result = await asyncio.to_thread(self._client.gross_revenues.find_all, {"currency": currency})
 
             revenue_data = result.get("gross_revenues", [])
 
@@ -640,7 +627,7 @@ class LagoBillingClient(BillingClient):
                 "total_gross_revenue": total_revenue,
                 "currency": currency,
                 "data_points": len(revenue_data),
-                "raw_data": revenue_data
+                "raw_data": revenue_data,
             }
 
             logger.info(f"Retrieved gross revenue analytics: ${total_revenue:.2f} {currency}")
@@ -713,7 +700,9 @@ class MockLagoBillingClient(BillingClient):
     async def record_usage_event(self, event: UsageEvent) -> BillingResult:
         """Mock usage event recording"""
         logger.info(f"Mock: Recorded usage for {event.user_id}")
-        return BillingResult(success=True, message="Mock usage recorded", data={"event_id": f"mock_event_{event.user_id}"})
+        return BillingResult(
+            success=True, message="Mock usage recorded", data={"event_id": f"mock_event_{event.user_id}"}
+        )
 
     async def get_plans(self) -> list[PricingPlan]:
         """Mock get plans"""
@@ -740,8 +729,9 @@ class MockLagoBillingClient(BillingClient):
     # Mock Wallet and Prepaid Credits API
     # ============================================================================
 
-    async def create_wallet(self, customer_id: str, name: str = "Default Wallet",
-                          rate_amount: float = 1.0, currency: str = "USD") -> BillingResult:
+    async def create_wallet(
+        self, customer_id: str, name: str = "Default Wallet", rate_amount: float = 1.0, currency: str = "USD"
+    ) -> BillingResult:
         """Mock wallet creation"""
         logger.info(f"Mock: Created wallet for {customer_id}")
         return BillingResult(
@@ -752,8 +742,8 @@ class MockLagoBillingClient(BillingClient):
                 "external_customer_id": customer_id,
                 "name": name,
                 "rate_amount": rate_amount,
-                "currency": currency
-            }
+                "currency": currency,
+            },
         )
 
     async def get_wallet(self, customer_id: str) -> dict[str, Any] | None:
@@ -765,31 +755,21 @@ class MockLagoBillingClient(BillingClient):
             "balance_cents": 10000,  # $100 in cents
             "credits_balance": 100.0,
             "ongoing_balance_cents": 9500,  # $95 in cents
-            "currency": "USD"
+            "currency": "USD",
         }
 
-    async def add_credits(self, customer_id: str, credits: float,
-                         source: str = "purchase") -> BillingResult:
+    async def add_credits(self, customer_id: str, credits: float, source: str = "purchase") -> BillingResult:
         """Mock add credits"""
         logger.info(f"Mock: Added {credits} credits to {customer_id} via {source}")
         return BillingResult(
             success=True,
             message="Mock credits added",
-            data={
-                "transaction_id": f"txn_{customer_id}_{credits}",
-                "credits": credits,
-                "source": source
-            }
+            data={"transaction_id": f"txn_{customer_id}_{credits}", "credits": credits, "source": source},
         )
 
     async def get_wallet_balance(self, customer_id: str) -> dict[str, Any] | None:
         """Mock get wallet balance"""
-        return {
-            "balance_cents": 10000,
-            "credits_balance": 100.0,
-            "ongoing_balance_cents": 9500,
-            "currency": "USD"
-        }
+        return {"balance_cents": 10000, "credits_balance": 100.0, "ongoing_balance_cents": 9500, "currency": "USD"}
 
     async def get_wallet_transactions(self, customer_id: str) -> list[dict[str, Any]]:
         """Mock get wallet transactions with realistic developer data"""
@@ -799,9 +779,9 @@ class MockLagoBillingClient(BillingClient):
 
         # Simulate revenue transactions over 30 days
         for i in range(20):  # 20 transactions over 30 days
-            date = base_date + timedelta(days=random.randint(0, 30),
-                                       hours=random.randint(0, 23),
-                                       minutes=random.randint(0, 59))
+            date = base_date + timedelta(
+                days=random.randint(0, 30), hours=random.randint(0, 23), minutes=random.randint(0, 59)
+            )
 
             # Simulate different services and operations
             services = ["weather_api", "weather_maps", "weather_alerts"]
@@ -814,7 +794,7 @@ class MockLagoBillingClient(BillingClient):
             credits = round(random.uniform(2.0, 15.0), 1)
 
             transaction = {
-                "id": f"txn_{i+1}_{customer_id}",
+                "id": f"txn_{i + 1}_{customer_id}",
                 "credits": credits,
                 "transaction_type": "inbound",
                 "source": "platform_payment",
@@ -823,26 +803,25 @@ class MockLagoBillingClient(BillingClient):
                     "service_name": service,
                     "operation": operation,
                     "user_id": user,
-                    "original_credits": round(credits / 0.7, 1)  # Assuming 70% revenue share
+                    "original_credits": round(credits / 0.7, 1),  # Assuming 70% revenue share
                 },
-                "status": "settled"
+                "status": "settled",
             }
             transactions.append(transaction)
 
         # Add some payout transactions
         payout_date = datetime.now() - timedelta(days=5)
-        transactions.append({
-            "id": f"payout_1_{customer_id}",
-            "credits": -50.0,
-            "transaction_type": "outbound",
-            "source": "payout_withdrawal",
-            "created_at": payout_date.isoformat() + "Z",
-            "metadata": {
-                "payout_method": "paypal",
-                "payout_id": f"payout_{customer_id}_123"
-            },
-            "status": "settled"
-        })
+        transactions.append(
+            {
+                "id": f"payout_1_{customer_id}",
+                "credits": -50.0,
+                "transaction_type": "outbound",
+                "source": "payout_withdrawal",
+                "created_at": payout_date.isoformat() + "Z",
+                "metadata": {"payout_method": "paypal", "payout_id": f"payout_{customer_id}_123"},
+                "status": "settled",
+            }
+        )
 
         # Sort by date (newest first)
         transactions.sort(key=lambda x: x["created_at"], reverse=True)
@@ -865,8 +844,8 @@ class MockLagoBillingClient(BillingClient):
                 "status": "finalized",
                 "amount_cents": 10000,  # $100
                 "currency": currency,
-                "customer_id": customer_id
-            }
+                "customer_id": customer_id,
+            },
         )
 
     async def get_invoices(self, customer_id: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -876,14 +855,14 @@ class MockLagoBillingClient(BillingClient):
         for i in range(min(3, limit)):  # Generate 3 mock invoices
             date = datetime.now() - timedelta(days=30 * i)
             invoice = {
-                "id": f"invoice_{customer_id}_{i+1}",
-                "invoice_number": f"INV-{customer_id}-{i+1:03d}",
+                "id": f"invoice_{customer_id}_{i + 1}",
+                "invoice_number": f"INV-{customer_id}-{i + 1:03d}",
                 "status": "paid" if i > 0 else "pending",
                 "amount_cents": 10000 + (i * 2000),
                 "currency": "USD",
                 "issued_at": date.isoformat() + "Z",
                 "payment_due_date": (date + timedelta(days=30)).isoformat() + "Z",
-                "customer_id": customer_id
+                "customer_id": customer_id,
             }
             invoices.append(invoice)
 
@@ -904,8 +883,8 @@ class MockLagoBillingClient(BillingClient):
                 "id": f"metric_{metric_data.get('code', 'unknown')}",
                 "code": metric_data.get("code", "api_calls"),
                 "name": metric_data.get("name", "API Calls"),
-                "aggregation_type": metric_data.get("aggregation_type", "count_agg")
-            }
+                "aggregation_type": metric_data.get("aggregation_type", "count_agg"),
+            },
         )
 
     async def get_billable_metrics(self) -> list[dict[str, Any]]:
@@ -917,7 +896,7 @@ class MockLagoBillingClient(BillingClient):
                 "name": "API Calls",
                 "description": "Number of API calls made",
                 "aggregation_type": "count_agg",
-                "field_name": "calls"
+                "field_name": "calls",
             },
             {
                 "id": "metric_storage",
@@ -925,8 +904,8 @@ class MockLagoBillingClient(BillingClient):
                 "name": "Storage Usage",
                 "description": "Storage usage in GB",
                 "aggregation_type": "sum_agg",
-                "field_name": "storage_gb"
-            }
+                "field_name": "storage_gb",
+            },
         ]
 
     async def create_coupon(self, coupon_data: dict[str, Any]) -> BillingResult:
@@ -940,8 +919,8 @@ class MockLagoBillingClient(BillingClient):
                 "code": coupon_data.get("code", "WELCOME10"),
                 "name": coupon_data.get("name", "Welcome Discount"),
                 "coupon_type": coupon_data.get("coupon_type", "percentage"),
-                "percentage_rate": coupon_data.get("percentage_rate", 10.0)
-            }
+                "percentage_rate": coupon_data.get("percentage_rate", 10.0),
+            },
         )
 
     async def apply_coupon(self, customer_id: str, coupon_code: str) -> BillingResult:
@@ -954,8 +933,8 @@ class MockLagoBillingClient(BillingClient):
                 "customer_id": customer_id,
                 "coupon_code": coupon_code,
                 "discount_amount": 10.0,
-                "applied_at": datetime.now().isoformat()
-            }
+                "applied_at": datetime.now().isoformat(),
+            },
         )
 
     async def get_coupons(self) -> list[dict[str, Any]]:
@@ -970,7 +949,7 @@ class MockLagoBillingClient(BillingClient):
                 "amount_cents": 0,
                 "percentage_rate": 10.0,
                 "frequency": "once",
-                "status": "active"
+                "status": "active",
             },
             {
                 "id": "coupon_save20",
@@ -981,8 +960,8 @@ class MockLagoBillingClient(BillingClient):
                 "amount_cents": 2000,
                 "percentage_rate": 0,
                 "frequency": "once",
-                "status": "active"
-            }
+                "status": "active",
+            },
         ]
 
     async def create_webhook_endpoint(self, webhook_data: dict[str, Any]) -> BillingResult:
@@ -995,8 +974,8 @@ class MockLagoBillingClient(BillingClient):
                 "id": f"webhook_{hash(webhook_data.get('webhook_url', ''))}",
                 "webhook_url": webhook_data.get("webhook_url"),
                 "signature_algo": webhook_data.get("signature_algo", "jwt"),
-                "created_at": datetime.now().isoformat()
-            }
+                "created_at": datetime.now().isoformat(),
+            },
         )
 
     async def get_webhook_endpoints(self) -> list[dict[str, Any]]:
@@ -1006,7 +985,7 @@ class MockLagoBillingClient(BillingClient):
                 "id": "webhook_123",
                 "webhook_url": "https://example.com/webhooks/lago",
                 "signature_algo": "jwt",
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
             }
         ]
 
@@ -1020,12 +999,9 @@ class MockLagoBillingClient(BillingClient):
             "currency": currency,
             "data_points": 12,  # 12 months of data
             "raw_data": [
-                {
-                    "month": f"2024-{i+1:02d}",
-                    "amount_cents": int(total_mrr * 100 * random.uniform(0.8, 1.2))
-                }
+                {"month": f"2024-{i + 1:02d}", "amount_cents": int(total_mrr * 100 * random.uniform(0.8, 1.2))}
                 for i in range(12)
-            ]
+            ],
         }
 
     async def get_gross_revenue_analytics(self, currency: str = "USD") -> dict[str, Any]:
@@ -1038,12 +1014,9 @@ class MockLagoBillingClient(BillingClient):
             "currency": currency,
             "data_points": 12,
             "raw_data": [
-                {
-                    "month": f"2024-{i+1:02d}",
-                    "amount_cents": int(total_revenue * 100 * random.uniform(0.05, 0.15))
-                }
+                {"month": f"2024-{i + 1:02d}", "amount_cents": int(total_revenue * 100 * random.uniform(0.05, 0.15))}
                 for i in range(12)
-            ]
+            ],
         }
 
 

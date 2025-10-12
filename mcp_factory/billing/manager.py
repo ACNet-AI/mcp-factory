@@ -177,7 +177,7 @@ class BillingManager(BillingSystem):
         *,
         tool_name: str | None = None,
         request_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Record usage event for billing purposes.
@@ -201,11 +201,13 @@ class BillingManager(BillingSystem):
         try:
             # Merge all metadata
             full_metadata = metadata.copy() if metadata else {}
-            full_metadata.update({
-                "usage_type": usage_type,
-                "tool_name": tool_name,
-                "request_id": request_id,
-            })
+            full_metadata.update(
+                {
+                    "usage_type": usage_type,
+                    "tool_name": tool_name,
+                    "request_id": request_id,
+                }
+            )
 
             # Create usage event
             event = UsageEvent(
@@ -223,6 +225,7 @@ class BillingManager(BillingSystem):
 
                 # Build detailed response with unique transaction ID
                 import uuid
+
                 transaction_id = f"{user_id}_{uuid.uuid4().hex[:8]}_{int(event.timestamp.timestamp())}"
 
                 response = {
@@ -261,7 +264,7 @@ class BillingManager(BillingSystem):
                     "message": result.message,
                     "user_id": user_id,
                     "usage_type": usage_type,
-                    "quantity": quantity
+                    "quantity": quantity,
                 }
 
         except Exception as e:
@@ -872,11 +875,8 @@ class BillingManager(BillingSystem):
             # TODO: In a real implementation, this would query actual usage data from a database
             # For now, return realistic default values (starting from 0 for new users)
             from datetime import datetime
-            base_usage = {
-                "user_id": user_id,
-                "period": period,
-                "last_updated": datetime.now().isoformat()
-            }
+
+            base_usage = {"user_id": user_id, "period": period, "last_updated": datetime.now().isoformat()}
 
             if usage_type:
                 # Specific usage type requested - start with 0 for new users
@@ -929,7 +929,7 @@ class BillingManager(BillingSystem):
             usage_type_mapping = {
                 "api_call": "api_calls",
                 "file_operation": "file_operations",
-                "data_transfer": "data_transfer_mb"
+                "data_transfer": "data_transfer_mb",
             }
             limit_key = usage_type_mapping.get(usage_type, usage_type)
             limit = limits.get(limit_key, 100)

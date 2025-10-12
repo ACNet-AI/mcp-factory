@@ -60,7 +60,7 @@ class BillingSystem(ABC):
         *,
         tool_name: str | None = None,
         request_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Record usage for billing purposes.
@@ -576,7 +576,7 @@ class BaseBillingSystem(BillingSystem):
         *,
         tool_name: str | None = None,
         request_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Record usage - override for actual usage tracking."""
         return {"success": False, "message": "Usage tracking not implemented", "feature": "usage_tracking"}

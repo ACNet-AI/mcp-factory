@@ -40,9 +40,9 @@ class BillingConfig:
 
     # Withdrawal policy
     consumer_wallet_withdrawal: bool = False  # Consumer wallet cannot withdraw
-    provider_wallet_withdrawal: bool = True   # Provider wallet can withdraw
-    min_withdrawal_amount: float = 10.0       # Minimum withdrawal amount
-    withdrawal_fee_rate: float = 0.02         # Withdrawal fee rate (2%)
+    provider_wallet_withdrawal: bool = True  # Provider wallet can withdraw
+    min_withdrawal_amount: float = 10.0  # Minimum withdrawal amount
+    withdrawal_fee_rate: float = 0.02  # Withdrawal fee rate (2%)
 
 
 # ============================================================================

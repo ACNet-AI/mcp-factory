@@ -275,11 +275,7 @@ class StripePaymentGateway(PaymentGateway):
                 amount=amount_cents,
                 currency="usd",
                 destination=destination_account,
-                metadata={
-                    "user_id": user_id,
-                    "withdrawal_type": "earnings_payout",
-                    **(metadata or {})
-                }
+                metadata={"user_id": user_id, "withdrawal_type": "earnings_payout", **(metadata or {})},
             )
 
             logger.info(f"Stripe withdrawal processed: {transfer.id} for {amount} USD to user {user_id}")
@@ -292,8 +288,8 @@ class StripePaymentGateway(PaymentGateway):
                     "currency": "usd",
                     "destination": destination_account,
                     "status": "completed",
-                    "user_id": user_id
-                }
+                    "user_id": user_id,
+                },
             )
 
         except self.stripe.error.StripeError as e:
@@ -324,14 +320,9 @@ class StripePaymentGateway(PaymentGateway):
                 type="express",  # Express accounts for quick setup
                 country=account_info.get("country", "US"),
                 email=account_info.get("email"),
-                capabilities={
-                    "transfers": {"requested": True}
-                },
+                capabilities={"transfers": {"requested": True}},
                 business_type=account_info.get("business_type", "individual"),
-                metadata={
-                    "user_id": user_id,
-                    **(metadata or {})
-                }
+                metadata={"user_id": user_id, **(metadata or {})},
             )
 
             logger.info(f"Stripe connected account created: {account.id} for user {user_id}")
@@ -343,15 +334,15 @@ class StripePaymentGateway(PaymentGateway):
                     "user_id": user_id,
                     "email": account_info.get("email"),
                     "country": account.country,
-                    "status": "created"
-                }
+                    "status": "created",
+                },
             )
 
         except self.stripe.error.StripeError as e:
             logger.error(f"Stripe connected account creation failed: {e}")
             return BillingResult.error_result(
                 f"Connected account creation failed: {str(e)}",
-                error_code=e.code if hasattr(e, "code") else "stripe_error"
+                error_code=e.code if hasattr(e, "code") else "stripe_error",
             )
         except Exception as e:
             logger.error(f"Unexpected error in connected account creation: {e}")
@@ -384,8 +375,8 @@ class StripePaymentGateway(PaymentGateway):
                     "available_balance": available_balance,
                     "pending_balance": pending_balance,
                     "currency": balance.available[0].currency if balance.available else "usd",
-                    "account_id": account_id
-                }
+                    "account_id": account_id,
+                },
             )
 
         except self.stripe.error.StripeError as e:
@@ -482,8 +473,8 @@ class MockStripeGateway(StripePaymentGateway):
                 "currency": "usd",
                 "destination": destination_account,
                 "status": "completed",
-                "user_id": user_id
-            }
+                "user_id": user_id,
+            },
         )
 
     async def create_connected_account(
@@ -511,8 +502,8 @@ class MockStripeGateway(StripePaymentGateway):
                 "user_id": user_id,
                 "email": account_info.get("email"),
                 "country": account_info.get("country", "US"),
-                "status": "created"
-            }
+                "status": "created",
+            },
         )
 
     async def get_account_balance(self, account_id: str | None = None) -> BillingResult:
@@ -521,8 +512,8 @@ class MockStripeGateway(StripePaymentGateway):
             "Mock balance retrieved",
             {
                 "available_balance": 1000.0,  # Mock available balance
-                "pending_balance": 50.0,      # Mock pending balance
+                "pending_balance": 50.0,  # Mock pending balance
                 "currency": "usd",
-                "account_id": account_id
-            }
+                "account_id": account_id,
+            },
         )

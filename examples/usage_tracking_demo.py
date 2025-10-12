@@ -33,13 +33,7 @@ async def main():
     # Create server with billing and authorized proxies
     server = ManagedServer(
         name="weather-service",
-        billing={
-            "provider": "lago",
-            "lago": {
-                "api_key": "your-lago-key",
-                "api_url": "https://api.getlago.com"
-            }
-        },
+        billing={"provider": "lago", "lago": {"api_key": "your-lago-key", "api_url": "https://api.getlago.com"}},
         authorization={
             "authorized_proxies": AuthorizedProxies(
                 proxies={
@@ -47,15 +41,12 @@ async def main():
                         name="mcp-factory",
                         api_key="platform_key_abc123",
                         rate_limit_per_hour=10000,
-                        metadata={
-                            "contract_id": "CT-2024-001",
-                            "contact_email": "dev@mcp-factory.com"
-                        }
+                        metadata={"contract_id": "CT-2024-001", "contact_email": "dev@mcp-factory.com"},
                     )
                 },
-                assigns_tier="proxy_tier"
+                assigns_tier="proxy_tier",
             )
-        }
+        },
     )
 
     # Define a tool
@@ -63,11 +54,7 @@ async def main():
     async def get_weather(city: str) -> dict:
         """Get weather for a city"""
         # Simulate weather service
-        return {
-            "city": city,
-            "temperature": 25,
-            "weather": "sunny"
-        }
+        return {"city": city, "temperature": 25, "weather": "sunny"}
 
     print("\n" + "-" * 70)
     print("Scenario 1: Direct User Access")
@@ -75,10 +62,7 @@ async def main():
 
     # Simulate direct user access
     print("\n1. Direct user 'alice' calls get_weather")
-    usage_result = await server.record_tool_usage(
-        tool_name="get_weather",
-        user_id="alice"
-    )
+    usage_result = await server.record_tool_usage(tool_name="get_weather", user_id="alice")
 
     if usage_result:
         print("\n✅ Usage recorded:")
@@ -108,15 +92,15 @@ async def main():
         proxy_info_with_context = {
             "proxy_name": proxy_info["proxy_name"],
             # Proxy decides what information to include:
-            "platform_user_id": "bob",           # User on the platform
-            "proxy_server_id": "shared_proxy_1", # Which proxy server
-            "session_id": "sess_abc123"          # Session tracking
+            "platform_user_id": "bob",  # User on the platform
+            "proxy_server_id": "shared_proxy_1",  # Which proxy server
+            "session_id": "sess_abc123",  # Session tracking
         }
 
         usage_result = await server.record_tool_usage(
             tool_name="get_weather",
             user_id=proxy_info["proxy_name"],  # Proxy is the "customer"
-            proxy_info=proxy_info_with_context
+            proxy_info=proxy_info_with_context,
         )
 
         if usage_result:

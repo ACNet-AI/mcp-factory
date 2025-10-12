@@ -261,9 +261,7 @@ class ManagedServer(FastMCP[Any]):
 
         # Initialize integration service if both systems are available
         self.integration = self._setup_billing_auth_integration(
-            self.billing_system,
-            self._authorization_manager,
-            kwargs
+            self.billing_system, self._authorization_manager, kwargs
         )
 
         # 🏷️ Dynamic attribute declaration (set by Factory)
@@ -299,7 +297,9 @@ class ManagedServer(FastMCP[Any]):
 
         logger.info("ManagedServer %s initialization completed", server_name)
 
-    def _setup_authorization(self, authorization: Any, auth_provider: Any, expose_management_tools: bool) -> bool | dict:
+    def _setup_authorization(
+        self, authorization: Any, auth_provider: Any, expose_management_tools: bool
+    ) -> bool | dict:
         """
         Setup authorization system based on parameters.
 
@@ -431,7 +431,7 @@ class ManagedServer(FastMCP[Any]):
             import asyncio
 
             # Handle both sync and async get_management_tools methods
-            if hasattr(self.billing_system, 'get_management_tools'):
+            if hasattr(self.billing_system, "get_management_tools"):
                 try:
                     # Try async first (BillingSystem abstract method is async)
                     if asyncio.iscoroutinefunction(self.billing_system.get_management_tools):
@@ -495,7 +495,7 @@ class ManagedServer(FastMCP[Any]):
 
                 for param_name, param in sig.parameters.items():
                     # Skip 'self' parameter
-                    if param_name == 'self':
+                    if param_name == "self":
                         continue
 
                     param_type = "string"  # Default type
@@ -513,7 +513,7 @@ class ManagedServer(FastMCP[Any]):
                     parameters[param_name] = {
                         "type": param_type,
                         "description": param_desc,
-                        "required": param.default == inspect.Parameter.empty
+                        "required": param.default == inspect.Parameter.empty,
                     }
 
             except Exception as e:
@@ -686,7 +686,9 @@ class ManagedServer(FastMCP[Any]):
                                 required_plan = self._get_required_plan_for_permission(perm_type)
                                 return f"💳 {perm_type} operations require {required_plan} subscription. Visit /billing/upgrade?plan={required_plan}"
                             else:
-                                logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
+                                logger.warning(
+                                    "Permission check failed: method %s, permission type %s", name, perm_type
+                                )
                                 return f"❌ Insufficient permissions for {perm_type} operations"
 
                     except Exception as e:
@@ -963,7 +965,9 @@ class ManagedServer(FastMCP[Any]):
             logger.error(f"Failed to check permission for user {user_id}: {e}")
             return False
 
-    def check_permission_with_billing(self, user_id: str, resource: str, action: str, scope: str = "*") -> dict[str, Any]:
+    def check_permission_with_billing(
+        self, user_id: str, resource: str, action: str, scope: str = "*"
+    ) -> dict[str, Any]:
         """
         Check if a user has permission.
 
@@ -997,7 +1001,7 @@ class ManagedServer(FastMCP[Any]):
                 "allowed": allowed,
                 "reason": "Permission granted" if allowed else "Access denied",
                 "upgrade_suggestion": None,
-                "required_plan": None
+                "required_plan": None,
             }
 
         # No authorization configured - allow all
@@ -1005,7 +1009,7 @@ class ManagedServer(FastMCP[Any]):
             "allowed": True,
             "reason": "No authorization configured",
             "upgrade_suggestion": None,
-            "required_plan": None
+            "required_plan": None,
         }
 
     def get_user_roles(self, user_id: str) -> list[str]:
@@ -1033,7 +1037,6 @@ class ManagedServer(FastMCP[Any]):
         except Exception as e:
             logger.error(f"Failed to get roles for user {user_id}: {e}")
             return []
-
 
     # =============================================================================
     # Management Interface Implementation
@@ -1545,7 +1548,7 @@ class ManagedServer(FastMCP[Any]):
             "proxy_name": proxy.name,
             "tier_id": self._authorized_proxies.assigns_tier,
             "rate_limit": proxy.rate_limit_per_hour,
-            "metadata": proxy.metadata
+            "metadata": proxy.metadata,
         }
 
     def get_authorized_proxies(self):
@@ -1565,11 +1568,7 @@ class ManagedServer(FastMCP[Any]):
         """
         try:
             ctx = self.request_context
-            return {
-                "request_id": str(ctx.request_id),
-                "meta": ctx.meta,
-                "session": ctx.session
-            }
+            return {"request_id": str(ctx.request_id), "meta": ctx.meta, "session": ctx.session}
         except LookupError:
             # Not in a request context (e.g., called directly)
             return None
@@ -1582,7 +1581,7 @@ class ManagedServer(FastMCP[Any]):
         tool_name: str,
         user_id: str | None = None,
         params: dict[str, Any] | None = None,
-        proxy_info: dict[str, Any] | None = None
+        proxy_info: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         """
         Record usage for a tool call with automatic context detection.
@@ -1653,7 +1652,7 @@ class ManagedServer(FastMCP[Any]):
                 quantity=1,
                 tool_name=tool_name,
                 request_id=request_id,
-                metadata=metadata
+                metadata=metadata,
             )
 
             logger.debug(f"Tool usage recorded: {tool_name} for user {user_id}")
@@ -1677,13 +1676,16 @@ class ManagedServer(FastMCP[Any]):
             # Register user billing tools if billing system is available
             if self.billing_system:
                 from .tool_configs import get_user_billing_tools
+
                 user_billing_tools = get_user_billing_tools()
                 billing_count = self._register_tool_group(user_billing_tools, "user billing")
 
             # Log summary
             total_count = permission_count + billing_count
             if total_count > 0:
-                logger.info(f"User self-service tools registered: {permission_count} permission + {billing_count} billing = {total_count} total")
+                logger.info(
+                    f"User self-service tools registered: {permission_count} permission + {billing_count} billing = {total_count} total"
+                )
             else:
                 logger.debug("No user self-service tools registered (authorization and billing systems not available)")
 
@@ -1944,7 +1946,9 @@ Use 'view_my_requests' to check request status."""
     # Billing System Setup
     # =============================================================================
 
-    def _setup_billing_system(self, billing_param: BillingSystem | dict[str, Any] | bool | None) -> BillingSystem | None:
+    def _setup_billing_system(
+        self, billing_param: BillingSystem | dict[str, Any] | bool | None
+    ) -> BillingSystem | None:
         """
         Setup billing system based on the billing parameter.
 
@@ -1961,17 +1965,16 @@ Use 'view_my_requests' to check request status."""
             if billing_param is True:
                 # Enable default billing system (mock mode for development)
                 from ..billing import create_billing_manager_sync
-                return create_billing_manager_sync({
-                    "provider": "mock",
-                    "payment_gateway": "local"
-                })
+
+                return create_billing_manager_sync({"provider": "mock", "payment_gateway": "local"})
 
             elif isinstance(billing_param, dict):
                 # Create billing system from configuration dict
                 from ..billing import create_billing_manager_sync
+
                 return create_billing_manager_sync(billing_param)
 
-            elif hasattr(billing_param, 'get_system_name'):
+            elif hasattr(billing_param, "get_system_name"):
                 # Pre-configured BillingSystem instance
                 return billing_param
 
@@ -1984,10 +1987,7 @@ Use 'view_my_requests' to check request status."""
             return None
 
     def _setup_billing_auth_integration(
-        self,
-        billing_system: BillingSystem | None,
-        auth_manager: Any,
-        kwargs: dict[str, Any]
+        self, billing_system: BillingSystem | None, auth_manager: Any, kwargs: dict[str, Any]
     ) -> Any:
         """
         Setup billing-authorization integration service.
@@ -2012,9 +2012,7 @@ Use 'view_my_requests' to check request status."""
 
         # Check for role mapping configuration
         if "role_mapping" in kwargs:
-            integration_config["plan_config"] = {
-                "default_role_mapping": kwargs["role_mapping"]
-            }
+            integration_config["plan_config"] = {"default_role_mapping": kwargs["role_mapping"]}
 
         # Check merge strategy
         if "integration_merge_strategy" in kwargs:
@@ -2029,7 +2027,7 @@ Use 'view_my_requests' to check request status."""
                     billing_system,
                     auth_manager,
                     plan_config=integration_config["plan_config"],
-                    merge_strategy=integration_config.get("merge_strategy", "merge")
+                    merge_strategy=integration_config.get("merge_strategy", "merge"),
                 )
             else:
                 # Use default configuration
@@ -2041,7 +2039,6 @@ Use 'view_my_requests' to check request status."""
         except Exception as e:
             logger.warning(f"Failed to initialize integration service: {e}")
             return None
-
 
     # =============================================================================
     # User billing self-service tools implementation (non-management tools)
@@ -2123,13 +2120,15 @@ Use 'view_available_plans' to see upgrade options."""
                 usage_stats = self.billing_system.get_usage_stats(user_id)
                 if usage_stats.get("success"):
                     usage_data = usage_stats.get("data", {})
-                    result_lines.extend([
-                        "",
-                        "📊 **Usage Statistics**",
-                        f"Current period: {usage_data.get('period', 'Unknown')}",
-                        f"Operations used: {usage_data.get('operations_used', 0)}",
-                        f"Operations limit: {usage_data.get('operations_limit', 'Unlimited')}",
-                    ])
+                    result_lines.extend(
+                        [
+                            "",
+                            "📊 **Usage Statistics**",
+                            f"Current period: {usage_data.get('period', 'Unknown')}",
+                            f"Operations used: {usage_data.get('operations_used', 0)}",
+                            f"Operations limit: {usage_data.get('operations_limit', 'Unlimited')}",
+                        ]
+                    )
             except Exception:
                 pass  # Usage stats are optional
 
@@ -2163,20 +2162,24 @@ Use 'view_available_plans' to see upgrade options."""
                 currency = plan.get("currency", "USD")
                 billing_period = plan.get("billing_period", "monthly")
 
-                result_lines.extend([
-                    "",
-                    f"📦 **{name}**",
-                    f"   ID: {plan_id}",
-                    f"   Price: {price} {currency.upper()}/{billing_period}",
-                    f"   Description: {description}",
-                ])
+                result_lines.extend(
+                    [
+                        "",
+                        f"📦 **{name}**",
+                        f"   ID: {plan_id}",
+                        f"   Price: {price} {currency.upper()}/{billing_period}",
+                        f"   Description: {description}",
+                    ]
+                )
 
-            result_lines.extend([
-                "",
-                "💡 **How to purchase:**",
-                "Use 'purchase_plan <plan_id>' to buy a subscription",
-                "Example: purchase_plan basic",
-            ])
+            result_lines.extend(
+                [
+                    "",
+                    "💡 **How to purchase:**",
+                    "Use 'purchase_plan <plan_id>' to buy a subscription",
+                    "Example: purchase_plan basic",
+                ]
+            )
 
             return "\n".join(result_lines)
 
@@ -2214,28 +2217,32 @@ Use 'view_available_plans' to see upgrade options."""
             ]
 
             # Add usage metrics
-            operations_used = usage_data.get('operations_used', 0)
-            operations_limit = usage_data.get('operations_limit', 'Unlimited')
+            operations_used = usage_data.get("operations_used", 0)
+            operations_limit = usage_data.get("operations_limit", "Unlimited")
 
-            if operations_limit != 'Unlimited':
+            if operations_limit != "Unlimited":
                 usage_percent = (operations_used / operations_limit) * 100 if operations_limit > 0 else 0
                 progress_bar = "█" * int(usage_percent / 10) + "░" * (10 - int(usage_percent / 10))
-                result_lines.extend([
-                    f"🔧 Operations: {operations_used}/{operations_limit} ({usage_percent:.1f}%)",
-                    f"   [{progress_bar}]",
-                ])
+                result_lines.extend(
+                    [
+                        f"🔧 Operations: {operations_used}/{operations_limit} ({usage_percent:.1f}%)",
+                        f"   [{progress_bar}]",
+                    ]
+                )
             else:
                 result_lines.append(f"🔧 Operations: {operations_used} (Unlimited)")
 
             # Add warnings if approaching limits
-            if operations_limit != 'Unlimited' and operations_used / operations_limit > 0.8:
-                result_lines.extend([
-                    "",
-                    "⚠️  **Usage Warning:**",
-                    "You are approaching your usage limits.",
-                    "Consider upgrading your plan to avoid service interruption.",
-                    "Use 'view_available_plans' to see upgrade options.",
-                ])
+            if operations_limit != "Unlimited" and operations_used / operations_limit > 0.8:
+                result_lines.extend(
+                    [
+                        "",
+                        "⚠️  **Usage Warning:**",
+                        "You are approaching your usage limits.",
+                        "Consider upgrading your plan to avoid service interruption.",
+                        "Use 'view_available_plans' to see upgrade options.",
+                    ]
+                )
 
             return "\n".join(result_lines)
 
