@@ -14,7 +14,10 @@ from fastmcp import FastMCP
 
 from mcp_factory.server import ManagedServer
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add parent directory to path for test_helpers import
+tests_dir = os.path.dirname(os.path.dirname(__file__))
+if tests_dir not in sys.path:
+    sys.path.insert(0, tests_dir)
 from test_helpers import create_test_server
 
 
@@ -777,9 +780,7 @@ class TestServerAdvancedFeatures:
         """Test wrapper with permission check failure"""
         server = ManagedServer(name="test-server", authorization=True)
 
-        wrapper = server._create_wrapper(
-            "test_method", "Test method", "destructive", is_async=False, has_params=False
-        )
+        wrapper = server._create_wrapper("test_method", "Test method", "destructive", is_async=False, has_params=False)
 
         # Test that wrapper is created successfully
         # Actual permission checking would require proper authentication context

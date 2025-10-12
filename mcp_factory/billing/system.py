@@ -547,7 +547,7 @@ class BaseBillingSystem(BillingSystem):
             # All other methods have default "not supported" implementations
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None):  # type: ignore[no-untyped-def]
         super().__init__(config)
         self._initialized = False
 

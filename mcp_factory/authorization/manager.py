@@ -235,9 +235,9 @@ class MCPAuthorizationManager:
 
                 # Add permissions for each default role
                 for role_name, role_config in DEFAULT_ROLES.items():
-                    for permission in role_config["permissions"]:
+                    for permission in role_config["permissions"]:  # type: ignore[attr-defined]
                         # Type hint for MyPy - cast to MCPPermission
-                        perm: MCPPermission = permission  # type: ignore[assignment]
+                        perm: MCPPermission = permission
                         self.enforcer.add_policy(
                             role_name,
                             perm.resource,

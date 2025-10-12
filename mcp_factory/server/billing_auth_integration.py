@@ -7,6 +7,7 @@ for MCP servers, keeping the integration logic separate from the core server.
 import asyncio
 import logging
 import time
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,13 @@ class BillingAuthIntegration:
     without implementing the core logic of either system.
     """
 
-    def __init__(self, billing_system, authorization_manager, plan_config=None, merge_strategy="merge"):
+    def __init__(
+        self,
+        billing_system: Any,
+        authorization_manager: Any,
+        plan_config: dict[str, Any] | None = None,
+        merge_strategy: str = "merge",
+    ) -> None:
         """
         Initialize the integration service.
         Args:
@@ -86,8 +93,8 @@ class BillingAuthIntegration:
         self.plan_cache_ttl = self._config.get("plan_cache_ttl", 300)
         self.auto_load_on_init = self._config.get("auto_load_on_init", False)
         # Dynamic plan registry
-        self._plan_registry = {}
-        self._plan_cache = {}
+        self._plan_registry: dict[str, dict[str, Any]] = {}
+        self._plan_cache: dict[str, dict[str, Any]] = {}
         self._cache_timestamp = 0
         logger.info(f"BillingAuthIntegration initialized with dynamic plans: {self.dynamic_plans_enabled}")
 
@@ -104,7 +111,9 @@ class BillingAuthIntegration:
     # ========================================================================
     # Dynamic Plan Management (Dynamic Plan Management)
     # ========================================================================
-    def register_plan(self, plan_id: str, role: str, tier: str = None, billing_mode: str = "subscription") -> None:
+    def register_plan(
+        self, plan_id: str, role: str, tier: str | None = None, billing_mode: str = "subscription"
+    ) -> None:
         """
         Dynamically register billing plan
         Args:
@@ -148,7 +157,7 @@ class BillingAuthIntegration:
                         }
                 # Update cache
                 self._plan_cache = formatted_plans
-                self._cache_timestamp = current_time
+                self._cache_timestamp = current_time  # type: ignore[assignment]
                 logger.info(f"Loaded {len(formatted_plans)} plans from billing system")
                 return formatted_plans
         except Exception as e:
@@ -173,43 +182,43 @@ class BillingAuthIntegration:
 
         # Check for free plan
         if any(keyword in plan_id_lower for keyword in free_keywords):
-            return default_free_role
+            return default_free_role  # type: ignore[no-any-return]
 
         # Check proxy user plan
         if any(keyword in plan_id_lower for keyword in proxy_keywords):
-            return default_paid_role
+            return default_paid_role  # type: ignore[no-any-return]
 
         # Check price (if provided)
         price = plan_data.get("price", 0) if plan_data else 0
         if price == 0:
-            return default_free_role
+            return default_free_role  # type: ignore[no-any-return]
 
         # Default paid plan
-        return default_paid_role
+        return default_paid_role  # type: ignore[no-any-return]
 
     def _simple_role_fallback(self, plan_id: str, plan_data: dict) -> str:
         """Simple role fallback logic (default mode)"""
 
         # 1. Check explicit default mapping
         if plan_id in self.default_role_mapping:
-            return self.default_role_mapping[plan_id]
+            return self.default_role_mapping[plan_id]  # type: ignore[no-any-return]
 
         # 2. If has billing plan, means registered user
         # Note: being able to query billing plan means user is registered
         if plan_id:  # Having plan ID means registered user
-            return self.fallback_roles.get("registered_user", "user")
+            return self.fallback_roles.get("registered_user", "user")  # type: ignore[no-any-return]
         else:
             # No plan ID, possibly unregistered visitor
-            return self.fallback_roles.get("anonymous_visitor", "visitor")
+            return self.fallback_roles.get("anonymous_visitor", "visitor")  # type: ignore[no-any-return]
 
     def get_role_by_plan(self, plan_id: str) -> str:
         """Get role corresponding to plan"""
         # 1. Check dynamically registered plans
         if plan_id in self._plan_registry:
-            return self._plan_registry[plan_id]["role"]
+            return self._plan_registry[plan_id]["role"]  # type: ignore[no-any-return]
         # 2. Check cached plans
         if plan_id in self._plan_cache:
-            return self._plan_cache[plan_id]["role"]
+            return self._plan_cache[plan_id]["role"]  # type: ignore[no-any-return]
         # 3. Use smart inference
         return self._infer_role_from_plan(plan_id, {})
 
@@ -225,7 +234,7 @@ class BillingAuthIntegration:
 
         # 3. Check default tier mapping
         if plan_id in self.default_tier_mapping:
-            return self.default_tier_mapping[plan_id]
+            return self.default_tier_mapping[plan_id]  # type: ignore[no-any-return]
 
         # 4. Infer tier from plan name
         return self._infer_tier_from_plan(plan_id)
@@ -300,7 +309,7 @@ class BillingAuthIntegration:
         for plan_id, plan_info in self._plan_cache.items():
             mapping[plan_id] = plan_info["role"]
 
-        return mapping
+        return mapping  # type: ignore[no-any-return]
 
     def _merge_config(self, default_config: dict, custom_config: dict) -> dict:
         """
@@ -334,7 +343,7 @@ class BillingAuthIntegration:
             if hasattr(self.billing, "get_user_plan"):
                 plan = self.billing.get_user_plan(user_id)
                 if plan:
-                    return plan
+                    return plan  # type: ignore[no-any-return]
             # Fallback: try to get from subscription
             # Note: We skip async methods in sync context to avoid event loop issues
             return "free"
@@ -355,12 +364,12 @@ class BillingAuthIntegration:
             if hasattr(self.billing, "get_user_plan"):
                 plan = self.billing.get_user_plan(user_id)
                 if plan:
-                    return plan
+                    return plan  # type: ignore[no-any-return]
             # Fallback: try to get from subscription (async)
             if hasattr(self.billing, "get_user_subscription"):
                 subscription = await self.billing.get_user_subscription(user_id)
                 if subscription and subscription.get("active"):
-                    return subscription.get("plan_id", "free")
+                    return subscription.get("plan_id", "free")  # type: ignore[no-any-return]
             return "free"
         except Exception as e:
             logger.error(f"Error getting user plan for {user_id}: {e}")

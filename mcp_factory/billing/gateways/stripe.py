@@ -31,7 +31,7 @@ class StripePaymentGateway(PaymentGateway):
 
         # Initialize Stripe SDK
         try:
-            import stripe  # type: ignore[import-untyped]
+            import stripe
 
             stripe.api_key = self.secret_key
             self.stripe = stripe

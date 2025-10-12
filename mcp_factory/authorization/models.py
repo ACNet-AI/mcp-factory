@@ -172,13 +172,13 @@ def get_role_permissions(role_name: str) -> list[MCPPermission]:
         return []
 
     # Start with base permissions
-    permissions = DEFAULT_ROLES[role_name]["base_permissions"].copy()
+    permissions = DEFAULT_ROLES[role_name]["base_permissions"].copy()  # type: ignore[attr-defined]
 
     # Add any configured additional permissions
     if role_name in _role_permission_overrides:
         permissions.extend(_role_permission_overrides[role_name])
 
-    return permissions
+    return permissions  # type: ignore[no-any-return]
 
 
 # Global role configuration overrides
@@ -215,13 +215,13 @@ def get_role_limitations(role_name: str) -> dict[str, Any]:
         return {}
 
     # Start with default limitations
-    limitations = DEFAULT_ROLES[role_name].get("default_limitations", {}).copy()
+    limitations = DEFAULT_ROLES[role_name].get("default_limitations", {}).copy()  # type: ignore[attr-defined]
 
     # Apply any configured overrides
     if role_name in _role_config_overrides:
         limitations.update(_role_config_overrides[role_name])
 
-    return limitations
+    return limitations  # type: ignore[no-any-return]
 
 
 def reset_role_configuration() -> None:

@@ -420,8 +420,8 @@ class DebugService:
             all_permissions = []
             for role_config in DEFAULT_ROLES.values():
                 if isinstance(role_config, dict) and "permissions" in role_config:
-                    for perm in role_config["permissions"]:
-                        perm_str = f"{perm.resource}:{perm.action}:{perm.scope}"  # type: ignore
+                    for perm in role_config["permissions"]:  # type: ignore[attr-defined]
+                        perm_str = f"{perm.resource}:{perm.action}:{perm.scope}"
                         all_permissions.append(perm_str)
 
             duplicate_perms = {perm for perm in all_permissions if all_permissions.count(perm) > 1}

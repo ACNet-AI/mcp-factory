@@ -321,10 +321,10 @@ class RoleService:
             for role in roles:
                 if role in DEFAULT_ROLES:
                     role_info = DEFAULT_ROLES[role]
-                    for perm in role_info["permissions"]:
+                    for perm in role_info["permissions"]:  # type: ignore[attr-defined]
                         # Type hint for MyPy - cast to MCPPermission
                         permission = perm
-                        perm_str = f"{permission.resource}:{permission.action}:{permission.scope}"  # type: ignore
+                        perm_str = f"{permission.resource}:{permission.action}:{permission.scope}"
                         if perm_str not in permissions:
                             permissions.append(perm_str)
 

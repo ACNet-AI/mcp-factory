@@ -226,10 +226,10 @@ class PermissionEngine:
             for role in user_roles:
                 if role in DEFAULT_ROLES:
                     role_perms = DEFAULT_ROLES[role]["permissions"]
-                    for perm in role_perms:
+                    for perm in role_perms:  # type: ignore[attr-defined]
                         # Type hint for MyPy - cast to MCPPermission
                         permission = perm
-                        perm_str = f"{permission.resource}:{permission.action}:{permission.scope}"  # type: ignore
+                        perm_str = f"{permission.resource}:{permission.action}:{permission.scope}"
                         user_permissions.append(perm_str)
 
             # Execute permission check

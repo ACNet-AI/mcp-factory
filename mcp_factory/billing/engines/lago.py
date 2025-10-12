@@ -127,7 +127,7 @@ class LagoBillingClient(BillingClient):
 
         try:
             result = await asyncio.to_thread(self._client.customers.find, customer_id)
-            return result
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Failed to get customer {customer_id}: {e}")
             return None
@@ -267,7 +267,7 @@ class LagoBillingClient(BillingClient):
 
         try:
             result = await asyncio.to_thread(self._client.wallets.find, customer_id)
-            return result
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Failed to get wallet for {customer_id}: {e}")
             return None
@@ -824,7 +824,7 @@ class MockLagoBillingClient(BillingClient):
         )
 
         # Sort by date (newest first)
-        transactions.sort(key=lambda x: x["created_at"], reverse=True)
+        transactions.sort(key=lambda x: x["created_at"], reverse=True)  # type: ignore[arg-type,return-value]
 
         return transactions
 
