@@ -119,7 +119,7 @@ class SaaSService:
 
                 self.audit_logger.log_system_event(
                     user_id=user_id,
-                    event_type=AuditEventType.PERMISSION_GRANTED,  # 重用现有类型
+                    event_type=AuditEventType.PERMISSION_GRANTED,  # Reuse existing type
                     details={
                         "action": "permission_request_submitted",
                         "request_id": request_id,

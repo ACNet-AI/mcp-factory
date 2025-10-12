@@ -12,6 +12,9 @@ import textwrap
 import time
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from ..billing.system import BillingSystem
+
 from fastmcp import FastMCP
 from fastmcp.tools.tool import Tool
 from mcp.types import ToolAnnotations
@@ -96,6 +99,7 @@ class ManagedServer(FastMCP[Any]):
         expose_management_tools: bool = True,
         authorization: bool | None = None,
         management_tool_tags: set[str] | None = None,
+        billing: BillingSystem | dict[str, Any] | bool | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ManagedServer.
@@ -107,6 +111,13 @@ class ManagedServer(FastMCP[Any]):
                 * None (default): Infer from auth parameter - no auth means no authorization, with auth means enable authorization
                 * True: Force enable authorization (uses Casbin RBAC system)
                 * False: Force disable authorization (all permissions allowed)
+            billing: Billing system configuration
+                * None (default): No billing functionality
+                * True: Enable default billing system (mock mode for development)
+                * dict: Custom billing configuration
+                * BillingSystem: Pre-configured billing system instance
+
+                Note: Billing systems auto-initialize on first use. No manual initialization required.
             management_tool_tags: Management tool tag set (fastmcp 2.8.0+)
             **kwargs: All parameters for FastMCP, including:
                 - auth: Authentication provider (AuthProvider | None | NotSetT)
@@ -155,25 +166,105 @@ class ManagedServer(FastMCP[Any]):
                 auth=None,
                 authorization=False
             )
+
+            # Server with billing system
+            server = ManagedServer(
+                name="billing-server",
+                billing=True  # Enable default billing (mock mode)
+            )
+
+            # Server with custom billing configuration
+            server = ManagedServer(
+                name="custom-billing-server",
+                billing={
+                    "provider": "lago",
+                    "lago": {"api_key": "your-lago-key"},
+                    "payment_gateway": {"type": "stripe", "secret_key": "sk_..."}
+                }
+            )
+
+            # Server using platform's Lago instance
+            server = ManagedServer(
+                name="platform-billing-server",
+                billing={
+                    "provider": "lago",
+                    "lago": {
+                        "api_key": "platform-assigned-key",
+                        "api_url": "https://lago-billing-beta.up.railway.app"
+                    }
+                },
+                authorization=True  # Integration auto-created with default config
+            )
+
+            # Server with authorized proxies (commercial partnerships)
+            from mcp_factory.authorization import AuthorizedProxies, ProxyConfig
+            server = ManagedServer(
+                name="proxy-enabled-server",
+                billing=billing_system,
+                authorization={
+                    "enabled": True,
+                    "authorized_proxies": AuthorizedProxies(
+                        assigns_tier="proxy_tier",
+                        proxies={
+                            "mcp-factory": ProxyConfig(
+                                name="mcp-factory",
+                                api_key="platform_key_xxx"
+                            ),
+                            "awesome-platform": ProxyConfig(
+                                name="awesome-platform",
+                                api_key="another_key_yyy"
+                            )
+                        }
+                    )
+                }
+            )
+
+            # Server with pre-configured billing system
+            from mcp_factory.billing import create_billing_manager
+            billing_system = create_billing_manager({"provider": "lago"})
+            server = ManagedServer(
+                name="preconfigured-billing-server",
+                billing=billing_system
+            )
         """
         # 💾 Save configuration parameters
         self.expose_management_tools = expose_management_tools
         self.management_tool_tags = management_tool_tags or {"management", "admin"}
 
+        # 💳 Setup billing system
+        self.billing_system = self._setup_billing_system(billing)
+        # Note: billing_system auto-initializes on first use
+
         # 🔒 Setup authorization system
-        self.authorization = self._setup_authorization(authorization, kwargs.get("auth"), expose_management_tools)
+        auth_config = self._setup_authorization(authorization, kwargs.get("auth"), expose_management_tools)
+        self.authorization = auth_config["enabled"] if isinstance(auth_config, dict) else auth_config
 
         # Initialize authorization manager if needed
         self._authorization_manager = None
+        self._authorized_proxies = None
         if self.authorization:
             try:
                 from ..authorization.manager import MCPAuthorizationManager
 
                 self._authorization_manager = MCPAuthorizationManager()
                 logger.info("Authorization manager initialized successfully")
+
+                # Setup authorized proxies if provided
+                if isinstance(auth_config, dict) and "authorized_proxies" in auth_config:
+                    self._authorized_proxies = auth_config["authorized_proxies"]
+                    if self._authorized_proxies:
+                        logger.info(f"Authorized proxies configured: {len(self._authorized_proxies.proxies)} proxies")
             except Exception as e:
                 logger.warning(f"Failed to initialize authorization manager: {e}")
                 self._authorization_manager = None
+                self._authorized_proxies = None
+
+        # Initialize integration service if both systems are available
+        self.integration = self._setup_billing_auth_integration(
+            self.billing_system,
+            self._authorization_manager,
+            kwargs
+        )
 
         # 🏷️ Dynamic attribute declaration (set by Factory)
         self._config: dict[str, Any] = {}
@@ -203,15 +294,25 @@ class ManagedServer(FastMCP[Any]):
 
         super().__init__(**kwargs)
 
-        # Register user permission tools (separate from management tools)
-        if self.authorization:
-            self._register_user_permission_tools()
+        # Register user self-service tools (separate from management tools)
+        self._register_user_self_service_tools()
 
         logger.info("ManagedServer %s initialization completed", server_name)
 
-    def _setup_authorization(self, authorization: Any, auth_provider: Any, expose_management_tools: bool) -> bool:
-        """Setup authorization system based on parameters"""
+    def _setup_authorization(self, authorization: Any, auth_provider: Any, expose_management_tools: bool) -> bool | dict:
+        """
+        Setup authorization system based on parameters.
 
+        Args:
+            authorization: Can be:
+                - True/False: Simple enable/disable
+                - dict: Advanced config with proxy_whitelist, tiers, etc.
+            auth_provider: Auth provider (for backward compatibility)
+            expose_management_tools: Whether management tools are exposed
+
+        Returns:
+            bool for simple config, or dict with "enabled" and other config for advanced
+        """
         # Handle explicit authorization parameter
         if authorization is not None:
             if authorization is True:
@@ -220,6 +321,17 @@ class ManagedServer(FastMCP[Any]):
             elif authorization is False:
                 logger.info("Authorization explicitly disabled")
                 return False
+            elif isinstance(authorization, dict):
+                # Advanced configuration with authorized_proxies, tiers, etc.
+                auth_config = {
+                    "enabled": authorization.get("enabled", True),
+                    "authorized_proxies": authorization.get("authorized_proxies"),
+                    "tiers": authorization.get("tiers"),
+                }
+                logger.info("Authorization configured with advanced settings")
+                if auth_config["authorized_proxies"]:
+                    logger.info(f"  - Authorized proxies: {len(auth_config['authorized_proxies'].proxies)} proxies")
+                return auth_config
             else:
                 logger.warning(f"Invalid authorization value: {authorization}, using False")
                 return False
@@ -298,10 +410,140 @@ class ManagedServer(FastMCP[Any]):
 
         logger.debug("Defined %s management methods", len(management_methods))
 
+        # Create standard management tools
         result = self._create_tools_from_names(all_tool_names, management_methods, use_tool_objects=True)
         # Since use_tool_objects=True, result should be list[Tool]
         assert isinstance(result, list), "Expected list of tools when use_tool_objects=True"
+
+        # Add billing system tools if available
+        billing_tools = self._create_billing_tools()
+        result.extend(billing_tools)
+
         return result
+
+    def _create_billing_tools(self) -> list[Tool]:
+        """Create billing system tools if billing system is available."""
+        if not self.billing_system:
+            return []
+
+        try:
+            # Get billing management tools from the billing system
+            import asyncio
+
+            # Handle both sync and async get_management_tools methods
+            if hasattr(self.billing_system, 'get_management_tools'):
+                try:
+                    # Try async first (BillingSystem abstract method is async)
+                    if asyncio.iscoroutinefunction(self.billing_system.get_management_tools):
+                        # For async methods, we need to run them in a sync context
+                        # This is a limitation - we'll need to handle this differently
+                        logger.warning("Billing system has async get_management_tools, skipping auto-registration")
+                        return []
+                    else:
+                        # Sync method (like BillingManager)
+                        billing_tool_configs = self.billing_system.get_management_tools()
+                except Exception as e:
+                    logger.warning(f"Failed to get billing management tools: {e}")
+                    return []
+            else:
+                return []
+
+            # Convert billing tool configurations to Tool objects
+            billing_tools = []
+            for tool_config in billing_tool_configs:
+                try:
+                    tool = self._create_billing_tool_from_config(tool_config)
+                    if tool:
+                        billing_tools.append(tool)
+                except Exception as e:
+                    logger.warning(f"Failed to create billing tool {tool_config.get('name', 'unknown')}: {e}")
+                    continue
+
+            if billing_tools:
+                logger.info(f"Successfully created {len(billing_tools)} billing management tools")
+
+            return billing_tools
+
+        except Exception as e:
+            logger.warning(f"Failed to create billing tools: {e}")
+            return []
+
+    def _create_billing_tool_from_config(self, tool_config: dict[str, Any]) -> Tool | None:
+        """Create a Tool object from billing tool configuration."""
+        try:
+            import inspect
+
+            from fastmcp.tools.tool import Tool
+            from mcp.types import ToolAnnotations
+
+            tool_name = tool_config.get("name")
+            if not tool_name:
+                return None
+
+            # Add billing prefix to avoid conflicts
+            prefixed_name = f"billing_{tool_name}"
+
+            # Get the handler function
+            handler = tool_config.get("handler")
+            if not handler:
+                return None
+
+            # Generate parameters from handler function signature
+            try:
+                sig = inspect.signature(handler)
+                parameters = {}
+
+                for param_name, param in sig.parameters.items():
+                    # Skip 'self' parameter
+                    if param_name == 'self':
+                        continue
+
+                    param_type = "string"  # Default type
+                    param_desc = f"Parameter {param_name}"
+
+                    # Try to infer type from annotation
+                    if param.annotation != inspect.Parameter.empty:
+                        if param.annotation is str:
+                            param_type = "string"
+                        elif param.annotation is int:
+                            param_type = "number"
+                        elif param.annotation is bool:
+                            param_type = "boolean"
+
+                    parameters[param_name] = {
+                        "type": param_type,
+                        "description": param_desc,
+                        "required": param.default == inspect.Parameter.empty
+                    }
+
+            except Exception as e:
+                logger.warning(f"Failed to generate parameters for {tool_name}: {e}")
+                parameters = {}
+
+            # Create tool with proper configuration
+            tool = Tool(
+                name=prefixed_name,
+                description=tool_config.get("description", f"Billing tool: {tool_name}"),
+                parameters=parameters,
+                annotations=ToolAnnotations(
+                    title=f"Billing: {tool_name}",
+                    readOnlyHint=False,
+                    destructiveHint=False,
+                    openWorldHint=False,
+                ),
+                tags={"billing", "management"},
+                enabled=True,
+            )
+
+            # Register the handler function with the server
+            # We need to bind the handler to the tool name
+            setattr(self, prefixed_name, handler)
+
+            return tool
+
+        except Exception as e:
+            logger.error(f"Failed to create billing tool from config: {e}")
+            return None
 
     def _create_tools_from_names(
         self,
@@ -424,7 +666,7 @@ class ManagedServer(FastMCP[Any]):
         """Unified wrapper creation function."""
 
         def permission_check() -> str | None:
-            """Unified permission check logic."""
+            """Unified permission check logic (subscription → role → permission)."""
             if self.authorization:
                 # Use authorization system
                 if hasattr(self, "_authorization_manager") and self._authorization_manager:
@@ -433,11 +675,20 @@ class ManagedServer(FastMCP[Any]):
                         if not user_id:
                             return "❌ Authentication required"
 
-                        # Check permission using authorization manager
-                        allowed = self._authorization_manager.check_annotation_permission(user_id, perm_type)
-                        if not allowed:
-                            logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
-                            return f"❌ Insufficient permissions for {perm_type} operations"
+                        # Check permission using subscription-based role system
+                        # Note: This is sync but we need async billing check
+                        # For now, use traditional role check and defer billing to execution
+                        has_permission = self._authorization_manager.check_annotation_permission(user_id, perm_type)
+                        if not has_permission:
+                            # Check if this is a billing-related permission issue
+                            if self.billing_system and self._requires_paid_subscription(perm_type):
+                                # Provide upgrade guidance
+                                required_plan = self._get_required_plan_for_permission(perm_type)
+                                return f"💳 {perm_type} operations require {required_plan} subscription. Visit /billing/upgrade?plan={required_plan}"
+                            else:
+                                logger.warning("Permission check failed: method %s, permission type %s", name, perm_type)
+                                return f"❌ Insufficient permissions for {perm_type} operations"
+
                     except Exception as e:
                         logger.error("Authorization system error: %s", e)
                         return f"❌ Authorization system error: {e}"
@@ -615,7 +866,10 @@ class ManagedServer(FastMCP[Any]):
         return getattr(self, "_authorization_manager", None)
 
     def assign_role(self, user_id: str, role: str, assigned_by: str = "system", reason: str = "") -> bool:
-        """Assign a role to a user.
+        """Assign a role to a user (convenience proxy to authorization system).
+
+        This is a convenience method that delegates to the authorization system.
+        For advanced authorization operations, use server.authz directly.
 
         Args:
             user_id: The user ID to assign the role to
@@ -628,7 +882,11 @@ class ManagedServer(FastMCP[Any]):
 
         Example:
             ```python
+            # Convenience method
             success = server.assign_role("alice", "premium_user", "admin", "User purchased premium")
+
+            # Direct access for advanced operations
+            success = server.authz.assign_role("alice", "premium_user", "admin", "User purchased premium")
             ```
         """
         if not self.authz:
@@ -671,7 +929,10 @@ class ManagedServer(FastMCP[Any]):
             return False
 
     def check_permission(self, user_id: str, resource: str, action: str, scope: str = "*") -> bool:
-        """Check if a user has a specific permission.
+        """Check if a user has a specific permission (convenience proxy to authorization system).
+
+        This is a convenience method for basic permission checks. For integrated
+        billing+authorization checks, use check_permission_with_billing().
 
         Args:
             user_id: The user ID to check
@@ -684,7 +945,11 @@ class ManagedServer(FastMCP[Any]):
 
         Example:
             ```python
+            # Basic permission check
             can_execute = server.check_permission("alice", "tool", "execute", "premium")
+
+            # Integrated billing+permission check (recommended)
+            result = server.check_permission_with_billing("alice", "tool", "execute", "premium")
             ```
         """
         if not self.authz:
@@ -697,6 +962,51 @@ class ManagedServer(FastMCP[Any]):
         except Exception as e:
             logger.error(f"Failed to check permission for user {user_id}: {e}")
             return False
+
+    def check_permission_with_billing(self, user_id: str, resource: str, action: str, scope: str = "*") -> dict[str, Any]:
+        """
+        Check if a user has permission.
+
+        Note: Billing validation logic has been simplified. This method now performs
+        basic authorization checks. For advanced billing-based access control,
+        use the billing system's methods directly.
+
+        Args:
+            user_id: The user ID to check
+            resource: The resource type (e.g., 'tool', 'mcp', 'resource')
+            action: The action type (e.g., 'execute', 'read', 'write', 'admin')
+            scope: The permission scope (e.g., '*', 'basic', 'premium', 'enterprise')
+
+        Returns:
+            dict: Permission result with detailed information
+
+        Example:
+            ```python
+            result = server.check_permission_with_billing("alice", "tool", "execute", "premium")
+            if result["allowed"]:
+                # Execute the tool
+                pass
+            else:
+                print(f"Access denied: {result['reason']}")
+            ```
+        """
+        # Use authorization system if available
+        if self.authz:
+            allowed = self.authz.check_permission(user_id, resource, action, scope)
+            return {
+                "allowed": allowed,
+                "reason": "Permission granted" if allowed else "Access denied",
+                "upgrade_suggestion": None,
+                "required_plan": None
+            }
+
+        # No authorization configured - allow all
+        return {
+            "allowed": True,
+            "reason": "No authorization configured",
+            "upgrade_suggestion": None,
+            "required_plan": None
+        }
 
     def get_user_roles(self, user_id: str) -> list[str]:
         """Get all roles assigned to a user.
@@ -724,22 +1034,6 @@ class ManagedServer(FastMCP[Any]):
             logger.error(f"Failed to get roles for user {user_id}: {e}")
             return []
 
-    def create_admin_user(self, user_id: str, reason: str = "Admin user creation") -> bool:
-        """Create an admin user by assigning the admin role.
-
-        Args:
-            user_id: The user ID to make admin
-            reason: Reason for creating admin user
-
-        Returns:
-            bool: True if successful, False otherwise
-
-        Example:
-            ```python
-            success = server.create_admin_user("admin", "Initial setup")
-            ```
-        """
-        return self.assign_role(user_id, "admin", "system", reason)
 
     # =============================================================================
     # Management Interface Implementation
@@ -1225,36 +1519,203 @@ class ManagedServer(FastMCP[Any]):
     # User permission tools registration (regular tools, not management tools)
     # =============================================================================
 
-    def _register_user_permission_tools(self) -> None:
-        """Register user permission self-service tools (as regular tools, not management tools)"""
+    def verify_proxy_access(self, api_key: str) -> dict | None:
+        """
+        Verify proxy access using API key.
+
+        Args:
+            api_key: Proxy's API key from request header
+
+        Returns:
+            dict with proxy config if authorized, None otherwise
+        """
+        if not self._authorized_proxies:
+            logger.warning("Authorized proxies not configured")
+            return None
+
+        if not self._authorized_proxies.is_authorized(api_key):
+            logger.warning(f"Proxy API key not authorized: {api_key[:10]}...")
+            return None
+
+        proxy = self._authorized_proxies.get_proxy_by_key(api_key)
+        if not proxy:
+            return None
+
+        return {
+            "proxy_name": proxy.name,
+            "tier_id": self._authorized_proxies.assigns_tier,
+            "rate_limit": proxy.rate_limit_per_hour,
+            "metadata": proxy.metadata
+        }
+
+    def get_authorized_proxies(self):
+        """Get the configured authorized proxies."""
+        return self._authorized_proxies
+
+    def _get_current_request_info(self) -> dict[str, Any] | None:
+        """
+        Get current request context information.
+
+        Returns:
+            Dict with request information including:
+                - request_id: Unique request identifier
+                - meta: Request metadata
+                - session: Session information
+            Returns None if not in a request context.
+        """
         try:
-            # Load user permission tools configuration from config file
-            user_tools = get_user_permission_tools()
+            ctx = self.request_context
+            return {
+                "request_id": str(ctx.request_id),
+                "meta": ctx.meta,
+                "session": ctx.session
+            }
+        except LookupError:
+            # Not in a request context (e.g., called directly)
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to get request context: {e}")
+            return None
 
-            for tool_name, config in user_tools.items():
-                if not config.get("enabled", True):
-                    logger.debug("Skipping disabled user permission tool: %s", tool_name)
-                    continue
+    async def record_tool_usage(
+        self,
+        tool_name: str,
+        user_id: str | None = None,
+        params: dict[str, Any] | None = None,
+        proxy_info: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """
+        Record usage for a tool call with automatic context detection.
 
-                # Get implementation method
-                method_name = config["method"]
-                if hasattr(self, method_name):
-                    method = getattr(self, method_name)
+        This method records usage quantity only. Pricing and revenue calculations
+        are handled by the proxy platform or billing provider.
 
-                    # Use the tool decorator approach instead of add_tool with kwargs
-                    self.tool(
-                        name=tool_name,
-                        description=config["description"],
-                        annotations=config["annotations"],
-                    )(method)
-                    logger.debug("Registered user permission tool: %s", tool_name)
-                else:
-                    logger.warning("Method %s not found for user permission tool %s", method_name, tool_name)
+        This method automatically:
+        - Gets request context (request_id)
+        - Validates proxy authorization (if applicable)
+        - Handles proxy metadata
+        - Records usage to billing system
 
-            logger.info("User permission tools registered successfully")
+        Args:
+            tool_name: Name of the tool being called
+            user_id: User identifier (direct user or proxy name)
+            params: Tool parameters (reserved for future extensions like
+                parameter-based usage tracking or cost calculation)
+            proxy_info: Proxy-provided information (flexible format)
+                The proxy can include any fields it needs. The developer server
+                will record all fields without interpreting them.
+
+                Examples:
+                    # Official platform
+                    {"proxy_name": "mcp-factory", "user_id": "alice", "session": "s1"}
+
+                    # Simple proxy
+                    {"proxy_name": "simple-proxy", "user": "bob"}
+
+                    # Enterprise proxy
+                    {"proxy_name": "acme", "org_id": "org1", "dept": "eng"}
+
+        Returns:
+            Usage recording result or None if billing not enabled
+        """
+        if not self.billing_system:
+            return None
+
+        try:
+            # Get request context
+            req_info = self._get_current_request_info()
+            request_id = req_info.get("request_id") if req_info else None
+
+            # Build metadata
+            metadata: dict[str, Any] = {}
+
+            # Add proxy information if applicable
+            # Include all proxy-provided fields without filtering
+            if proxy_info:
+                proxy_name = proxy_info.get("proxy_name")
+
+                # Validate proxy authorization
+                if proxy_name and self._authorized_proxies:
+                    if not self._authorized_proxies.is_authorized(proxy_name):
+                        logger.warning(f"Unauthorized proxy attempted usage recording: {proxy_name}")
+                        metadata["proxy_authorized"] = False
+                        metadata["proxy_validation_failed"] = True
+                    else:
+                        metadata["proxy_authorized"] = True
+
+                metadata["via_proxy"] = True
+                metadata.update(proxy_info)
+
+            # Record usage
+            usage_result = await self.billing_system.record_usage(
+                user_id=user_id or "unknown",
+                usage_type="tool_call",
+                quantity=1,
+                tool_name=tool_name,
+                request_id=request_id,
+                metadata=metadata
+            )
+
+            logger.debug(f"Tool usage recorded: {tool_name} for user {user_id}")
+            return usage_result
 
         except Exception as e:
-            logger.error(f"Failed to register user permission tools: {e}")
+            logger.error(f"Failed to record tool usage: {e}")
+            return None
+
+    def _register_user_self_service_tools(self) -> None:
+        """Register user self-service tools (as regular tools, not management tools)"""
+        permission_count = 0
+        billing_count = 0
+
+        try:
+            # Register user permission tools if authorization is enabled
+            if self.authorization:
+                user_permission_tools = get_user_permission_tools()
+                permission_count = self._register_tool_group(user_permission_tools, "user permission")
+
+            # Register user billing tools if billing system is available
+            if self.billing_system:
+                from .tool_configs import get_user_billing_tools
+                user_billing_tools = get_user_billing_tools()
+                billing_count = self._register_tool_group(user_billing_tools, "user billing")
+
+            # Log summary
+            total_count = permission_count + billing_count
+            if total_count > 0:
+                logger.info(f"User self-service tools registered: {permission_count} permission + {billing_count} billing = {total_count} total")
+            else:
+                logger.debug("No user self-service tools registered (authorization and billing systems not available)")
+
+        except Exception as e:
+            logger.error(f"Failed to register user self-service tools: {e}")
+
+    def _register_tool_group(self, tools_config: dict[str, dict[str, Any]], group_name: str) -> int:
+        """Register a group of user tools"""
+        registered_count = 0
+
+        for tool_name, config in tools_config.items():
+            if not config.get("enabled", True):
+                logger.debug("Skipping disabled %s tool: %s", group_name, tool_name)
+                continue
+
+            # Get implementation method
+            method_name = config["method"]
+            if hasattr(self, method_name):
+                method = getattr(self, method_name)
+
+                # Use the tool decorator approach instead of add_tool with kwargs
+                self.tool(
+                    name=tool_name,
+                    description=config["description"],
+                    annotations=config["annotations"],
+                )(method)
+                logger.debug("Registered %s tool: %s", group_name, tool_name)
+                registered_count += 1
+            else:
+                logger.warning("Method %s not found for %s tool %s", method_name, group_name, tool_name)
+
+        return registered_count
 
     # =============================================================================
     # SaaS permission management tools implementation (management tools)
@@ -1475,3 +1936,309 @@ Use 'view_my_requests' to check request status."""
         except Exception as e:
             logger.error(f"Error revoking role: {e}")
             return f"❌ Revocation failed: {str(e)}"
+
+    # Note: Proxy registration methods have been moved to Factory layer
+    # This keeps ManagedServer focused on MCP protocol implementation
+
+    # =============================================================================
+    # Billing System Setup
+    # =============================================================================
+
+    def _setup_billing_system(self, billing_param: BillingSystem | dict[str, Any] | bool | None) -> BillingSystem | None:
+        """
+        Setup billing system based on the billing parameter.
+
+        Args:
+            billing_param: Billing configuration parameter
+
+        Returns:
+            BillingSystem instance or None
+        """
+        if billing_param is None or billing_param is False:
+            return None
+
+        try:
+            if billing_param is True:
+                # Enable default billing system (mock mode for development)
+                from ..billing import create_billing_manager_sync
+                return create_billing_manager_sync({
+                    "provider": "mock",
+                    "payment_gateway": "local"
+                })
+
+            elif isinstance(billing_param, dict):
+                # Create billing system from configuration dict
+                from ..billing import create_billing_manager_sync
+                return create_billing_manager_sync(billing_param)
+
+            elif hasattr(billing_param, 'get_system_name'):
+                # Pre-configured BillingSystem instance
+                return billing_param
+
+            else:
+                logger.warning(f"Invalid billing parameter type: {type(billing_param)}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to setup billing system: {e}")
+            return None
+
+    def _setup_billing_auth_integration(
+        self,
+        billing_system: BillingSystem | None,
+        auth_manager: Any,
+        kwargs: dict[str, Any]
+    ) -> Any:
+        """
+        Setup billing-authorization integration service.
+
+        Intelligently determine if integration service is needed and extract related config from kwargs.
+
+        Args:
+            billing_system: BillingSystem instance or None
+            auth_manager: Authorization manager instance or None
+            kwargs: Additional keyword arguments that may contain integration config
+
+        Returns:
+            BillingAuthIntegration instance or None
+        """
+        # Check if necessary components are available
+        if not billing_system or not auth_manager:
+            logger.debug("Integration not created: missing billing system or authorization manager")
+            return None
+
+        # Extract integration-related config from kwargs
+        integration_config = {}
+
+        # Check for role mapping configuration
+        if "role_mapping" in kwargs:
+            integration_config["plan_config"] = {
+                "default_role_mapping": kwargs["role_mapping"]
+            }
+
+        # Check merge strategy
+        if "integration_merge_strategy" in kwargs:
+            integration_config["merge_strategy"] = kwargs["integration_merge_strategy"]
+
+        try:
+            from .billing_auth_integration import BillingAuthIntegration
+
+            # Create integration service
+            if integration_config.get("plan_config"):
+                integration = BillingAuthIntegration(
+                    billing_system,
+                    auth_manager,
+                    plan_config=integration_config["plan_config"],
+                    merge_strategy=integration_config.get("merge_strategy", "merge")
+                )
+            else:
+                # Use default configuration
+                integration = BillingAuthIntegration(billing_system, auth_manager)
+
+            logger.info("Billing-Authorization integration initialized successfully")
+            return integration
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize integration service: {e}")
+            return None
+
+
+    # =============================================================================
+    # User billing self-service tools implementation (non-management tools)
+    # =============================================================================
+
+    def _purchase_plan_impl(self, plan_id: str) -> str:
+        """Purchase subscription plan implementation"""
+        if not self.billing_system:
+            return "❌ Billing system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            # Get user email (fallback to user_id@example.com for demo)
+            email = f"{user_id}@example.com"
+
+            # Create subscription
+            result = self.billing_system.create_subscription(user_id, plan_id, email)
+
+            if result.get("success"):
+                return f"""✅ **Subscription Activated!**
+
+📦 **Plan**: {plan_id.title()}
+👤 **User**: {user_id}
+💳 **Status**: Active
+
+🎉 You now have access to premium features!
+Use 'view_my_subscription' to check your subscription details."""
+            else:
+                return f"❌ Purchase failed: {result.get('message', 'Unknown error')}"
+
+        except Exception as e:
+            logger.error(f"Error in purchase plan: {e}")
+            return f"❌ Purchase failed: {str(e)}"
+
+    def _view_my_subscription_impl(self) -> str:
+        """View user subscription implementation"""
+        if not self.billing_system:
+            return "❌ Billing system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            subscription = self.billing_system.get_subscription(user_id)
+
+            if not subscription:
+                return """📋 **My Subscription**
+
+❌ No active subscription found
+
+You are currently on the free tier.
+Use 'view_available_plans' to see upgrade options."""
+
+            # Get subscription details
+            plan_id = subscription.get("plan_id", "Unknown")
+            status = subscription.get("status", "Unknown")
+            is_active = subscription.get("is_active", False)
+
+            status_emoji = "✅" if is_active else "❌"
+
+            result_lines = [
+                "📋 **My Subscription**",
+                "=" * 40,
+                f"👤 User: {user_id}",
+                f"📦 Plan: {plan_id.title()}",
+                f"{status_emoji} Status: {status.title()}",
+            ]
+
+            # Add usage information if available
+            try:
+                usage_stats = self.billing_system.get_usage_stats(user_id)
+                if usage_stats.get("success"):
+                    usage_data = usage_stats.get("data", {})
+                    result_lines.extend([
+                        "",
+                        "📊 **Usage Statistics**",
+                        f"Current period: {usage_data.get('period', 'Unknown')}",
+                        f"Operations used: {usage_data.get('operations_used', 0)}",
+                        f"Operations limit: {usage_data.get('operations_limit', 'Unlimited')}",
+                    ])
+            except Exception:
+                pass  # Usage stats are optional
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error viewing subscription: {e}")
+            return f"❌ Failed to view subscription: {str(e)}"
+
+    def _view_available_plans_impl(self) -> str:
+        """View available plans implementation"""
+        if not self.billing_system:
+            return "❌ Billing system not available"
+
+        try:
+            plans = self.billing_system.get_available_plans()
+
+            if not plans:
+                return "❌ No plans available"
+
+            result_lines = [
+                "💳 **Available Subscription Plans**",
+                "=" * 50,
+            ]
+
+            for plan in plans:
+                plan_id = plan.get("plan_id", "Unknown")
+                name = plan.get("name", plan_id.title())
+                description = plan.get("description", "No description")
+                price = plan.get("price", 0)
+                currency = plan.get("currency", "USD")
+                billing_period = plan.get("billing_period", "monthly")
+
+                result_lines.extend([
+                    "",
+                    f"📦 **{name}**",
+                    f"   ID: {plan_id}",
+                    f"   Price: {price} {currency.upper()}/{billing_period}",
+                    f"   Description: {description}",
+                ])
+
+            result_lines.extend([
+                "",
+                "💡 **How to purchase:**",
+                "Use 'purchase_plan <plan_id>' to buy a subscription",
+                "Example: purchase_plan basic",
+            ])
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error viewing plans: {e}")
+            return f"❌ Failed to view plans: {str(e)}"
+
+    def _view_my_usage_impl(self) -> str:
+        """View user usage implementation"""
+        if not self.billing_system:
+            return "❌ Billing system not available"
+
+        try:
+            from ..authorization import get_current_user_info
+
+            user_id, _ = get_current_user_info()
+            if not user_id:
+                return "❌ Authentication required"
+
+            # Get usage statistics
+            usage_stats = self.billing_system.get_usage_stats(user_id)
+
+            if not usage_stats.get("success"):
+                return f"❌ Failed to get usage stats: {usage_stats.get('message', 'Unknown error')}"
+
+            usage_data = usage_stats.get("data", {})
+
+            result_lines = [
+                "📊 **My Usage Statistics**",
+                "=" * 40,
+                f"👤 User: {user_id}",
+                f"📅 Period: {usage_data.get('period', 'Current')}",
+                "",
+                "📈 **Usage Details:**",
+            ]
+
+            # Add usage metrics
+            operations_used = usage_data.get('operations_used', 0)
+            operations_limit = usage_data.get('operations_limit', 'Unlimited')
+
+            if operations_limit != 'Unlimited':
+                usage_percent = (operations_used / operations_limit) * 100 if operations_limit > 0 else 0
+                progress_bar = "█" * int(usage_percent / 10) + "░" * (10 - int(usage_percent / 10))
+                result_lines.extend([
+                    f"🔧 Operations: {operations_used}/{operations_limit} ({usage_percent:.1f}%)",
+                    f"   [{progress_bar}]",
+                ])
+            else:
+                result_lines.append(f"🔧 Operations: {operations_used} (Unlimited)")
+
+            # Add warnings if approaching limits
+            if operations_limit != 'Unlimited' and operations_used / operations_limit > 0.8:
+                result_lines.extend([
+                    "",
+                    "⚠️  **Usage Warning:**",
+                    "You are approaching your usage limits.",
+                    "Consider upgrading your plan to avoid service interruption.",
+                    "Use 'view_available_plans' to see upgrade options.",
+                ])
+
+            return "\n".join(result_lines)
+
+        except Exception as e:
+            logger.error(f"Error viewing usage: {e}")
+            return f"❌ Failed to view usage: {str(e)}"

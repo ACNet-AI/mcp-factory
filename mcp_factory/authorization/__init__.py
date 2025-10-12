@@ -17,13 +17,23 @@ from .manager import (
     format_permission_error,
     get_current_user_info,
 )
-from .models import MCPPermission, PermissionHistory, UserMetadata
+from .models import (
+    AuthorizedProxies,
+    MCPPermission,
+    PermissionHistory,
+    ProxyConfig,
+    UserMetadata,
+    UserTier,
+)
 
 __all__ = [
     "MCPAuthorizationManager",
     "MCPPermission",
     "PermissionHistory",
     "UserMetadata",
+    "UserTier",
+    "ProxyConfig",
+    "AuthorizedProxies",
     "AccessToken",
     "PermissionCheckResult",
     "get_current_user_info",

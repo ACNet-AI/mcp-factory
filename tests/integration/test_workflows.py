@@ -153,7 +153,7 @@ class TestCurrentManagedServerAPI:
 
     def test_server_initialization(self) -> None:
         """Test server can be initialized successfully."""
-        server = ManagedServer(name="test-server", instructions="Test instructions")
+        server = ManagedServer(name="test-server", instructions="Test instructions", authorization=False)
 
         assert server.name == "test-server"
         assert server.instructions == "Test instructions"

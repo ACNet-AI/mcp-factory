@@ -187,9 +187,11 @@ pytest --cov=mcp_factory
 
 ## 📖 Documentation
 
-- [Configuration Guide](docs/configuration.md)
-- [CLI Usage Guide](docs/cli-guide.md)
-- [Architecture Documentation](docs/architecture/)
+- [Getting Started Guide](docs/getting-started.md) - Quick setup and basic usage
+- [Configuration Guide](docs/configuration.md) - Detailed configuration options
+- [CLI Usage Guide](docs/cli-guide.md) - Command-line interface documentation
+- [Authorization System](docs/authorization/) - Permission management and security
+- [Architecture Documentation](docs/architecture/) - System architecture and design
 
 ## 📄 License
 

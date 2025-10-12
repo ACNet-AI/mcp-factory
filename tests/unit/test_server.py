@@ -5,6 +5,8 @@ Focus on testing core functionality while avoiding complex mock setups
 
 import asyncio
 import inspect
+import os
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -12,13 +14,16 @@ from fastmcp import FastMCP
 
 from mcp_factory.server import ManagedServer
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from test_helpers import create_test_server
+
 
 class TestManagedServerBasics:
     """Test ManagedServer basic functionality"""
 
     def test_initialization(self):
         """Test basic initialization"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server", expose_management_tools=True)
 
         assert isinstance(server, FastMCP)
         assert server.expose_management_tools is True
@@ -34,13 +39,13 @@ class TestManagedServerBasics:
     def test_initialization_disable_permission_check(self):
         """Test initialization with permission check disabled"""
         with pytest.warns(UserWarning, match="Security warning"):
-            server = ManagedServer(name="test-server", authorization=False)
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         assert server.authorization is False
 
     def test_get_management_methods(self):
         """Test getting management method configuration"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         methods = server._get_management_methods()
 
@@ -54,7 +59,7 @@ class TestManagedServerBasics:
 
     def test_get_management_tool_count(self):
         """Test getting management tool count"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         count = server._get_management_tool_count()
 
@@ -63,7 +68,7 @@ class TestManagedServerBasics:
 
     def test_get_management_tool_names(self):
         """Test getting management tool names"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         names = server._get_management_tool_names()
 
@@ -71,7 +76,7 @@ class TestManagedServerBasics:
 
     def test_clear_management_tools(self):
         """Test clearing management tools"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         result = server.clear_management_tools()
 
@@ -79,7 +84,7 @@ class TestManagedServerBasics:
 
     def test_get_management_tools_info(self):
         """Test getting management tools information"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         info = server.get_management_tools_info()
 
@@ -90,7 +95,7 @@ class TestManagedServerBasics:
 
     def test_recreate_management_tools(self):
         """Test recreating management tools"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         result = server.recreate_management_tools()
 
@@ -98,7 +103,7 @@ class TestManagedServerBasics:
 
     def test_reset_management_tools(self):
         """Test resetting management tools"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         result = server.reset_management_tools()
 
@@ -117,7 +122,7 @@ class TestPermissionSystem:
     def test_permission_check_disabled(self):
         """Test permission check disabled state"""
         with pytest.warns(UserWarning):
-            server = ManagedServer(name="test-server", authorization=False)
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         assert server.authorization is False
 
@@ -145,7 +150,7 @@ class TestUtilityMethods:
 
     def test_map_python_type_to_json_schema(self):
         """Test Python type to JSON schema mapping"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test basic type mapping
         assert server._map_python_type_to_json_schema(str) == "string"
@@ -165,7 +170,7 @@ class TestUtilityMethods:
 
     def test_format_tool_result(self):
         """Test tool result formatting"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test string result
         result = server._format_tool_result("test result")
@@ -190,7 +195,7 @@ class TestUtilityMethods:
 
     def test_format_tool_result_circular_reference(self):
         """Test circular reference result formatting"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test circular reference case
         result_dict = {"self": None}
@@ -209,7 +214,7 @@ class TestErrorHandling:
     def test_wrapper_execution_with_permission_disabled(self):
         """Test wrapper execution with permission disabled"""
         with pytest.warns(UserWarning):
-            server = ManagedServer(name="test-server", authorization=False)
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Create a synchronous method wrapper (using get_management_tools_info, which is synchronous)
         wrapper = server._create_wrapper(
@@ -223,7 +228,7 @@ class TestErrorHandling:
     async def test_async_wrapper_execution_with_permission_disabled(self):
         """Test async wrapper execution with permission disabled"""
         with pytest.warns(UserWarning):
-            server = ManagedServer(name="test-server", authorization=False)
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Create an async method wrapper (using get_tools, which is async)
         wrapper = server._create_wrapper("get_tools", "Get tools", "readonly", is_async=True, has_params=False)
@@ -234,7 +239,7 @@ class TestErrorHandling:
 
     def test_format_large_result(self):
         """Test large result formatting"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Create a large dictionary
         large_dict = {f"key_{i}": f"value_{i}" for i in range(1000)}
@@ -249,7 +254,7 @@ class TestEdgeCases:
 
     def test_unicode_in_results(self):
         """Test Unicode character handling"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         unicode_result = {"message": "Test Unicode characters 🎉", "emoji": "🚀"}
         result = server._format_tool_result(unicode_result)
@@ -294,7 +299,7 @@ class TestManagementToolsAdvanced:
 
     def test_get_management_tools_info_with_annotations(self):
         """Test getting management tools info with annotation information"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock tool manager and tools
         mock_tool = Mock()
@@ -316,7 +321,7 @@ class TestManagementToolsAdvanced:
 
     def test_get_management_tools_info_with_dict_annotations(self):
         """Test getting management tools info with dictionary format annotations"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock tool manager and tools
         mock_tool = Mock()
@@ -335,7 +340,7 @@ class TestManagementToolsAdvanced:
 
     def test_clear_management_tools_with_exception(self):
         """Test exception occurrence when clearing management tools"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         with patch.object(server, "_clear_management_tools", side_effect=Exception("Test error")):
             result = server.clear_management_tools()
@@ -344,7 +349,7 @@ class TestManagementToolsAdvanced:
 
     def test_recreate_management_tools_full_flow(self):
         """Test complete management tools recreation flow"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock various methods
         with (
@@ -357,7 +362,7 @@ class TestManagementToolsAdvanced:
 
     def test_reset_management_tools_full_flow(self):
         """Test complete management tools reset flow"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         with (
             patch.object(server, "_clear_management_tools", return_value=3),
@@ -373,7 +378,7 @@ class TestWrapperCreation:
 
     def test_create_wrapper_with_has_params_sync(self):
         """Test creating synchronous wrapper with parameters"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Add a test method
         def test_method(param1: str) -> str:
@@ -388,7 +393,7 @@ class TestWrapperCreation:
 
     def test_create_wrapper_async_with_params(self):
         """Test creating asynchronous wrapper with parameters"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         async def async_test_method() -> str:
             return "Async result"
@@ -403,7 +408,7 @@ class TestWrapperCreation:
 
     def test_execute_and_format_with_async_method_error(self):
         """Test execute_and_format error handling for async methods"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         async def async_method():
             return "async result"
@@ -418,7 +423,7 @@ class TestWrapperCreation:
 
     def test_execute_and_format_with_kwargs(self):
         """Test execute_and_format using kwargs"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         def test_method(param1="default", param2="default2"):
             return f"Result: {param1}, {param2}"
@@ -432,7 +437,7 @@ class TestWrapperCreation:
 
     def test_execute_and_format_with_args(self):
         """Test execute_and_format using args"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         def test_method(*args):
             return f"Args: {args}"
@@ -450,7 +455,7 @@ class TestParameterGeneration:
 
     def test_generate_parameters_from_signature(self):
         """Test generating parameters from function signature"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         def test_func(param1: str, param2: int = 10, param3: bool = True):
             pass
@@ -471,7 +476,7 @@ class TestParameterGeneration:
 
     def test_generate_parameters_with_complex_types(self):
         """Test parameter generation for complex types"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         def test_func(param1: list, param2: dict, param3):
             pass
@@ -486,7 +491,7 @@ class TestParameterGeneration:
 
     def test_create_method_wrapper_with_params_success(self):
         """Test successful creation of method wrapper with parameters"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         def test_method(param1: str) -> str:
             return f"Result: {param1}"
@@ -502,7 +507,7 @@ class TestParameterGeneration:
 
     def test_create_method_wrapper_with_params_failure(self):
         """Test method wrapper creation failure with parameters"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock nonexistent method
         config = {"description": "Nonexistent method", "async": False}
@@ -520,7 +525,7 @@ class TestInternalMethods:
 
     def test_clear_management_tools_internal(self):
         """Test internal management tools clearing method"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock tool manager
         server._tool_manager = Mock()
@@ -533,7 +538,7 @@ class TestInternalMethods:
 
     def test_get_management_tool_names_internal(self):
         """Test internal method for getting management tool names"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock tool manager
         server._tool_manager = Mock()
@@ -548,7 +553,7 @@ class TestInternalMethods:
 
     def test_get_management_tool_count_internal(self):
         """Test internal method for getting management tool count"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock tool manager
         server._tool_manager = Mock()
@@ -561,7 +566,7 @@ class TestInternalMethods:
 
     def test_format_tool_result_large_data(self):
         """Test formatting large data results"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Create a large dictionary
         large_dict = {f"key_{i}": f"value_{i}" for i in range(100)}
@@ -573,7 +578,7 @@ class TestInternalMethods:
 
     def test_format_tool_result_circular_reference(self):
         """Test formatting results with circular references"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Create circular reference
         circular_dict = {"key": "value"}
@@ -589,7 +594,7 @@ class TestServerAdvancedFeatures:
 
     def test_create_tools_from_names_with_tool_objects(self) -> None:
         """Test creating tool objects instead of count"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Get management method configuration
         management_methods = server._get_management_methods()
@@ -604,7 +609,7 @@ class TestServerAdvancedFeatures:
 
     def test_create_tools_from_names_count_only(self) -> None:
         """Test returning only tool count"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Get management method configuration
         management_methods = server._get_management_methods()
@@ -619,7 +624,7 @@ class TestServerAdvancedFeatures:
 
     def test_create_method_wrapper_with_params_complex_signature(self) -> None:
         """Test creating wrapper for method with complex signature"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Mock a method with complex parameters
         def complex_method(self, param1: str, param2: int = 10, param3: bool = True):
@@ -648,7 +653,7 @@ class TestServerAdvancedFeatures:
 
     def test_generate_parameters_from_signature_edge_cases(self) -> None:
         """Test edge cases for parameter signature generation"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test different types of parameters
         import inspect
@@ -683,7 +688,7 @@ class TestServerAdvancedFeatures:
 
     def test_annotation_templates_coverage(self) -> None:
         """Test complete coverage of annotation templates"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Verify all annotation template types
         templates = server._ANNOTATION_TEMPLATES
@@ -698,7 +703,7 @@ class TestServerAdvancedFeatures:
 
     def test_wrapper_creation_with_different_annotation_types(self) -> None:
         """Test wrapper creation with different annotation types"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         annotation_types = ["readonly", "modify", "destructive", "external"]
 
@@ -715,7 +720,7 @@ class TestServerAdvancedFeatures:
 
     def test_clear_management_tools_with_existing_tools(self) -> None:
         """Test clearing existing management tools"""
-        server = ManagedServer(name="test-server", expose_management_tools=True)
+        server = ManagedServer(name="test-server", expose_management_tools=True, authorization=True)
 
         # First ensure management tools exist
         initial_count = server._get_management_tool_count()
@@ -729,7 +734,7 @@ class TestServerAdvancedFeatures:
 
     def test_recreate_management_tools_full_cycle(self) -> None:
         """Test complete management tools rebuild cycle"""
-        server = ManagedServer(name="test-server", expose_management_tools=True)
+        server = ManagedServer(name="test-server", expose_management_tools=True, authorization=True)
 
         # Get initial tool count
         server._get_management_tool_count()
@@ -744,7 +749,7 @@ class TestServerAdvancedFeatures:
 
     def test_reset_management_tools_full_cycle(self) -> None:
         """Test complete management tools reset cycle"""
-        server = ManagedServer(name="test-server", expose_management_tools=True)
+        server = ManagedServer(name="test-server", expose_management_tools=True, authorization=True)
 
         # Reset management tools
         result = server.reset_management_tools()
@@ -782,7 +787,7 @@ class TestServerAdvancedFeatures:
 
     def test_format_tool_result_with_very_large_data(self) -> None:
         """Test formatting very large data"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Create very large data
         large_data = {"data": "x" * 10000}  # 10KB of data
@@ -795,7 +800,7 @@ class TestServerAdvancedFeatures:
 
     def test_map_python_type_edge_cases(self) -> None:
         """Test edge cases for Python type mapping"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test various edge cases
 
@@ -816,7 +821,7 @@ class TestServerAdvancedFeatures:
 
     async def test_async_wrapper_with_exception_handling(self):
         """Test exception handling for async wrapper"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create an async method that throws exception
         async def failing_async_method():
@@ -834,7 +839,7 @@ class TestServerAdvancedFeatures:
 
     def test_sync_wrapper_with_exception_handling(self):
         """Test exception handling for sync wrapper"""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a sync method that throws exception
         def failing_sync_method():
@@ -887,7 +892,7 @@ class TestManagedServerInitializationEdgeCases:
 
     def test_management_methods_configuration_completeness(self):
         """Test completeness of management methods configuration"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         methods = server._get_management_methods()
 
@@ -916,7 +921,7 @@ class TestServerToolManagement:
 
     def test_get_management_tools_info_detailed(self):
         """Test getting detailed management tools information"""
-        server = ManagedServer(name="test-server", expose_management_tools=True)
+        server = ManagedServer(name="test-server", expose_management_tools=True, authorization=True)
 
         info = server.get_management_tools_info()
 
@@ -939,7 +944,7 @@ class TestServerToolManagement:
 
     def test_internal_tool_management_methods(self):
         """Test internal tool management methods"""
-        server = ManagedServer(name="test-server", expose_management_tools=True)
+        server = ManagedServer(name="test-server", expose_management_tools=True, authorization=True)
 
         # Test getting tool names
         names = server._get_management_tool_names()
@@ -961,7 +966,7 @@ class TestServerExecuteAndFormat:
 
     def test_execute_and_format_with_args_and_kwargs(self):
         """Test execution with positional and keyword parameters"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         def test_method(*args, **kwargs):
             return f"args: {args}, kwargs: {kwargs}"
@@ -975,7 +980,7 @@ class TestServerExecuteAndFormat:
 
     def test_execute_and_format_with_async_method_success(self):
         """Test successful execution of async methods"""
-        ManagedServer(name="test-server")
+        _ = create_test_server(name="test-server")
 
         async def async_method():
             return "async result"
@@ -985,7 +990,7 @@ class TestServerExecuteAndFormat:
 
     def test_format_tool_result_edge_cases(self):
         """Test edge cases for result formatting"""
-        server = ManagedServer(name="test-server")
+        server = create_test_server(name="test-server")
 
         # Test empty string
         result = server._format_tool_result("")
@@ -1013,7 +1018,7 @@ class TestServerCoverageImprovement:
 
     def test_disabled_management_tool_creation(self):
         """Test disabled management tool creation logic (covers lines 345-346)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a disabled tool configuration
         management_methods = server._get_management_methods()
@@ -1038,7 +1043,7 @@ class TestServerCoverageImprovement:
 
     def test_tool_creation_with_missing_config(self):
         """Test tool creation logic with missing configuration (covers lines 339-340)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Try to create tool with nonexistent configuration
         management_methods = server._get_management_methods()
@@ -1051,7 +1056,7 @@ class TestServerCoverageImprovement:
 
     def test_async_wrapper_with_params_warning(self):
         """Test async wrapper parameter warning logic (covers line 463)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Add a test method
         async def test_method():
@@ -1083,7 +1088,7 @@ class TestServerCoverageImprovement:
 
     def test_toggle_management_tool_nonexistent(self):
         """Test toggling nonexistent management tool (covers lines 642-644)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         result = server._toggle_management_tool_impl("nonexistent_tool", True)
         assert "❌ Management tool manage_nonexistent_tool does not exist" in result
@@ -1091,7 +1096,7 @@ class TestServerCoverageImprovement:
 
     def test_toggle_management_tool_without_enabled_attribute(self):
         """Test toggling tool that doesn't support enable/disable (covers lines 657-659)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a mock tool without enabled attribute
         class MockTool:
@@ -1125,7 +1130,8 @@ class TestServerCoverageImprovement:
 
     def test_get_tools_by_tags_no_matching_tools(self):
         """Test tag filtering when no tools match criteria (covers lines 690-691)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        with pytest.warns(UserWarning):
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Use non-matching tags for filtering
         result = server._get_tools_by_tags_impl({"nonexistent_tag"}, None)
@@ -1134,7 +1140,8 @@ class TestServerCoverageImprovement:
 
     def test_get_tools_by_tags_with_exclude_tags(self):
         """Test tool filtering with exclude tags (covers lines 684-686)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        with pytest.warns(UserWarning):
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Use exclude tags filtering, exclude admin tag (most management tools have this tag)
         result = server._get_tools_by_tags_impl(None, {"admin"})
@@ -1144,7 +1151,7 @@ class TestServerCoverageImprovement:
 
     def test_transform_tool_import_error(self):
         """Test import error during tool transformation (covers lines 714-716)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Directly mock ImportError in import statement
         import sys
@@ -1177,7 +1184,7 @@ class TestServerCoverageImprovement:
 
     def test_transform_tool_invalid_json(self):
         """Test JSON parsing error during tool transformation (covers lines 720-722)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         result = server._transform_tool_impl("source_tool", "new_tool", "invalid json")
         assert "❌ Transformation configuration JSON format error" in result
@@ -1195,14 +1202,15 @@ class TestServerCoverageImprovement:
 
     def test_transform_tool_source_not_exist(self):
         """Test tool transformation when source tool does not exist (covers lines 729-730)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         result = server._transform_tool_impl("nonexistent_tool", "new_tool", "{}")
         assert "❌ Source tool 'nonexistent_tool' does not exist" in result
 
     def test_transform_tool_name_already_exists(self):
         """Test tool transformation when new tool name already exists (covers lines 733-734)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        with pytest.warns(UserWarning):
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Get an existing tool name
         existing_tool_name = list(server._tool_manager._tools.keys())[0]
@@ -1226,7 +1234,8 @@ class TestServerCoverageImprovement:
         except ImportError:
             pytest.skip("fastmcp.tools not available")
 
-        server = ManagedServer(name="test-server", authorization=False)
+        with pytest.warns(UserWarning):
+            server = ManagedServer(name="test-server", authorization=False, expose_management_tools=True)
 
         # Get a source tool
         source_tool_name = "manage_get_tools"
@@ -1247,7 +1256,7 @@ class TestServerCoverageImprovement:
 
     def test_create_wrapper_exception_handling(self):
         """Test exception handling during wrapper creation (covers lines 378-379)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a method configuration that will throw exception
         management_methods = server._get_management_methods()
@@ -1280,7 +1289,7 @@ class TestServerCoverageImprovement:
 
     def test_execute_method_async_error_detection(self):
         """Test execute_method async method error detection (covers line 449)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a sync wrapper
         wrapper = server._create_wrapper("test_method", "Test method", "readonly", is_async=False, has_params=True)
@@ -1298,7 +1307,7 @@ class TestServerCoverageImprovement:
 
     def test_sync_wrapper_parameter_handling(self):
         """Test sync wrapper parameter handling (covers line 500)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Create a sync wrapper with parameters
         wrapper = server._create_wrapper("test_method", "Test method", "readonly", is_async=False, has_params=True)
@@ -1315,7 +1324,7 @@ class TestServerCoverageImprovement:
 
     def test_clear_management_tools_with_removal_error(self):
         """Test removal error handling when clearing management tools (covers lines 817-819)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Get a management tool name
         management_tool_names = [
@@ -1346,7 +1355,7 @@ class TestServerCoverageImprovement:
 
     def test_clear_management_tools_general_exception(self):
         """Test general exception handling when clearing management tools (covers lines 882-884)."""
-        server = ManagedServer(name="test-server", authorization=False)
+        server = ManagedServer(name="test-server", authorization=False, expose_management_tools=False)
 
         # Mock hasattr to throw exception
         original_hasattr = hasattr

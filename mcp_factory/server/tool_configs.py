@@ -235,6 +235,7 @@ USER_PERMISSION_TOOLS: dict[str, dict[str, Any]] = {
     },
     "view_my_permissions": {
         "description": "View my permissions - view current roles, permissions and usage limits",
+        "method": "_view_my_permissions_impl",
         "annotations": {
             "readOnlyHint": True,
             "destructiveHint": False,
@@ -252,6 +253,54 @@ USER_PERMISSION_TOOLS: dict[str, dict[str, Any]] = {
             "openWorldHint": False,
         },
         "tags": {"user", "permission", "readonly", "self-service"},
+        "enabled": True,
+    },
+}
+
+# User billing self-service tools (non-management tools)
+USER_BILLING_TOOLS: dict[str, dict[str, Any]] = {
+    "purchase_plan": {
+        "description": "Purchase subscription plan - buy or upgrade your subscription",
+        "method": "_purchase_plan_impl",
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        },
+        "tags": {"user", "billing", "self-service"},
+        "enabled": True,
+    },
+    "view_my_subscription": {
+        "description": "View my subscription - check current plan and usage status",
+        "method": "_view_my_subscription_impl",
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        },
+        "tags": {"user", "billing", "readonly", "self-service"},
+        "enabled": True,
+    },
+    "view_available_plans": {
+        "description": "View available plans - browse subscription options and pricing",
+        "method": "_view_available_plans_impl",
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        },
+        "tags": {"user", "billing", "readonly", "self-service"},
+        "enabled": True,
+    },
+    "view_my_usage": {
+        "description": "View my usage - check current usage statistics and limits",
+        "method": "_view_my_usage_impl",
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        },
+        "tags": {"user", "billing", "readonly", "self-service"},
         "enabled": True,
     },
 }
@@ -292,6 +341,15 @@ def get_user_permission_tools() -> dict[str, dict[str, Any]]:
         Dictionary containing user permission tool configurations.
     """
     return USER_PERMISSION_TOOLS.copy()
+
+
+def get_user_billing_tools() -> dict[str, dict[str, Any]]:
+    """Get user billing tool configurations.
+
+    Returns:
+        Dictionary containing user billing tool configurations.
+    """
+    return USER_BILLING_TOOLS.copy()
 
 
 def get_methods_by_annotation_type(annotation_type: str) -> dict[str, dict[str, Any]]:

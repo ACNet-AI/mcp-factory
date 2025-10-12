@@ -34,11 +34,46 @@ Demo includes:
 | `mounting_servers.py` | ⭐⭐⭐⭐ | External server mounting, microservices | Distributed systems |
 | `production_ready.py` | ⭐⭐⭐⭐⭐ | Enterprise deployment, security, monitoring | Production environment |
 | `custom_middleware.py` | ⭐⭐⭐⭐ | **Custom middleware development** | Advanced customization |
-| `authorization_demo.py` | ⭐⭐⭐ | **Complete authorization system** | From configuration to enterprise permission management |
+| `complete_server_demo.py` | ⭐⭐⭐⭐ | **Complete real-world server** | Authorization, billing, and file management integration |
+| `proxy_mode_integration_demo.py` | ⭐⭐⭐⭐⭐ | **🔥 Proxy Mode Integration** | **Zero-setup billing for developers** |
+| `complete_proxy_system_demo.py` | ⭐⭐⭐⭐⭐ | **🆕 Complete Proxy System** | Full two-layer proxy architecture |
+| `credit_system_demo.py` | ⭐⭐⭐⭐⭐ | **🆕 Revolutionary Credit System** | Two-layer proxy, automatic revenue sharing |
+| `unified_wallet_demo.py` | ⭐⭐⭐⭐⭐ | **🆕 Unified Wallet Experience** | One wallet for all services, seamless UX |
 
 ## 🚀 Quick Start
 
-### 0. Quick Experience (Recommended for beginners)
+### 0. 🔥 Proxy Mode Integration (Recommended for Developers)
+
+**For developers who want to create billing-enabled services with zero setup:**
+
+```bash
+# Experience the complete developer onboarding flow
+python examples/proxy_mode_integration_demo.py
+```
+
+**What you get automatically:**
+- ✅ **Zero Infrastructure Setup**: No Lago/Stripe accounts needed
+- ✅ **Auto Developer Registration**: Platform account created automatically  
+- ✅ **Service Registration**: Your service listed on MCP Factory platform
+- ✅ **Real-time Billing**: Credit-based billing with instant revenue sharing
+- ✅ **Professional Analytics**: Built-in revenue and usage tracking
+- ✅ **Complete Project Structure**: Ready-to-deploy MCP server
+
+**Configuration Example:**
+```yaml
+billing:
+  enabled: true
+  mode: "proxy"  # 🔑 Use MCP Factory proxy
+  developer:
+    developer_id: "your_dev_id"
+    email: "you@example.com"
+  service:
+    pricing:
+      basic_call: 1.0    # 1 credit per call
+      premium_call: 5.0  # 5 credits per call
+```
+
+### 1. Quick Experience (Recommended for beginners)
 ```bash
 # Simplest way to experience
 python examples/demo/server.py
@@ -53,6 +88,24 @@ python examples/basic_server.py
 # View help
 python examples/basic_server.py --help
 ```
+
+### 💰 NEW! Credit System Demo
+```bash
+python examples/credit_system_demo.py
+```
+**🚀 Revolutionary two-layer proxy credit system with automatic revenue sharing!**
+
+### 🎯 NEW! Unified Wallet Demo  
+```bash
+python examples/unified_wallet_demo.py
+```
+**✨ Experience the seamless unified wallet - one account for ALL services!**
+
+**Key Features:**
+- 👥 **Users**: One wallet, all services - ultimate simplicity!
+- 🔧 **Developers**: Zero complexity - just tag your service calls!
+- 💰 **Platform**: Intelligent routing with automatic revenue sharing
+- 🎯 **Seamless**: Cross-service usage without any friction
 
 ### 2. Experience Complete Factory Features
 ```bash
@@ -213,37 +266,54 @@ config = {
 
 **See complete implementation**: `examples/custom_middleware.py`
 
-### 🔐 authorization_demo.py - Complete Authorization System
-**From configuration to enterprise permission management** | **Complexity: ⭐⭐⭐**
+### 🚀 complete_server_demo.py - Complete Real-World Server
+**Authorization, billing, and file management integration** | **Complexity: ⭐⭐⭐⭐**
 
-**One-stop authorization system learning**, covering the complete process from basic configuration to enterprise-level permission management:
+**Complete real-world server implementation** demonstrating the integration of all major MCP Factory features:
 
-**📋 Demo Content:**
-1. **Quick Start** - authorization parameter configuration and basic concepts
-2. **Basic Permission Management** - role assignment, permission check, user management  
-3. **Advanced Features** - temporary permissions, management tool calls, audit logs
-4. **Business Scenarios** - SaaS permission requests and approval workflows
-5. **Best Practices** - configuration comparison, design principles, troubleshooting
+**📋 Key Features:**
+1. **Three-tier role system** - visitor/user/admin with configurable permissions
+2. **File management operations** - read, write, delete, batch processing with role-based access
+3. **Billing integration** - usage tracking, limits, and smart upgrade suggestions
+4. **Real-world architecture** - proper error handling, logging, and user feedback
 
 **🎯 Use Cases:**
-- Complete understanding of MCP Factory authorization system
-- Complete learning path from configuration to usage
-- Production environment permission management reference
+- Learn complete server implementation patterns
+- Understand authorization and billing integration
+- See real-world error handling and user experience
+- Reference for production server development
 
 ```bash
-# Run complete authorization system demo
-python examples/authorization_demo.py
+# Run complete server demo
+python examples/complete_server_demo.py
 ```
 
 **Core Feature Preview:**
 ```python
-# Basic configuration
-server = ManagedServer(name="secure-server", authorization=True)
+# Complete server with all features
+server = ManagedServer(
+    name="file-server",
+    authorization=True,
+    billing=True,
+    expose_management_tools=True
+)
 
-# Permission management
-auth_mgr = server._authorization_manager
-auth_mgr.assign_role("alice", "premium_user", "admin", "Upgrade user")
-can_access = auth_mgr.check_permission("alice", "tool", "execute", "premium")
+# Role-based file operations with billing checks
+@server.tool("read_file")
+async def read_file(user_id: str, filename: str):
+    # Permission and billing check
+    permission_result = server.check_permission_with_billing(
+        user_id, "file", "read", "basic"
+    )
+    
+    if not permission_result["allowed"]:
+        return {
+            "error": permission_result["reason"],
+            "upgrade_suggestion": permission_result["upgrade_suggestion"]
+        }
+    
+    # Actual file operation
+    return await perform_file_read(filename)
 ```
 
 ### 🏗️ production_ready.py - Production Environment
@@ -334,4 +404,28 @@ If you find issues in the examples or have suggestions for improvement:
 
 ## 📄 License
 
-These examples follow the same license as the MCP-Factory main project. 
+These examples follow the same license as the MCP-Factory main project.
+
+## 🚀 New: Essential Developer Features Demo
+
+The `essential_developer_features_demo.py` showcases the most practical developer wallet features:
+
+### Key Features Demonstrated
+- **📊 Lago-based Revenue Analytics** - Real-time revenue tracking using Lago transactions
+- **🎯 Service Performance Metrics** - Detailed analysis of service usage and revenue
+- **💸 Payout Management** - Multi-method payout with Lago wallet integration
+- **📋 Transaction History** - Direct access to Lago transaction data
+- **📈 Multi-period Reporting** - Compare revenue across different time periods
+
+### Why This Demo Matters
+- ✅ **Maximizes Lago Integration** - Uses 80% of Lago's existing capabilities
+- ✅ **Production Ready** - Based on proven, stable APIs
+- ✅ **Developer Focused** - Provides actionable business insights
+- ✅ **Low Maintenance** - Minimal custom code, maximum value
+
+### Quick Start
+```bash
+python examples/essential_developer_features_demo.py
+```
+
+This demo represents the **optimal balance** between functionality and simplicity, making it the recommended starting point for understanding MCP Factory's developer wallet capabilities. 

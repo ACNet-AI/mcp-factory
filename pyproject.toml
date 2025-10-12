@@ -40,9 +40,15 @@ dependencies = [
   "toml>=0.10.0",
   "httpx>=0.28.1",
   "casbin>=1.43.0",
+  "lago-python-client>=1.33.1",
+  "cryptography>=45.0.6",
 ]
 
-
+[project.optional-dependencies]
+# Payment gateway optional dependencies
+stripe = ["stripe>=10.0.0"]
+# Full billing system with all payment gateways
+billing-full = ["stripe>=10.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/ACNet-AI/mcp-factory"
@@ -214,3 +220,4 @@ test = [
   "pytest-cov>=6.2.0",
   "pytest-mock>=3.14.0",
 ]
+
