@@ -22,7 +22,7 @@ def pytest_configure(config: pytest.Config) -> None:
     tests_dir = Path(__file__).parent
     if str(tests_dir) not in sys.path:
         sys.path.insert(0, str(tests_dir))
-    
+
     # Ensure asyncio warnings are handled
     asyncio.get_event_loop_policy().new_event_loop()
     # Enable tracemalloc for memory allocation tracking
