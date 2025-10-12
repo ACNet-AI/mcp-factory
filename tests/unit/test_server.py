@@ -14,15 +14,12 @@ from fastmcp import FastMCP
 
 from mcp_factory.server import ManagedServer
 
-# Import test_helpers from parent directory
-try:
-    from test_helpers import create_test_server
-except ImportError:
-    # Add parent directory to path for test_helpers import
-    tests_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if tests_dir not in sys.path:
-        sys.path.insert(0, tests_dir)
-    from test_helpers import create_test_server
+# Import test_helpers - add tests directory to sys.path
+_tests_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _tests_dir not in sys.path:
+    sys.path.insert(0, _tests_dir)
+
+from test_helpers import create_test_server  # noqa: E402
 
 
 class TestManagedServerBasics:
