@@ -31,4 +31,7 @@ PROJECT_STRUCTURE = {
     "CHANGELOG.md": "Version change log",
     ".env": "Environment variables configuration file",
     ".gitignore": "Git ignore file",
+    "Dockerfile": "Docker container configuration",
+    ".dockerignore": "Docker build ignore file",
+    "docker-compose.yml": "Docker Compose orchestration configuration",
 }

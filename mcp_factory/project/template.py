@@ -33,6 +33,9 @@ class BasicTemplate:
             "CHANGELOG.md": "Version change log",
             ".env": "Environment variables configuration file",
             ".gitignore": "Git ignore file",
+            "Dockerfile": "Docker container configuration",
+            ".dockerignore": "Docker build ignore file",
+            "docker-compose.yml": "Docker Compose orchestration configuration",
             "tools/": "Tools implementation directory",
             "resources/": "Resources implementation directory",
             "prompts/": "Prompt template directory",
@@ -594,4 +597,130 @@ class BasicTemplate:
             - **Schema requirements**: Use `dict[str, Any]` returns, ensure JSON-serializable parameters
             - **Component discovery**: Components are automatically found and registered in `config.yaml`
         """
+        ).strip()
+
+    def get_dockerfile_template(self) -> str:
+        """Return Dockerfile template - multi-stage build for optimized image size"""
+        return textwrap.dedent(
+            """
+            # Multi-stage build for optimized image size
+            FROM python:3.12-slim as builder
+
+            WORKDIR /app
+
+            # Install uv for faster dependency management
+            RUN pip install uv
+
+            # Copy dependency files
+            COPY pyproject.toml uv.lock* ./
+
+            # Install dependencies
+            RUN uv sync --frozen
+
+            # Production image
+            FROM python:3.12-slim
+
+            WORKDIR /app
+
+            # Copy virtual environment and code from builder
+            COPY --from=builder /app/.venv /app/.venv
+            COPY . .
+
+            # Set environment variables
+            ENV PATH="/app/.venv/bin:$PATH"
+            ENV PYTHONUNBUFFERED=1
+
+            # Run the server
+            CMD ["python", "server.py"]
+            """
+        ).strip()
+
+    def get_dockerignore_template(self) -> str:
+        """Return .dockerignore template - optimize Docker build"""
+        return textwrap.dedent(
+            """
+            # Python
+            __pycache__/
+            *.py[cod]
+            *$py.class
+            *.so
+            .Python
+
+            # Virtual environments
+            .venv/
+            venv/
+            env/
+            ENV/
+
+            # Git
+            .git/
+            .github/
+            .gitignore
+
+            # Documentation
+            *.md
+            docs/
+
+            # Tests
+            tests/
+            .pytest_cache/
+            .coverage
+            htmlcov/
+
+            # Build
+            dist/
+            build/
+            *.egg-info/
+
+            # IDE
+            .vscode/
+            .idea/
+            *.swp
+            *.swo
+            *~
+
+            # OS
+            .DS_Store
+            Thumbs.db
+
+            # Logs
+            *.log
+            logs/
+
+            # Environment
+            .env
+            .env.local
+            """
+        ).strip()
+
+    def get_docker_compose_template(self) -> str:
+        """Return docker-compose.yml template - local development and deployment"""
+        return textwrap.dedent(
+            """
+            version: '3.8'
+
+            services:
+              mcp-server:
+                build:
+                  context: .
+                  dockerfile: Dockerfile
+                container_name: ${{PROJECT_NAME:-{name}}}
+                restart: unless-stopped
+                environment:
+                  - LOG_LEVEL=${{LOG_LEVEL:-INFO}}
+                  - PYTHONUNBUFFERED=1
+                env_file:
+                  - .env
+                volumes:
+                  # Persist data
+                  - ./data:/app/data
+                  # Mount logs for debugging
+                  - ./logs:/app/logs
+                networks:
+                  - mcp-network
+
+            networks:
+              mcp-network:
+                driver: bridge
+            """
         ).strip()

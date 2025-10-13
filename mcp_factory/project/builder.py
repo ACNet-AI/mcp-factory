@@ -715,6 +715,18 @@ class Builder:
         gitignore_content = self.template.get_gitignore_template()
         (project_path / ".gitignore").write_text(gitignore_content, encoding="utf-8")
 
+        # Create Dockerfile
+        dockerfile_content = self.template.get_dockerfile_template()
+        (project_path / "Dockerfile").write_text(dockerfile_content, encoding="utf-8")
+
+        # Create .dockerignore
+        dockerignore_content = self.template.get_dockerignore_template()
+        (project_path / ".dockerignore").write_text(dockerignore_content, encoding="utf-8")
+
+        # Create docker-compose.yml
+        docker_compose_content = self.template.get_docker_compose_template().format(name=name)
+        (project_path / "docker-compose.yml").write_text(docker_compose_content, encoding="utf-8")
+
         logger.debug("Template files created successfully")
 
     # ========================================================================
