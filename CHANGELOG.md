@@ -2,6 +2,59 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.5.0] - 2025-10-13
+
+### 🚀 Major Features
+- **Complete Billing System** - Comprehensive billing infrastructure with multi-provider support (3,600+ lines)
+  - BillingManager with usage tracking and subscription management
+  - Lago billing engine integration (1,077 lines)
+  - Multiple payment gateway support (Stripe, Local, Custom)
+  - Flexible billing models: subscription, pay-per-use, prepaid, free
+  - UUID-based unique transaction IDs for usage tracking
+- **Proxy Architecture** - Flexible proxy metadata system and authorization
+  - ProxyConfig and AuthorizedProxies models for whitelist management
+  - Proxy authorization validation in ManagedServer
+  - Support for multiple proxy types (shared, dedicated, enterprise)
+  - Full proxy information pass-through without interpretation
+
+### 🔧 Authorization Enhancements
+- **Billing Integration** - Seamless integration with authorization via BillingAuthIntegration
+- **Proxy Access Control** - Add ManagedServer.verify_proxy_access() for proxy validation
+- **Enhanced Models** - Add ProxyConfig and AuthorizedProxies to authorization models
+- **Improved Naming** - Rename billing modes for clarity (proxy → pay_per_use)
+
+### 📊 Usage Tracking Improvements
+- **Standardized Parameters** - Consistent naming (amount → quantity) across all interfaces
+- **Enhanced Metadata** - Complete context preservation in usage records
+- **Proxy Authorization** - Add proxy_authorized validation status to usage records
+- **Clear Responsibilities** - Server records quantity, proxy handles pricing
+
+### 🏗️ Server Integration
+- **Billing Integration** - Add comprehensive billing system to ManagedServer (+873 lines)
+- **Coordination Layer** - Billing and authorization coordination
+- **Automatic Tracking** - Usage tracking with request context
+- **Tool-Level Checks** - Billing and permission validation per tool
+- **Self-Service Tools** - User billing management tools
+
+### 🔨 Code Quality & Cleanup
+- **Codebase Optimization** - Remove 15 redundant example files (-2,700 lines)
+- **New Demo** - Add usage_tracking_demo.py showing complete workflow
+- **Test Coverage** - Enhanced test suite with 1,157 tests passing
+- **CI Improvements** - Fix test configuration and import paths for better CI compatibility
+
+### ⬆️ Dependencies
+- **FastMCP** - Updated from 2.12.0 to 2.12.4
+- **Core Updates** - 34 dependencies updated to latest versions
+
+### 📚 Documentation
+- **Authorization Guide** - Expanded documentation (+480 lines)
+- **Architecture Clarity** - Clear separation between server and proxy responsibilities
+
+### 💡 Architecture Impact
+- Clean separation: developer server (permissions + usage quantity) vs proxy platform (pricing + billing)
+- Flexible metadata approach supporting diverse proxy architectures
+- Extensible billing system supporting multiple providers
+
 ## [1.4.0] - 2025-09-04
 
 ### 🚀 Major Features
