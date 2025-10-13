@@ -2,6 +2,25 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.6.1] - 2025-10-13
+
+### 🐛 Bug Fixes
+- **README Template** - Fix markdown heading format (# # → ##)
+- **Documentation** - Add comprehensive deployment section to README template
+- **Dependencies** - Update project template dependency to mcp-factory>=1.6.0
+
+### 📚 Documentation Improvements
+- Complete Docker deployment guide in README
+- docker-compose usage instructions
+- Local development setup guide
+- Production deployment checklist
+- Health check commands
+- Project structure now includes deployment files
+
+### 💡 Impact
+- New projects now get complete, properly formatted README with deployment documentation
+- Better out-of-box experience for users deploying MCP servers
+
 ## [1.6.0] - 2025-10-13
 
 ### 🚀 Major Features
