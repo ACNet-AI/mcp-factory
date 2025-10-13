@@ -1011,7 +1011,13 @@ def _collect_configuration(publisher: Any, cli_helper: Any, project_path_obj: Pa
 
         # Step 2: GitHub App installation to get GitHub username and installation_id
         info_message("🔐 GitHub App installation required for publishing...")
-        oauth_result = cli_helper.handle_oauth_authentication(publisher, basic_config["name"], str(project_path_obj))
+        # Use the github_username from basic_config to avoid asking again
+        oauth_result = cli_helper.handle_oauth_authentication(
+            publisher,
+            basic_config["name"],
+            str(project_path_obj),
+            github_username=basic_config.get("github_username")
+        )
 
         if not oauth_result.get("success"):
             if oauth_result.get("user_cancelled"):

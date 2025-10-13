@@ -249,7 +249,7 @@ class PublishCLIHelper(BaseCLIHelper):
         self.press_to_continue("Press Enter to continue")
 
     def handle_oauth_authentication(
-        self, publisher: Any, project_name: str, project_path: str, force_update: bool = False
+        self, publisher: Any, project_name: str, project_path: str, force_update: bool = False, github_username: str | None = None
     ) -> dict[str, Any]:
         """
         Handle GitHub App OAuth authentication workflow
@@ -259,6 +259,7 @@ class PublishCLIHelper(BaseCLIHelper):
             project_name: Name of the project
             project_path: Path to the project directory
             force_update: Force re-authentication even if config exists
+            github_username: GitHub username (optional, will prompt if not provided)
 
         Returns:
             dict containing success status, github_username, installation_id, and error info
@@ -274,14 +275,14 @@ class PublishCLIHelper(BaseCLIHelper):
                     "error": f"Failed to start installation: {install_result.get('error', 'Unknown error')}",
                 }
 
-            # Step 2: Get GitHub username (try to extract from project or ask user)
-            github_username = ""
-            try:
-                # Try to extract from project metadata first
-                metadata = publisher.extract_project_metadata(project_path)
-                github_username = metadata.get("github_username", "")
-            except Exception:
-                pass
+            # Step 2: Get GitHub username (use provided, or try to extract from project, or ask user)
+            if not github_username:
+                try:
+                    # Try to extract from project metadata first
+                    metadata = publisher.extract_project_metadata(project_path)
+                    github_username = metadata.get("github_username", "")
+                except Exception:
+                    pass
 
             if not github_username:
                 github_username = self.text_input("GitHub Username:", "")
