@@ -48,7 +48,7 @@ class TestDefaultConfig:
         assert config["server"]["name"] == "Default Server"
         assert config["server"]["instructions"] == "This is a default MCP server"
         assert config["transport"]["transport"] == "stdio"
-        assert config["management"]["expose_management_tools"] is True
+        assert config["management"]["expose_management_tools"] is False
 
 
 class TestConfigNormalization:
