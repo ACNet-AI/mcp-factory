@@ -367,7 +367,7 @@ def get_default_config() -> dict[str, Any]:
             "instructions": "This is a default MCP server",
         },
         "transport": {"transport": "stdio", "host": "127.0.0.1", "port": 8000, "log_level": "INFO"},
-        "management": {"expose_management_tools": True},
+        "management": {"expose_management_tools": False},
         "components": {
             "tools": [],
             "resources": [],

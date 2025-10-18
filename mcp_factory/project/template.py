@@ -57,12 +57,17 @@ class BasicTemplate:
             - prompts/ directory: @server.prompt() functions
             """
 
+            import os
             import sys
             from pathlib import Path
 
             import yaml
+            from dotenv import load_dotenv
 
             from mcp_factory.server import ManagedServer
+
+            # Load environment variables from .env file
+            load_dotenv()
 
 
             class ConfigurationError(Exception):
@@ -102,7 +107,7 @@ class BasicTemplate:
                 server_params = {{
                     'name': server_config['name'],
                     'instructions': server_config.get('instructions', ''),
-                    'expose_management_tools': management_config.get('expose_management_tools', True)
+                    'expose_management_tools': management_config.get('expose_management_tools', False)
                 }}
 
                 # Load middleware from configuration
@@ -271,7 +276,8 @@ class BasicTemplate:
             dependencies = [
                 "mcp-factory>=1.6.0",
                 "pydantic>=2.0.0",
-                "pyyaml>=6.0.0"
+                "pyyaml>=6.0.0",
+                "python-dotenv>=1.0.0"
             ]
 
 
@@ -576,15 +582,17 @@ class BasicTemplate:
         ).strip()
 
     def get_agents_template(self) -> str:
-        """Return AGENTS.md template"""
+        """Return AGENTS.md template - optimized for AI coding agents"""
         return textwrap.dedent(
             """
             # Project Overview
+            MCP server: {name}
+
             {description}
 
             This is an MCP (Model Context Protocol) server built with mcp-factory. It provides tools, resources, and prompts accessible via the MCP protocol.
 
-            # # Server Configuration
+            ## Server Configuration
             **Claude Desktop Configuration (`claude_desktop_config.json`):**
             ```json
             {{
@@ -609,59 +617,49 @@ class BasicTemplate:
             > see the [MCP Configuration Guide](https://github.com/modelcontextprotocol/docs) or consult
             > your MCP client documentation.
 
-            # # Build and Test Commands
-            ```bash
-            # Install dependencies
-            uv sync
+            ## Dev environment tips
+            - Navigate to project directory: `cd /path/to/{name}`
+            - Start server: `uv run python server.py`
+            - Install dependencies: `uv sync`
+            - Format code: `uv run ruff format .`
+            - Check linting: `uv run ruff check .`
+            - Add new tools in `tools/` directory with `@server.tool()` decorator
+            - Tools are auto-discovered from `tools/`, `resources/`, `prompts/` directories
 
-            # Run the server (always from mcp-factory root)
-            cd /path/to/mcp-factory
-            uv run python workspace/projects/{name}/server.py
+            ## Testing instructions
+            - Use mcp-inspector-server tools for all testing
+            - Call `inspect_mcp_server` to verify server connectivity and registration
+            - Use `comprehensive_server_test` for complete validation of all tools
+            - Test individual tools with `call_mcp_tool`
+            - Run `uv run ruff check .` before committing - all checks must pass
+            - Ensure all tools have comprehensive docstrings (required for MCP)
 
-            # Test the server using mcp-inspector-server tools
-            # Call inspect_mcp_server with server_command parameter
-            # Call comprehensive_server_test for full validation
-            # Use call_mcp_tool to test individual functions
-            ```
+            ## PR instructions
+            - Title format: `[{name}] <Description>`
+            - Always run `uv run ruff check .` and `uv run ruff format .` before committing
+            - Add or update tests for new/modified tools
+            - Update CHANGELOG.md with your changes
+            - All tool functions must return `dict[str, Any]` for MCP compatibility
 
-            # # Code Style Guidelines
+            ## Code Style Guidelines
             - Use `uv run ruff format .` to format code (from project directory)
             - Run `uv run ruff check .` before committing
             - Use type hints: functions return `dict[str, Any]` for tools
             - Add docstrings to all functions (required for MCP registration)
             - Use direct function parameters, not Pydantic models
 
-            # # Testing Instructions
-            - Use mcp-inspector-server tools for all testing
-            - Call `inspect_mcp_server` to verify server connectivity
-            - Use `comprehensive_server_test` for complete validation
-            - Test individual tools with `call_mcp_tool`
-            - Run `uv run ruff check .` to catch linting issues
-            - Always verify server starts from mcp-factory root directory
-
-            # # Security Considerations
-            - Validate all input parameters in tools
-            - Be cautious with file system access in tools
-            - Don't expose sensitive data through resources
-            - Use appropriate error handling to avoid information leakage
-
-            # # Component Management
+            ## Component Management
             This project supports dynamic component discovery and registration:
 
             **Adding Components:**
-            - Tools: Create `.py` files in `tools/` directory with functions decorated with `@tool`
-            - Resources: Create `.py` files in `resources/` directory with functions decorated with `@resource`
-            - Prompts: Create `.py` files in `prompts/` directory with functions decorated with `@prompt`
+            - Tools: Create `.py` files in `tools/` directory with functions decorated with `@server.tool()`
+            - Resources: Create `.py` files in `resources/` directory with functions decorated with `@server.resource()`
+            - Prompts: Create `.py` files in `prompts/` directory with functions decorated with `@server.prompt()`
 
             **Component Discovery:**
             - Components are automatically discovered and registered in `config.yaml`
             - Use descriptive function names and comprehensive docstrings
             - Ensure all parameters are JSON-serializable for MCP compatibility
-
-            # # Development Notes
-            - **Path requirements**: Always run server from mcp-factory root directory
-            - **Schema requirements**: Use `dict[str, Any]` returns, ensure JSON-serializable parameters
-            - **Component discovery**: Components are automatically found and registered in `config.yaml`
         """
         ).strip()
 

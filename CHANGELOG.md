@@ -2,6 +2,48 @@
 
 This document records all significant changes to the MCP Factory project.
 
+## [1.6.3] - 2025-10-18
+
+### 🔧 Template Improvements
+- **AGENTS.md Template** - Updated to align with OpenAI agents.md standard
+  - Fixed markdown heading format: `# #` → `##` (7 instances)
+  - Added `## Dev environment tips` section
+  - Added `## PR instructions` section for contribution guidelines
+  - Removed redundant `## Security Considerations` section
+  - Removed duplicate `## Development Notes` section
+  - Fixed incorrect path guidance (removed "from mcp-factory root")
+  - Improved structure while maintaining MCP-specific content
+  - Reference: https://github.com/openai/agents.md
+
+### 📚 Documentation Quality
+- Better alignment with industry standards for AI coding agents
+- Clearer PR submission guidelines
+- More focused and actionable content
+- Maintained MCP server-specific sections (Server Configuration, Component Management)
+
+### 💡 Impact
+- New projects get improved AGENTS.md with correct formatting
+- Better guidance for AI agents working on MCP projects
+- Consistent with OpenAI's agents.md initiative
+
+## [1.6.2] - 2025-10-18
+
+### 🔒 Security Improvements
+- **Management Tools** - Change default `expose_management_tools` from `true` to `false`
+  - Reduces security warnings in local development
+  - More secure default for production deployments
+  - Management tools can be explicitly enabled when needed
+
+### 🔧 Configuration Changes
+- Updated default configuration in `mcp_factory/config/manager.py`
+- Updated server.py template in `mcp_factory/project/template.py`
+- Updated existing projects: `mcp-inspector-server`, `mcp-factory-platform-server`
+
+### 💡 Impact
+- No more security warnings when starting MCP servers in Cursor/Claude Desktop
+- New projects will have safer defaults
+- Existing projects need to manually enable management tools if required
+
 ## [1.6.1] - 2025-10-13
 
 ### 🐛 Bug Fixes

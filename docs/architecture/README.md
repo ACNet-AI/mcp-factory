@@ -6,9 +6,21 @@ MCP Factory adopts a layered modular architecture design.
 
 **Current Status**: ⚠️ Functional but needs optimization
 
+# ## 🌐 [Ecosystem Architecture](../../mcp-factory-platform/docs/architecture/ecosystem_architecture.md) ⭐
+
+**Location**: `/Users/guyue/mcp-factory-platform/docs/architecture/ecosystem_architecture.md`
+
+**Content**: Complete MCP Factory ecosystem architecture
+- Four-layer architecture design (User → Agent → MCP Servers → Backend)
+- All official MCP servers and their relationships
+- Backend services architecture
+- Typical usage scenarios and workflows
+
+**Audience**: **Recommended for everyone** - Essential understanding of the entire ecosystem
+
 # ## 🏗️ [Overall Architecture Design](./overall_architecture.md)
 
-**Content**: Complete project architecture overview
+**Content**: Complete project architecture overview (mcp-factory framework internals)
 - Current code scale analysis and issues
 - Architecture problems and improvement suggestions
 - Detailed refactoring roadmap
@@ -69,9 +81,10 @@ __init__.py (24 lines)    # Public API
 # # 📖 Contribution Guide
 
 # ## Understanding Current State
-1. First read [Overall Architecture Design](./overall_architecture.md)
-2. Learn [Configuration Management Architecture](./configuration_architecture.md) good design
-3. Understand problems and refactoring plans
+1. **Start with** [Ecosystem Architecture](../../mcp-factory-platform/docs/architecture/ecosystem_architecture.md) to understand the big picture
+2. Then read [Overall Architecture Design](./overall_architecture.md) for framework internals
+3. Learn [Configuration Management Architecture](./configuration_architecture.md) good design
+4. Understand problems and refactoring plans
 
 # ## Design Decisions
 1. **Apply single responsibility** - Each class one clear purpose
