@@ -1,6 +1,6 @@
 [project]
 name = "mcp-factory"
-version = "1.6.1"
+version = "1.6.3"
 description = "A lightweight factory framework for creating and managing MCP (Model Context Protocol) servers with simplified configuration and project building capabilities."
 authors = [
   { name = "ACNet-AI", email = "agencollabnet@gmail.com" }
