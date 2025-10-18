@@ -249,7 +249,12 @@ class PublishCLIHelper(BaseCLIHelper):
         self.press_to_continue("Press Enter to continue")
 
     def handle_oauth_authentication(
-        self, publisher: Any, project_name: str, project_path: str, force_update: bool = False, github_username: str | None = None
+        self,
+        publisher: Any,
+        project_name: str,
+        project_path: str,
+        force_update: bool = False,
+        github_username: str | None = None,
     ) -> dict[str, Any]:
         """
         Handle GitHub App OAuth authentication workflow
